@@ -9,15 +9,14 @@ func TestMissionConstants(t *testing.T) {
 		want  int
 	}{
 		{"MissionAttack", MissionAttack, 1},
-		{"MissionUnionAttack", MissionUnionAttack, 2},
+		{"MissionACSAttack", MissionACSAttack, 2},
 		{"MissionDeploy", MissionDeploy, 3},
 		{"MissionTransport", MissionTransport, 4},
-		{"MissionUnionTransport", MissionUnionTransport, 5},
-		{"MissionRelocate", MissionRelocate, 6},
-		{"MissionStation", MissionStation, 7},
+		{"MissionACSTransport", MissionACSTransport, 5},
 		{"MissionEspionage", MissionEspionage, 6},
 		{"MissionColonize", MissionColonize, 7},
 		{"MissionHarvest", MissionHarvest, 8},
+		{"MissionMoonDestruction", MissionMoonDestruction, 9},
 		{"MissionExpedition", MissionExpedition, 15},
 	}
 
