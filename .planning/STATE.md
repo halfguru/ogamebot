@@ -5,32 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** The bot must reliably protect your fleet and grow your empire while you're away — if fleet-save fails, everything else is pointless.
-**Current focus:** Phase 1 — Core Infrastructure COMPLETE
+**Current focus:** Phase 2 — Fleet Safety (in progress)
 
 ## Current Position
 
 Phase: 2 of 5 (Fleet Safety)
-Plan: 0 of ? plans
-Status: Phase 1 complete, advancing to Phase 2
-Last activity: 2026-04-26 — Phase 1 verified, Go bot engine complete
+Plan: 1 of 3 plans complete
+Status: Plan 02-01 done — client extended with POST methods
+Last activity: 2026-04-26 — Plan 02-01 complete (fleet-safe client extensions)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [██░░░░░░░░] 22%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 6.6 min
-- Total execution time: 33 min
+- Total plans completed: 6
+- Average duration: 7.5 min
+- Total execution time: 45 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Core Infrastructure | 5 | 33 min | 6.6 min |
+| 2. Fleet Safety | 1 | 12 min | 12 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (7 min), 01-02 (6 min), 01-03 (11 min)
+- Last 5 plans: 01-02 (6 min), 01-03 (11 min), 01-04 (5 min), 01-05 (4 min), 02-01 (12 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -47,6 +48,7 @@ Recent decisions affecting current work:
 - 01-01 (Go): Missing env vars return immediate error with variable name; all 11 domain structs in single model package; constants use untyped int
 - 01-02 (Go): rateLimiterInterface for testability, HTTP errors mapped to OgamedError for retry, two-pass generic unmarshal for getTyped[T]
 - 01-03 (Go): Replaced golang-migrate with custom migration runner to avoid CGo dep and m.Close() bug; fleet full-replace per cycle; Dockerfile.ogamed for source builds
+- 02-01 (Go): RecallEnabled uses *bool pointer for YAML default handling; ships encoded as repeated params; MissionHold=5 replaces incorrect MissionACSTransport
 
 ### Pending Todos
 
@@ -68,5 +70,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-26
-Stopped at: Completed 01-03 (state manager + entrypoint + Docker). Phase 1 complete.
-Resume file: Phase 1 complete — ready for Phase 2 planning
+Stopped at: Completed 02-01 (fleet-safe client extensions). Next: 02-02.
+Resume file: .planning/phases/02-fleet-safety/02-02-PLAN.md

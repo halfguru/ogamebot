@@ -48,7 +48,7 @@ Plans:
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 02-01-PLAN.md — Extend ogamed client with POST methods (SendFleet, CancelFleet, GetAttacks, GetSlots) + domain types + DefenderConfig
+- [x] 02-01-PLAN.md — Extend ogamed client with POST methods (SendFleet, CancelFleet, GetAttacks, GetSlots) + domain types + DefenderConfig ✓ 2026-04-26
 - [ ] 02-02-PLAN.md — Escape route calculator (distance, flight time, fuel, safety scoring)
 - [ ] 02-03-PLAN.md — Defender worker (poll loop, attack handling, fleet-save execution, recall) + main.go integration
 
@@ -103,7 +103,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Infrastructure | 3/3 | ✓ Complete | 2026-04-26 |
-| 2. Fleet Safety | 0/? | Not started | - |
+| 2. Fleet Safety | 1/3 | In progress | - |
 | 3. Auto-Build | 0/? | Not started | - |
 | 4. Auto-Farm | 0/? | Not started | - |
 | 5. Web Dashboard | 0/? | Not started | - |
