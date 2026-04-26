@@ -74,11 +74,11 @@ Plans:
   1. Bot scans configured galaxy/system ranges and identifies inactive players
   2. Bot sends espionage probes to inactives and parses spy reports for resources and defense counts
   3. Bot dispatches attacks only when estimated loot exceeds the configurable profit threshold
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — Client extensions (galaxy scan, espionage reports) + domain types + config + migration (Wave 1)
+- [ ] 04-02-PLAN.md — Farmer worker (scan/spy/attack) + tests + main.go wiring (Wave 2)
 
 ### Phase 5: Web Dashboard
 **Goal**: Users can monitor their empire and bot activity from any device through a web interface
@@ -105,5 +105,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Core Infrastructure | 3/3 | ✓ Complete | 2026-04-26 |
 | 2. Fleet Safety | 3/3 | ✓ Complete | 2026-04-26 |
 | 3. Auto-Build | 2/2 | ✓ Complete | 2026-04-26 |
-| 4. Auto-Farm | 0/? | Not started | - |
+| 4. Auto-Farm | 0/2 | Not started | - |
 | 5. Web Dashboard | 0/? | Not started | - |
