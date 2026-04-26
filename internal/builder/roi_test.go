@@ -188,10 +188,7 @@ func TestDeuteriumProduction(t *testing.T) {
 		{
 			name: "level 1 no plasma avgTemp 40 speed 1",
 			level: 1, plasma: 0, avgTemp: 40, speed: 1,
-			wantExact: 12, // round(10 * 1 * 1 * 1.1 * (-0.004*40 + 1.36) * 1) = round(10 * 1.1 * 1.2) = round(13.2) = 13
-			// Actually: 10 * 1 * 1.1 * (−0.004×40 + 1.36) = 11 * 1.2 = 13.2 → round = 13
-			// Wait, the formula is: 10 * (1 + plasma*0.0033) * level * 1.1^level * (-0.004*avgTemp + 1.36) * speed
-			// = 10 * 1 * 1 * 1.1^1 * (-0.16 + 1.36) * 1 = 10 * 1.1 * 1.2 = 13.2 → 13
+			wantExact: 13, // round(10 * 1 * 1 * 1.1 * (-0.004*40 + 1.36) * 1) = round(13.2) = 13
 		},
 		{
 			name: "level 10 no plasma avgTemp 40 speed 1",
@@ -304,7 +301,7 @@ func TestFusionProduction(t *testing.T) {
 		{name: "level 0 energyTech 0", level: 0, energyTech: 0, want: 0},
 		{name: "level 1 energyTech 0", level: 1, energyTech: 0, want: 32}, // round(30*1*(1.05+0)^1) = round(31.5) = 32
 		{name: "level 1 energyTech 5", level: 1, energyTech: 5, want: 33}, // round(30*1*(1.05+0.05)^1) = round(33) = 33
-		{name: "level 10 energyTech 0", level: 10, energyTech: 0, want: 486}, // round(30*10*1.05^10) ≈ round(485.78) = 486
+		{name: "level 10 energyTech 0", level: 10, energyTech: 0, want: 489}, // round(30*10*1.05^10) ≈ round(488.65) = 489
 	}
 
 	for _, tt := range tests {
