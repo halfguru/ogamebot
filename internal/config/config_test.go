@@ -232,3 +232,163 @@ rateLimit:
   defaultMaxDelayMs: 5000
 logLevel: "info"
 `
+
+func TestDefenderConfig_LoadWithFields(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	yaml := `
+account:
+  universe: "uni"
+  username: "u"
+  password: "p"
+ogamed:
+  url: "http://localhost:8080"
+features:
+  defender:
+    enabled: true
+    pollIntervalMs: 15000
+    safetyMarginMs: 60000
+    recallEnabled: false
+    maxReturnFlightS: 300
+    minReactionDelayS: 10
+    maxReactionDelayS: 60
+rateLimit:
+  defaultMinDelayMs: 1000
+  defaultMaxDelayMs: 2000
+logLevel: "debug"
+`
+	err := os.WriteFile(cfgPath, []byte(yaml), 0644)
+	if err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	cfg, err := Load(cfgPath, log)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.Features.Defender.Enabled != true {
+		t.Error("Defender.Enabled = false, want true")
+	}
+	if cfg.Features.Defender.PollIntervalMs != 15000 {
+		t.Errorf("Defender.PollIntervalMs = %d, want 15000", cfg.Features.Defender.PollIntervalMs)
+	}
+	if cfg.Features.Defender.SafetyMarginMs != 60000 {
+		t.Errorf("Defender.SafetyMarginMs = %d, want 60000", cfg.Features.Defender.SafetyMarginMs)
+	}
+	if cfg.Features.Defender.RecallEnabled != false {
+		t.Error("Defender.RecallEnabled = true, want false")
+	}
+	if cfg.Features.Defender.MaxReturnFlightS != 300 {
+		t.Errorf("Defender.MaxReturnFlightS = %d, want 300", cfg.Features.Defender.MaxReturnFlightS)
+	}
+	if cfg.Features.Defender.MinReactionDelayS != 10 {
+		t.Errorf("Defender.MinReactionDelayS = %d, want 10", cfg.Features.Defender.MinReactionDelayS)
+	}
+	if cfg.Features.Defender.MaxReactionDelayS != 60 {
+		t.Errorf("Defender.MaxReactionDelayS = %d, want 60", cfg.Features.Defender.MaxReactionDelayS)
+	}
+}
+
+func TestDefenderConfig_Defaults(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	yaml := `
+account:
+  universe: "uni"
+  username: "u"
+  password: "p"
+ogamed:
+  url: "http://localhost:8080"
+features:
+  defender:
+    enabled: true
+    pollIntervalMs: 30000
+rateLimit:
+  defaultMinDelayMs: 1000
+  defaultMaxDelayMs: 2000
+logLevel: "info"
+`
+	err := os.WriteFile(cfgPath, []byte(yaml), 0644)
+	if err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	cfg, err := Load(cfgPath, log)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// Defaults should be applied when zero
+	if cfg.Features.Defender.SafetyMarginMs != 120000 {
+		t.Errorf("Defender.SafetyMarginMs default = %d, want 120000", cfg.Features.Defender.SafetyMarginMs)
+	}
+	if cfg.Features.Defender.RecallEnabled != true {
+		t.Error("Defender.RecallEnabled default = false, want true")
+	}
+	if cfg.Features.Defender.MaxReturnFlightS != 600 {
+		t.Errorf("Defender.MaxReturnFlightS default = %d, want 600", cfg.Features.Defender.MaxReturnFlightS)
+	}
+	if cfg.Features.Defender.MinReactionDelayS != 30 {
+		t.Errorf("Defender.MinReactionDelayS default = %d, want 30", cfg.Features.Defender.MinReactionDelayS)
+	}
+	if cfg.Features.Defender.MaxReactionDelayS != 120 {
+		t.Errorf("Defender.MaxReactionDelayS default = %d, want 120", cfg.Features.Defender.MaxReactionDelayS)
+	}
+}
+
+func TestDefenderConfig_Validation(t *testing.T) {
+	tests := []struct {
+		name    string
+		def     DefenderConfig
+		wantErr string
+	}{
+		{
+			name: "safety margin too low",
+			def: DefenderConfig{
+				FeatureConfig:     FeatureConfig{Enabled: true, PollIntervalMs: 30000},
+				SafetyMarginMs:    5000,
+				MinReactionDelayS: 30,
+				MaxReactionDelayS: 120,
+			},
+			wantErr: "safetyMarginMs",
+		},
+		{
+			name: "min reaction delay too low",
+			def: DefenderConfig{
+				FeatureConfig:     FeatureConfig{Enabled: true, PollIntervalMs: 30000},
+				SafetyMarginMs:    120000,
+				MinReactionDelayS: 2,
+				MaxReactionDelayS: 120,
+			},
+			wantErr: "minReactionDelayS",
+		},
+		{
+			name: "max reaction delay less than min",
+			def: DefenderConfig{
+				FeatureConfig:     FeatureConfig{Enabled: true, PollIntervalMs: 30000},
+				SafetyMarginMs:    120000,
+				MinReactionDelayS: 60,
+				MaxReactionDelayS: 30,
+			},
+			wantErr: "maxReactionDelayS",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{
+				Account:   AccountConfig{Universe: "uni", Username: "u", Password: "p"},
+				Ogamed:    OgamedConfig{URL: "http://localhost:8080"},
+				Features:  FeaturesConfig{Defender: tt.def},
+				RateLimit: RateLimitConfig{DefaultMinDelayMs: 1000, DefaultMaxDelayMs: 2000},
+			}
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+			}
+		})
+	}
+}

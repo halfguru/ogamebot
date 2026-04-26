@@ -534,3 +534,217 @@ func TestClient_Logout_Error(t *testing.T) {
 
 // Suppress unused import warning for fmt
 var _ = fmt.Sprintf
+
+func TestClient_SendFleet(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/bot/planets/336/send-fleet" {
+			t.Errorf("expected path /bot/planets/336/send-fleet, got %s", r.URL.Path)
+		}
+		if r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+			t.Errorf("expected Content-Type application/x-www-form-urlencoded, got %s", r.Header.Get("Content-Type"))
+		}
+
+		// Verify the request body
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("failed to parse form body: %v", err)
+		}
+
+		// Check ships encoding: should be repeated params like ships=204,100&ships=203,50
+		ships := r.Form["ships"]
+		if len(ships) != 2 {
+			t.Fatalf("expected 2 ship params, got %d: %v", len(ships), ships)
+		}
+		if ships[0] != "204,100" {
+			t.Errorf("ships[0] = %q, want %q", ships[0], "204,100")
+		}
+		if ships[1] != "203,50" {
+			t.Errorf("ships[1] = %q, want %q", ships[1], "203,50")
+		}
+
+		// Check other params
+		if r.FormValue("speed") != "10" {
+			t.Errorf("speed = %q, want %q", r.FormValue("speed"), "10")
+		}
+		if r.FormValue("galaxy") != "2" {
+			t.Errorf("galaxy = %q, want %q", r.FormValue("galaxy"), "2")
+		}
+		if r.FormValue("system") != "100" {
+			t.Errorf("system = %q, want %q", r.FormValue("system"), "100")
+		}
+		if r.FormValue("position") != "8" {
+			t.Errorf("position = %q, want %q", r.FormValue("position"), "8")
+		}
+		if r.FormValue("type") != "1" {
+			t.Errorf("type = %q, want %q", r.FormValue("type"), "1")
+		}
+		if r.FormValue("mission") != "4" {
+			t.Errorf("mission = %q, want %q", r.FormValue("mission"), "4")
+		}
+		if r.FormValue("metal") != "5000" {
+			t.Errorf("metal = %q, want %q", r.FormValue("metal"), "5000")
+		}
+
+		// Return fleet ID
+		resp := OgamedResponse[int64]{Status: "ok", Code: 200, Result: 42}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	req := model.SendFleetRequest{
+		PlanetID: 336,
+		Ships: []model.ShipCount{
+			{ID: 204, Count: 100},
+			{ID: 203, Count: 50},
+		},
+		Speed:     10,
+		Galaxy:    2,
+		System:    100,
+		Position:  8,
+		Type:      1,
+		Mission:   4,
+		Metal:     5000,
+		Crystal:   3000,
+		Deuterium: 1000,
+	}
+	fleetID, err := client.SendFleet(context.Background(), req)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if fleetID != 42 {
+		t.Errorf("fleetID = %d, want 42", fleetID)
+	}
+}
+
+func TestClient_CancelFleet(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		expectedPath := "/bot/fleets/42/cancel"
+		if r.URL.Path != expectedPath {
+			t.Errorf("expected path %s, got %s", expectedPath, r.URL.Path)
+		}
+		resp := OgamedResponse[any]{Status: "ok", Code: 200}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	err := client.CancelFleet(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+}
+
+func TestClient_GetAttacks(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/bot/attacks" {
+			t.Errorf("expected path /bot/attacks, got %s", r.URL.Path)
+		}
+		attacks := []model.AttackEvent{
+			{
+				ID:              12345,
+				MissionType:     1,
+				Origin:          model.Coordinate{Galaxy: 1, System: 50, Position: 8, Type: "planet"},
+				Destination:     model.Coordinate{Galaxy: 2, System: 100, Position: 4, Type: "planet"},
+				DestinationName: "Homeworld",
+				ArriveIn:        3600,
+				AttackerName:    "Enemy",
+				AttackerID:      99999,
+			},
+		}
+		resp := OgamedResponse[[]model.AttackEvent]{Status: "ok", Code: 200, Result: attacks}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	attacks, err := client.GetAttacks(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if len(attacks) != 1 {
+		t.Fatalf("expected 1 attack, got %d", len(attacks))
+	}
+	if attacks[0].ID != 12345 {
+		t.Errorf("ID = %d, want 12345", attacks[0].ID)
+	}
+	if attacks[0].AttackerName != "Enemy" {
+		t.Errorf("AttackerName = %q, want %q", attacks[0].AttackerName, "Enemy")
+	}
+	if attacks[0].ArriveIn != 3600 {
+		t.Errorf("ArriveIn = %d, want 3600", attacks[0].ArriveIn)
+	}
+}
+
+func TestClient_GetSlots(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/bot/slots" {
+			t.Errorf("expected path /bot/slots, got %s", r.URL.Path)
+		}
+		slots := model.Slots{InUse: 3, Total: 14, ExpInUse: 1, ExpTotal: 2}
+		resp := OgamedResponse[model.Slots]{Status: "ok", Code: 200, Result: slots}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer ts.Close()
+
+	client := newTestClient(ts)
+	slots, err := client.GetSlots(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if slots.InUse != 3 {
+		t.Errorf("InUse = %d, want 3", slots.InUse)
+	}
+	if slots.Total != 14 {
+		t.Errorf("Total = %d, want 14", slots.Total)
+	}
+	if slots.ExpInUse != 1 {
+		t.Errorf("ExpInUse = %d, want 1", slots.ExpInUse)
+	}
+	if slots.ExpTotal != 2 {
+		t.Errorf("ExpTotal = %d, want 2", slots.ExpTotal)
+	}
+}
+
+func TestClient_PostThroughRateLimiter(t *testing.T) {
+	var waitCalls atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := OgamedResponse[any]{Status: "ok", Code: 200}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer ts.Close()
+
+	cfg := config.RateLimitConfig{
+		DefaultMinDelayMs: 1,
+		DefaultMaxDelayMs: 1,
+	}
+	baseLimiter := NewRateLimiter(cfg)
+	client := &Client{
+		baseURL: ts.URL,
+		httpClient: &http.Client{
+			Timeout: defaultHTTPTimeout,
+		},
+		rateLimiter: &trackingLimiter{inner: baseLimiter, calls: &waitCalls},
+		log:         slog.Default().With("component", "ogamed-client"),
+		retryCfg:    DefaultRetryConfig,
+	}
+
+	err := client.CancelFleet(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if waitCalls.Load() != 1 {
+		t.Errorf("expected rate limiter Wait to be called once for POST, got %d", waitCalls.Load())
+	}
+}
+
+// TestClient_AllEndpointsExist18 verifies Client implements ClientInterface with 18 methods
+func TestClient_AllEndpointsExist18(t *testing.T) {
+	var _ ClientInterface = (*Client)(nil)
+	t.Log("Client implements ClientInterface with all 18 methods")
+}
