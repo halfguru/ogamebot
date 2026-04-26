@@ -30,12 +30,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Bot loads all configuration from a YAML/JSON file, including feature toggles and per-feature parameters
   4. Bot spaces all API calls with randomized intervals — no two requests fire within the same second
   5. Bot runs via `docker compose up` with both ogamed and bot containers connected and communicating
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md — Monorepo scaffolding + shared types, schemas, and constants
+- [ ] 01-02-PLAN.md — Config loader, logger, ogamed client with rate limiting and retry
+- [ ] 01-03-PLAN.md — Database schema, game state manager, main entry point, Docker Compose
 
 ### Phase 2: Fleet Safety
 **Goal**: Bot reliably detects incoming attacks and auto-saves fleet and resources before impact
@@ -101,7 +101,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Infrastructure | 0/? | Not started | - |
+| 1. Core Infrastructure | 0/3 | Not started | - |
 | 2. Fleet Safety | 0/? | Not started | - |
 | 3. Auto-Build | 0/? | Not started | - |
 | 4. Auto-Farm | 0/? | Not started | - |
