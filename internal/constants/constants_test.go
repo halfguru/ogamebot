@@ -12,11 +12,12 @@ func TestMissionConstants(t *testing.T) {
 		{"MissionACSAttack", MissionACSAttack, 2},
 		{"MissionDeploy", MissionDeploy, 3},
 		{"MissionTransport", MissionTransport, 4},
-		{"MissionACSTransport", MissionACSTransport, 5},
+		{"MissionHold", MissionHold, 5},
 		{"MissionEspionage", MissionEspionage, 6},
 		{"MissionColonize", MissionColonize, 7},
 		{"MissionHarvest", MissionHarvest, 8},
 		{"MissionMoonDestruction", MissionMoonDestruction, 9},
+		{"MissionMissileAttack", MissionMissileAttack, 10},
 		{"MissionExpedition", MissionExpedition, 15},
 	}
 
@@ -26,6 +27,30 @@ func TestMissionConstants(t *testing.T) {
 				t.Errorf("%s = %d, want %d", tt.name, tt.value, tt.want)
 			}
 		})
+	}
+}
+
+func TestMissionConstantsUnique(t *testing.T) {
+	values := map[int]string{
+		MissionAttack:          "MissionAttack",
+		MissionACSAttack:       "MissionACSAttack",
+		MissionDeploy:          "MissionDeploy",
+		MissionTransport:       "MissionTransport",
+		MissionHold:            "MissionHold",
+		MissionEspionage:       "MissionEspionage",
+		MissionColonize:        "MissionColonize",
+		MissionHarvest:         "MissionHarvest",
+		MissionMoonDestruction: "MissionMoonDestruction",
+		MissionMissileAttack:   "MissionMissileAttack",
+		MissionExpedition:      "MissionExpedition",
+	}
+
+	seen := map[int]string{}
+	for val, name := range values {
+		if prev, exists := seen[val]; exists {
+			t.Errorf("mission constant collision: %s and %s both have value %d", prev, name, val)
+		}
+		seen[val] = name
 	}
 }
 

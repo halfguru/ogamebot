@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestCoordinateJSON(t *testing.T) {
@@ -255,5 +256,143 @@ func TestResearchJSON(t *testing.T) {
 	}
 	if r.GravitonTechnology != 1 {
 		t.Errorf("GravitonTechnology = %d, want 1", r.GravitonTechnology)
+	}
+}
+
+func TestAttackEventJSON(t *testing.T) {
+	raw := `{
+		"ID": 12345,
+		"MissionType": 1,
+		"Origin": {"Galaxy":1,"System":50,"Position":8,"Type":"planet"},
+		"Destination": {"Galaxy":2,"System":100,"Position":4,"Type":"planet"},
+		"DestinationName": "Homeworld",
+		"ArrivalTime": "2026-04-26T12:00:00Z",
+		"ArriveIn": 3600,
+		"AttackerName": "Enemy",
+		"AttackerID": 99999,
+		"UnionID": 0,
+		"Missiles": 0,
+		"Ships": [{"ID":204,"Count":500},{"ID":205,"Count":100}]
+	}`
+
+	var event AttackEvent
+	if err := json.Unmarshal([]byte(raw), &event); err != nil {
+		t.Fatalf("failed to unmarshal AttackEvent: %v", err)
+	}
+
+	if event.ID != 12345 {
+		t.Errorf("ID = %d, want 12345", event.ID)
+	}
+	if event.MissionType != 1 {
+		t.Errorf("MissionType = %d, want 1", event.MissionType)
+	}
+	if event.Origin.Galaxy != 1 || event.Origin.System != 50 {
+		t.Errorf("Origin = %+v, want Galaxy=1 System=50", event.Origin)
+	}
+	if event.DestinationName != "Homeworld" {
+		t.Errorf("DestinationName = %q, want %q", event.DestinationName, "Homeworld")
+	}
+	if event.ArriveIn != 3600 {
+		t.Errorf("ArriveIn = %d, want 3600", event.ArriveIn)
+	}
+	if event.AttackerName != "Enemy" {
+		t.Errorf("AttackerName = %q, want %q", event.AttackerName, "Enemy")
+	}
+	if event.AttackerID != 99999 {
+		t.Errorf("AttackerID = %d, want 99999", event.AttackerID)
+	}
+	if len(*event.Ships) != 2 {
+		t.Fatalf("Ships length = %d, want 2", len(*event.Ships))
+	}
+	if (*event.Ships)[0].ID != 204 || (*event.Ships)[0].Count != 500 {
+		t.Errorf("Ships[0] = %+v, want ID=204 Count=500", (*event.Ships)[0])
+	}
+}
+
+func TestAttackEvent_NullShips(t *testing.T) {
+	raw := `{
+		"ID": 99,
+		"MissionType": 10,
+		"Origin": {"Galaxy":1,"System":1,"Position":1,"Type":"planet"},
+		"Destination": {"Galaxy":1,"System":1,"Position":1,"Type":"planet"},
+		"DestinationName": "Target",
+		"ArrivalTime": "2026-04-26T12:00:00Z",
+		"ArriveIn": 600,
+		"AttackerName": "Attacker",
+		"AttackerID": 100,
+		"UnionID": 0,
+		"Missiles": 50
+	}`
+
+	var event AttackEvent
+	if err := json.Unmarshal([]byte(raw), &event); err != nil {
+		t.Fatalf("failed to unmarshal AttackEvent with null Ships: %v", err)
+	}
+
+	if event.Ships != nil {
+		t.Errorf("Ships should be nil when not provided, got %+v", event.Ships)
+	}
+	if event.Missiles != 50 {
+		t.Errorf("Missiles = %d, want 50", event.Missiles)
+	}
+}
+
+func TestSlotsJSON(t *testing.T) {
+	raw := `{"InUse":3,"Total":14,"ExpInUse":1,"ExpTotal":2}`
+
+	var slots Slots
+	if err := json.Unmarshal([]byte(raw), &slots); err != nil {
+		t.Fatalf("failed to unmarshal Slots: %v", err)
+	}
+
+	if slots.InUse != 3 {
+		t.Errorf("InUse = %d, want 3", slots.InUse)
+	}
+	if slots.Total != 14 {
+		t.Errorf("Total = %d, want 14", slots.Total)
+	}
+	if slots.ExpInUse != 1 {
+		t.Errorf("ExpInUse = %d, want 1", slots.ExpInUse)
+	}
+	if slots.ExpTotal != 2 {
+		t.Errorf("ExpTotal = %d, want 2", slots.ExpTotal)
+	}
+}
+
+func TestSendFleetRequest_Fields(t *testing.T) {
+	req := SendFleetRequest{
+		PlanetID: 336,
+		Ships: []ShipCount{
+			{ID: 204, Count: 100},
+			{ID: 203, Count: 50},
+		},
+		Speed:     10,
+		Galaxy:    2,
+		System:    100,
+		Position:  8,
+		Type:      1,
+		Mission:   4,
+		Metal:     5000,
+		Crystal:   3000,
+		Deuterium: 1000,
+	}
+
+	if req.PlanetID != 336 {
+		t.Errorf("PlanetID = %d, want 336", req.PlanetID)
+	}
+	if len(req.Ships) != 2 {
+		t.Fatalf("Ships length = %d, want 2", len(req.Ships))
+	}
+	if req.Ships[0].ID != 204 || req.Ships[0].Count != 100 {
+		t.Errorf("Ships[0] = %+v, want ID=204 Count=100", req.Ships[0])
+	}
+	if req.Speed != 10 {
+		t.Errorf("Speed = %d, want 10", req.Speed)
+	}
+	if req.Mission != 4 {
+		t.Errorf("Mission = %d, want 4", req.Mission)
+	}
+	if req.Metal != 5000 {
+		t.Errorf("Metal = %d, want 5000", req.Metal)
 	}
 }
