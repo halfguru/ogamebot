@@ -83,6 +83,18 @@ func (m *mockBuilderClient) BuildBuilding(_ context.Context, planetID, buildingI
 	m.lastBuildingID = buildingID
 	return m.buildErr
 }
+func (m *mockBuilderClient) GetGalaxyInfos(_ context.Context, _, _ int) (model.SystemInfos, error) {
+	return model.SystemInfos{}, nil
+}
+func (m *mockBuilderClient) GetEspionageReportMessages(_ context.Context) ([]model.EspionageReportSummary, error) {
+	return nil, nil
+}
+func (m *mockBuilderClient) GetEspionageReport(_ context.Context, _ int64) (model.EspionageReport, error) {
+	return model.EspionageReport{}, nil
+}
+func (m *mockBuilderClient) DeleteAllEspionageReports(_ context.Context) error {
+	return nil
+}
 
 // mockBuilderStateReader satisfies BuilderStateReader for builder tests.
 type mockBuilderStateReader struct {

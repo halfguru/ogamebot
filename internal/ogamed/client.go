@@ -40,6 +40,10 @@ type ClientInterface interface {
 	CancelFleet(ctx context.Context, fleetID int64) error
 	GetConstructions(ctx context.Context, planetID int) (model.Constructions, error)
 	BuildBuilding(ctx context.Context, planetID, buildingID int) error
+	GetGalaxyInfos(ctx context.Context, galaxy, system int) (model.SystemInfos, error)
+	GetEspionageReportMessages(ctx context.Context) ([]model.EspionageReportSummary, error)
+	GetEspionageReport(ctx context.Context, messageID int64) (model.EspionageReport, error)
+	DeleteAllEspionageReports(ctx context.Context) error
 }
 
 // Client implements ClientInterface with rate limiting and retry.
@@ -349,5 +353,28 @@ func (c *Client) GetConstructions(ctx context.Context, planetID int) (model.Cons
 func (c *Client) BuildBuilding(ctx context.Context, planetID, buildingID int) error {
 	path := fmt.Sprintf("/bot/planets/%d/build/building/%d", planetID, buildingID)
 	_, err := postTyped[any](c, ctx, path, url.Values{})
+	return err
+}
+
+// GetGalaxyInfos scans a solar system and returns player/planet information.
+func (c *Client) GetGalaxyInfos(ctx context.Context, galaxy, system int) (model.SystemInfos, error) {
+	path := fmt.Sprintf("/bot/galaxy-infos/%d/%d", galaxy, system)
+	return getTyped[model.SystemInfos](c, ctx, path)
+}
+
+// GetEspionageReportMessages returns all espionage report message summaries.
+func (c *Client) GetEspionageReportMessages(ctx context.Context) ([]model.EspionageReportSummary, error) {
+	return getTyped[[]model.EspionageReportSummary](c, ctx, "/bot/get-espionage-report-messages")
+}
+
+// GetEspionageReport returns the full espionage report for a given message ID.
+func (c *Client) GetEspionageReport(ctx context.Context, messageID int64) (model.EspionageReport, error) {
+	path := fmt.Sprintf("/bot/get-espionage-report/%d", messageID)
+	return getTyped[model.EspionageReport](c, ctx, path)
+}
+
+// DeleteAllEspionageReports deletes all espionage report messages.
+func (c *Client) DeleteAllEspionageReports(ctx context.Context) error {
+	_, err := postTyped[any](c, ctx, "/bot/delete-all-espionage-reports", url.Values{})
 	return err
 }

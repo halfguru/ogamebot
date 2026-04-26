@@ -8,6 +8,8 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/user/ogame-bot/internal/model"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -80,7 +82,7 @@ func (d *DefenderConfig) IsRecallEnabled() bool {
 type FeaturesConfig struct {
 	Defender  DefenderConfig  `yaml:"defender"`
 	AutoBuild AutoBuildConfig `yaml:"autoBuild"`
-	AutoFarm  FeatureConfig   `yaml:"autoFarm"`
+	AutoFarm  AutoFarmConfig  `yaml:"autoFarm"`
 }
 
 // AutoBuildConfig holds the auto-build feature settings including per-building caps.
@@ -97,6 +99,32 @@ func (a *AutoBuildConfig) AutoBuildDefaults() {
 			"MetalMine": 30, "CrystalMine": 28, "DeuteriumSynthesizer": 26,
 			"SolarPlant": 26, "FusionReactor": 20,
 		}
+	}
+}
+
+// GalaxyRange is aliased here to avoid circular import with model package.
+type GalaxyRange = model.GalaxyRange
+
+// AutoFarmConfig holds the auto-farm feature settings.
+type AutoFarmConfig struct {
+	FeatureConfig      `yaml:",inline"`
+	GalaxyRanges       []GalaxyRange `yaml:"galaxyRanges"`
+	MinProfitThreshold int64         `yaml:"minProfitThreshold"` // minimum metal-equivalent profit to attack
+	MaxProbesPerTarget int           `yaml:"maxProbesPerTarget"` // probes sent per espionage
+	MaxAttacksPerCycle int           `yaml:"maxAttacksPerCycle"` // max attacks per poll cycle
+	SkipDefended       bool          `yaml:"skipDefended"`       // skip targets with defense
+}
+
+// AutoFarmDefaults applies default values for zero-valued AutoFarmConfig fields.
+func (a *AutoFarmConfig) AutoFarmDefaults() {
+	if a.MaxProbesPerTarget == 0 {
+		a.MaxProbesPerTarget = 5
+	}
+	if a.MaxAttacksPerCycle == 0 {
+		a.MaxAttacksPerCycle = 3
+	}
+	if a.MinProfitThreshold == 0 {
+		a.MinProfitThreshold = 10000
 	}
 }
 
@@ -181,6 +209,9 @@ func (c *Config) Validate() error {
 	// Apply auto-build defaults before validation
 	c.Features.AutoBuild.AutoBuildDefaults()
 
+	// Apply auto-farm defaults before validation
+	c.Features.AutoFarm.AutoFarmDefaults()
+
 	if c.Features.Defender.Enabled {
 		if c.Features.Defender.SafetyMarginMs < 10000 {
 			return fmt.Errorf("features.defender.safetyMarginMs must be >= 10000ms, got %d", c.Features.Defender.SafetyMarginMs)
@@ -207,6 +238,16 @@ func (c *Config) Validate() error {
 		if maxLvl > 50 {
 			// Would log warning but Validate doesn't have access to logger;
 			// callers can check after load. Validation still passes.
+		}
+	}
+
+	// AutoFarm validation
+	if c.Features.AutoFarm.Enabled {
+		if c.Features.AutoFarm.PollIntervalMs > 0 && c.Features.AutoFarm.PollIntervalMs < 60000 {
+			return fmt.Errorf("features.autoFarm.pollIntervalMs must be >= 60000ms, got %d", c.Features.AutoFarm.PollIntervalMs)
+		}
+		if len(c.Features.AutoFarm.GalaxyRanges) == 0 {
+			return fmt.Errorf("features.autoFarm.galaxyRanges must have at least one range when enabled")
 		}
 	}
 

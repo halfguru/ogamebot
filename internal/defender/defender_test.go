@@ -85,6 +85,18 @@ func (m *mockClient) GetConstructions(_ context.Context, _ int) (model.Construct
 func (m *mockClient) BuildBuilding(_ context.Context, _, _ int) error {
 	return nil
 }
+func (m *mockClient) GetGalaxyInfos(_ context.Context, _, _ int) (model.SystemInfos, error) {
+	return model.SystemInfos{}, nil
+}
+func (m *mockClient) GetEspionageReportMessages(_ context.Context) ([]model.EspionageReportSummary, error) {
+	return nil, nil
+}
+func (m *mockClient) GetEspionageReport(_ context.Context, _ int64) (model.EspionageReport, error) {
+	return model.EspionageReport{}, nil
+}
+func (m *mockClient) DeleteAllEspionageReports(_ context.Context) error {
+	return nil
+}
 
 // mockStateReader satisfies StateReader for defender tests.
 type mockStateReader struct {

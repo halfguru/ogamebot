@@ -160,6 +160,18 @@ func (m *mockClient) BuildBuilding(ctx context.Context, planetID, buildingID int
 	}
 	return nil
 }
+func (m *mockClient) GetGalaxyInfos(_ context.Context, _, _ int) (model.SystemInfos, error) {
+	return model.SystemInfos{}, nil
+}
+func (m *mockClient) GetEspionageReportMessages(_ context.Context) ([]model.EspionageReportSummary, error) {
+	return nil, nil
+}
+func (m *mockClient) GetEspionageReport(_ context.Context, _ int64) (model.EspionageReport, error) {
+	return model.EspionageReport{}, nil
+}
+func (m *mockClient) DeleteAllEspionageReports(_ context.Context) error {
+	return nil
+}
 
 // setupTestDB creates a fresh SQLite database for testing.
 func setupTestDB(t *testing.T) *sql.DB {
