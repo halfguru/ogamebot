@@ -1,48 +1,46 @@
 # Phase 1: Core Infrastructure - Research
 
 **Researched:** 2026-04-26
-**Domain:** Game bot infrastructure (ogamed REST client, SQLite state cache, YAML config, rate limiting, Docker)
+**Domain:** Go bot engine infrastructure (ogamed REST client, SQLite state cache, YAML config, rate limiting, Docker)
 **Confidence:** HIGH
 
 ## Summary
 
-Phase 1 builds the foundational layer every subsequent phase depends on: a typed ogamed REST client, a SQLite-backed game state cache, YAML configuration with Zod validation, a centralized rate limiter with random jitter, and a Docker Compose deployment. This is a greenfield TypeScript monorepo — no existing code to integrate.
+Phase 1 builds the Go bot engine from scratch — connecting to the OGame REST API via ogamed, caching game state in SQLite, loading YAML config with env-var interpolation, throttling requests with random delays, and running the whole stack via Docker Compose. The project pivoted from TypeScript to Go, so existing TypeScript code in `packages/bot/` and `packages/shared/` serves as a **reference for data structures and API patterns** but will be replaced by Go implementations.
 
-The ogamed REST API is well-documented on the project wiki with ~30 endpoints covering login, planets, resources, fleets, research, galaxy scanning, and attack detection. All responses follow a consistent `{Status, Code, Message, Result}` envelope. The Go binary runs on port 8080 and is configured via environment variables (`OGAMED_UNIVERSE`, `OGAMED_USERNAME`, `OGAMED_PASSWORD`, `OGAMED_LANGUAGE`, plus proxy settings). A Docker image is available with a Dockerfile that builds from source. [VERIFIED: GitHub wiki]
+Go is the natural choice here: ogamed is itself a Go binary, the developer knows Go best, goroutines simplify concurrent polling, and single-binary deployment eliminates runtime dependency management. The standard Go library provides everything needed for logging (`log/slog`), HTTP client (`net/http`), and testing (`testing`). Only three external dependencies are needed: `modernc.org/sqlite` (pure Go SQLite driver), `gopkg.in/yaml.v3` (YAML parsing), and `github.com/golang-migrate/migrate/v4` (embedded SQL migrations).
 
-The standard stack — Drizzle ORM 0.45+ with better-sqlite3 12.9+, Fastify 5.8+, Zod 4.3+, pino 10.3+, js-yaml 4.1+ — is verified against npm registry versions as of 2026-04-26. All packages are compatible with Node.js 22+ LTS and ESM module resolution. [VERIFIED: npm registry]
-
-**Primary recommendation:** Scaffold the monorepo first, then build bottom-up: shared types/schemas → ogamed client with rate limiter → config loader → game state manager → Docker Compose integration.
+**Primary recommendation:** Use the standard Go project layout (`cmd/bot/main.go` + `internal/` packages), keep external dependencies minimal, and port the proven patterns from the existing TypeScript implementation (rate limiter chokepoint, envelope validation, env-var interpolation) directly into idiomatic Go.
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
 
 ### Locked Decisions
-- **D-01:** pnpm monorepo with three packages: `packages/bot` (bot engine + Fastify server), `packages/dashboard` (SolidJS web app), `packages/shared` (shared types, constants, Zod schemas)
-- **D-02:** TypeScript throughout with strict mode. ESM modules.
-- **D-03:** Shared package exports: OGame type definitions (planets, resources, fleets, buildings, etc.), Zod schemas for ogamed response validation, constants (building IDs, mission types, etc.)
-- **D-04:** YAML config file (`config.yaml`) for user-facing bot settings. YAML is more human-readable for this use case (multi-line values, comments supported). Cruiser uses this pattern.
-- **D-05:** Config schema validated with Zod at startup. Invalid config = clear error message + exit.
+- **D-01:** Go module for bot engine (`cmd/bot/` entrypoint, `internal/` packages). Separate pnpm workspace for dashboard (`packages/dashboard`, `packages/shared`).
+- **D-02:** Go for bot engine with standard Go project layout. TypeScript for dashboard only (Phase 5).
+- **D-03:** Shared types exist in Go packages (`internal/ogamed/types/`). Dashboard types will be generated from bot's REST API (OpenAPI/codegen in Phase 5).
+- **D-04:** YAML config file (`config.yaml`) for user-facing bot settings. Use `gopkg.in/yaml.v3`.
+- **D-05:** Config validated with Go struct tags + manual validation at startup. Invalid config = clear error + exit.
 - **D-06:** Config structure: account credentials, ogamed connection settings, per-feature toggles and parameters, logging level.
-- **D-07:** Secrets (password) loaded from environment variables, not stored in config file. Config references them via `${ENV_VAR}` interpolation.
-- **D-08:** SQLite via Drizzle ORM for all persistent state. Single-file database in data directory. Zero ops, no separate DB server.
+- **D-07:** Secrets loaded from environment variables, referenced in config via `${ENV_VAR}` interpolation.
+- **D-08:** SQLite via `modernc.org/sqlite` (pure Go, no CGo required) for all persistent state. Single-file database.
 - **D-09:** Game state cached in SQLite tables (planets, resources, buildings, fleets, research). Updated on each poll cycle.
-- **D-10:** Drizzle migrations for schema evolution. Schema defined in code, migrations auto-generated.
-- **D-11:** Type-safe ogamed REST client wrapper in `packages/bot`. All endpoints covered with typed request/response.
-- **D-12:** Zod schemas validate every ogamed response before use. Invalid responses logged and handled gracefully (ogamed game-update breakage is a known pitfall).
+- **D-10:** Schema migrations via `golang-migrate/migrate` or embedded SQL migration files.
+- **D-11:** Type-safe ogamed REST client in `internal/ogamed/`. Go structs for all request/response types.
+- **D-12:** Validate ogamed responses match expected structure. Handle unknown/missing fields gracefully.
 - **D-13:** Automatic retries with exponential backoff for transient failures (network errors, 5xx responses).
-- **D-14:** Rate limiter wraps all ogamed calls. Minimum 1-3 second random delay between requests. Configurable per-endpoint (galaxy scanning needs longer delays than planet info).
-- **D-15:** Docker Compose with two services: `ogamed` (official ogamed image) and `bot` (Node.js). Shared Docker network, bot calls ogamed via `http://ogamed:8080`.
+- **D-14:** Rate limiter wraps all ogamed calls. Minimum 1-3 second random delay between requests. Configurable per-endpoint.
+- **D-15:** Docker Compose with two services: `ogamed` (official ogamed image) and `bot` (Go binary). Shared Docker network, bot calls ogamed via `http://ogamed:8080`.
 - **D-16:** Environment-based configuration. `.env` file for secrets, `config.yaml` mounted as volume.
 - **D-17:** `data/` directory mounted as persistent volume for SQLite database.
-- **D-18:** pino structured logging (JSON in production, pretty-print in dev). Log levels: trace, debug, info, warn, error, fatal.
+- **D-18:** Go `log/slog` structured logging (stdlib, no external dependency). JSON in production, text in dev.
 - **D-19:** All ogamed API calls logged at debug level with request/response timing.
 
 ### Agent's Discretion
-- Exact file naming conventions within packages
-- Test framework selection (vitest recommended for monorepo compatibility)
-- Specific Drizzle schema design (table structure, indexes)
-- Build/bundling setup for production Docker image
+- Exact package structure within `internal/`
+- Test framework selection (stdlib `testing` recommended)
+- Specific SQLite schema design (table structure, indexes)
+- Build setup for production Docker image (multi-stage Go build)
 
 ### Deferred Ideas (OUT OF SCOPE)
 None — discussion stayed within phase scope.
@@ -53,94 +51,74 @@ None — discussion stayed within phase scope.
 
 | ID | Description | Research Support |
 |----|-------------|------------------|
-| INFRA-01 | Bot connects to ogamed REST API and maintains session across restarts | ogamed REST API documented on wiki; login is `GET /bot/login` with credentials set via env vars; ogamed has `OGAMED_AUTO_LOGIN=true` for auto-login on start; session maintained by ogamed's internal cookie management; our client wraps `GET /bot/login` with retry logic |
-| INFRA-02 | Bot retrieves and caches game state (planets, resources, fleets, buildings, research) | Key endpoints: `GET /bot/planets`, `GET /bot/planets/:id/resources`, `GET /bot/planets/:id/resources-buildings`, `GET /bot/planets/:id/facilities`, `GET /bot/planets/:id/ships`, `GET /bot/get-research`, `GET /bot/fleets`; Drizzle ORM stores cached state in SQLite |
-| INFRA-03 | Bot loads configuration from YAML/JSON file with feature toggles and per-feature parameters | js-yaml 4.1.1 for YAML parsing; Zod for schema validation; env var interpolation for secrets; per-feature toggle structure |
-| INFRA-04 | Bot implements request throttling with random intervals between actions | Custom rate limiter with configurable min/max delays, per-endpoint override, priority queue for fleet-save vs normal calls |
-| INFRA-05 | Bot runs as a Docker Compose stack (ogamed + bot) with environment-based config | ogamed Dockerfile builds from source with env var config; our bot Dockerfile uses Node.js 22; docker-compose.yml defines two services with shared network |
+| INFRA-01 | Bot connects to ogamed REST API and maintains session across restarts | ogamed client with envelope validation, retry logic, login endpoint; ogamed handles session persistence via cookies internally |
+| INFRA-02 | Bot retrieves and caches game state (planets, resources, fleets, buildings, research) | Go structs mapping ogamed JSON responses; SQLite tables for persistence; game state manager with poll-based refresh |
+| INFRA-03 | Bot loads configuration from YAML file with feature toggles and per-feature parameters | `gopkg.in/yaml.v3` for parsing; env-var interpolation with regex; struct tag validation |
+| INFRA-04 | Bot implements request throttling with random intervals between actions | Shared rate limiter with configurable min/max delay per endpoint; `time.Sleep` with random jitter |
+| INFRA-05 | Bot runs as a Docker Compose stack (ogamed + bot) with environment-based config | Multi-stage Go Dockerfile; Docker Compose v2; env_file for secrets; volume mounts for data |
 </phase_requirements>
 
 ## Architectural Responsibility Map
 
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|-------------|----------------|-----------|
-| OGame API communication | API / Backend (ogamed) | — | ogamed handles all OGame HTTP protocol, cookies, fingerprinting |
-| Typed ogamed REST client | API / Backend (bot) | — | Bot's client wraps ogamed's REST endpoints with types/validation |
-| Game state persistence | Database / Storage (SQLite) | — | Single-file DB for cached planets, resources, fleets, research |
-| Configuration loading | API / Backend (bot) | — | YAML parsing + Zod validation at startup |
-| Request rate limiting | API / Backend (bot) | — | Centralized throttle that all ogamed calls pass through |
-| Docker orchestration | Infrastructure | — | docker-compose.yml ties ogamed + bot containers |
+| OGame API communication | API / Backend (ogamed) | — | ogamed owns session management, anti-detection, device fingerprinting. Bot never talks to OGame directly. |
+| Bot logic / scheduling | API / Backend (Go bot) | — | Go goroutines for concurrent polling, game state management, feature workers |
+| Persistent state storage | Database / Storage (SQLite) | — | Single-file DB, zero-ops, co-located with bot process |
+| Configuration | Filesystem (YAML) | Environment (secrets) | YAML for structured config, env vars for secrets only |
+| Container orchestration | Docker Compose | — | Two-service stack: ogamed + bot on shared network |
+| Logging | API / Backend (Go bot) | — | `log/slog` structured logging, no external dependency |
 
 ## Standard Stack
 
 ### Core
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| ogamed | v53.0.0 | OGame REST API backend | Only maintained OGame API wrapper. Handles login, session, fingerprinting, captcha. [VERIFIED: GitHub releases] |
-| TypeScript | 6.0.3 | Language | Strict mode for game logic safety. Shared types across packages. [VERIFIED: npm registry] |
-| pnpm | 10+ | Package manager + monorepo | Workspace support, strict dependency isolation, fast installs. [VERIFIED: npm registry] |
-| Drizzle ORM | 0.45.2 | SQLite ORM | Type-safe queries, schema-as-code, auto-generated migrations. [VERIFIED: npm registry] |
-| better-sqlite3 | 12.9.0 | SQLite driver | Synchronous API simplifies bot logic. Native C++ binding for performance. [VERIFIED: npm registry] |
-| Fastify | 5.8.5 | Web framework | TypeScript-first, fastest Node.js framework, plugin system. Will be used in later phases for dashboard API. [VERIFIED: npm registry] |
-| Zod | 4.3.6 | Runtime validation | Validate ogamed responses, config schema. Type inference from schemas. [VERIFIED: npm registry] |
-| pino | 10.3.1 | Structured logging | Fastest Node.js logger. JSON output. Child loggers for per-module context. [VERIFIED: npm registry] |
-| js-yaml | 4.1.1 | YAML parsing | Parse `config.yaml`. Industry standard YAML parser for Node.js. [VERIFIED: npm registry] |
-| ofetch | 1.5.1 | HTTP client | Lightweight wrapper over native fetch. Auto JSON parse. For ogamed REST calls. [VERIFIED: npm registry] |
-| dotenv | 17.4.2 | Environment variable loading | Load `.env` file for secrets. Standard across Node.js projects. [VERIFIED: npm registry] |
+| Go stdlib (`net/http`) | 1.26 | HTTP client for ogamed REST API | Zero dependencies, production-proven, context support for cancellation/timeouts |
+| Go stdlib (`log/slog`) | 1.26 | Structured logging | Built-in JSON handler, level filtering, no external dependency needed |
+| Go stdlib (`testing`) | 1.26 | Test framework | No external test framework needed. `testify` adds assertions but stdlib is sufficient for a Go-expert developer |
+| `modernc.org/sqlite` | v1.50.0 | Pure Go SQLite driver | CGo-free means simple cross-compilation, no C toolchain needed in Docker. `database/sql` compatible. [VERIFIED: go list -m] |
+| `gopkg.in/yaml.v3` | v3.0.1 | YAML config parsing | De-facto standard Go YAML library. Struct tag support. [VERIFIED: go list -m] |
+| `github.com/golang-migrate/migrate/v4` | v4.19.1 | Embedded SQL migrations | Run migrations from Go code using `embed.FS`. No CLI dependency. SQLite driver built-in. [VERIFIED: go list -m] |
 
 ### Supporting
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| drizzle-kit | 0.31.10 | Database migration tooling | `drizzle-kit generate` to create migrations from schema diffs. `drizzle-kit push` for dev. [VERIFIED: npm registry] |
-| pino-pretty | 13.1.3 | Dev log formatting | `pino-pretty` for readable console output during development. [VERIFIED: npm registry] |
-| tsx | 4.21.0 | TypeScript execution | `tsx watch src/main.ts` for dev reloads without build step. [VERIFIED: npm registry] |
-| Vitest | 4.1.5 | Test framework | Unit tests for ogamed client, config validation, rate limiter. [VERIFIED: npm registry] |
-| @types/better-sqlite3 | 7.6.13 | Type definitions | TypeScript types for better-sqlite3. [VERIFIED: npm registry] |
-| eslint + typescript-eslint | — | Linting | Catch bugs in game logic calculations. Enforce strict TS rules. |
-| prettier | — | Code formatting | Consistent style across monorepo packages. |
+| `github.com/stretchr/testify` | latest | Test assertions (optional) | If developer prefers fluent assertions over `if got != want` pattern. Consider for readability but not required. |
+| Go stdlib (`embed`) | 1.26 | Embed migration SQL files in binary | Single-binary deployment — migrations travel with the executable |
 
 ### Alternatives Considered
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| Zod 4.x | Zod 3.x (3.24+) | Zod 4 is the latest stable; smaller bundle, improved API. Zod 3 is more battle-tested but Zod 4 is production-ready. CONTEXT.md says "Zod 3.24+" but npm shows 4.3.6 as latest — use 4.x per discretion. |
-| ofetch | undici | ofetch is simpler and built on native fetch. undici offers more control but adds complexity for our simple REST client needs. |
+| `modernc.org/sqlite` | `mattn/go-sqlite3` | mattn requires CGo — adds build complexity, C toolchain in Docker. modernc is pure Go. [VERIFIED: go list -m] |
+| `golang-migrate/migrate` | Hand-rolled migration runner | golang-migrate handles version tracking, up/down, checksums. Not worth hand-rolling. |
+| `log/slog` | `zerolog` / `zap` | External loggers are faster in microbenchmarks but slog is stdlib, sufficient for a single-user bot, and has zero dependency overhead. |
+| Go stdlib `net/http` | `resty` / `req` | Third-party HTTP clients add sugar but `net/http` is fully capable and the developer knows it best. |
 
 **Installation:**
 ```bash
-# Root - initialize monorepo
-pnpm init
-# Add workspace config: pnpm-workspace.yaml
+# Initialize Go module (from project root)
+go mod init github.com/user/ogame-bot
 
-# Root dev dependencies
-pnpm add -Dw typescript @types/node tsx vitest eslint prettier typescript-eslint
+# Core dependencies
+go get modernc.org/sqlite@v1.50.0
+go get gopkg.in/yaml.v3@v3.0.1
+go get github.com/golang-migrate/migrate/v4@v4.19.1
 
-# packages/shared
-pnpm add zod --filter shared
+# Migration source drivers
+go get github.com/golang-migrate/migrate/v4/source/iofs
+go get github.com/golang-migrate/migrate/v4/database/sqlite3
 
-# packages/bot
-pnpm add drizzle-orm better-sqlite3 ofetch pino js-yaml dotenv --filter bot
-pnpm add -D @types/better-sqlite3 drizzle-kit pino-pretty --filter bot
-
-# packages/dashboard (placeholder for Phase 5)
-# SolidJS deps added later
+# Optional test assertions
+go get github.com/stretchr/testify
 ```
 
 **Version verification (2026-04-26):**
-```bash
-$ npm view drizzle-orm version     # 0.45.2
-$ npm view better-sqlite3 version  # 12.9.0
-$ npm view fastify version         # 5.8.5
-$ npm view zod version             # 4.3.6
-$ npm view pino version            # 10.3.1
-$ npm view ofetch version          # 1.5.1
-$ npm view vitest version          # 4.1.5
-$ npm view typescript version      # 6.0.3
-$ npm view js-yaml version         # 4.1.1
-$ npm view dotenv version          # 17.4.2
-$ npm view tsx version             # 4.21.0
-$ npm view pino-pretty version     # 13.1.3
-$ npm view drizzle-kit version     # 0.31.10
-$ npm view @types/better-sqlite3 version  # 7.6.13
+```
+modernc.org/sqlite      v1.50.0   [VERIFIED: go list -m]
+gopkg.in/yaml.v3        v3.0.1    [VERIFIED: go list -m]
+golang-migrate/migrate  v4.19.1   [VERIFIED: go list -m]
+Go runtime              1.26.2    [VERIFIED: go version on host]
 ```
 
 ## Architecture Patterns
@@ -148,639 +126,803 @@ $ npm view @types/better-sqlite3 version  # 7.6.13
 ### System Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Docker Compose Network                       │
-│                                                                  │
-│  ┌────────────────────┐       ┌──────────────────────────────┐  │
-│  │      ogamed        │       │      Node.js Bot Process      │  │
-│  │   (Go binary)      │       │                              │  │
-│  │                    │  REST │  ┌─────────────────────────┐  │  │
-│  │  Handles:          │◀─────│  │   Ogamed REST Client    │  │  │
-│  │  - Login/session   │      │  │   (typed, validated,    │  │  │
-│  │  - Device fingerp. │      │  │    rate-limited)        │  │  │
-│  │  - Anti-detection  │      │  └───────────┬─────────────┘  │  │
-│  │  - Captcha         │      │              │                │  │
-│  │  - Cookie mgmt     │      │  ┌───────────▼─────────────┐  │  │
-│  │                    │      │  │   Game State Manager    │  │  │
-│  │  Port: 8080        │      │  │   (in-memory + SQLite  │  │  │
-│  │  Config: env vars  │      │  │    cache, periodic     │  │  │
-│  └────────────────────┘      │  │    refresh)            │  │  │
-│                               │  └───────────┬─────────────┘  │  │
-│                               │              │                │  │
-│                               │  ┌───────────▼─────────────┐  │  │
-│                               │  │   Config Manager        │  │  │
-│                               │  │   (YAML + Zod + env)    │  │  │
-│                               │  └─────────────────────────┘  │  │
-│                               │              │                │  │
-│                               │  ┌───────────▼─────────────┐  │  │
-│                               │  │   SQLite (data/bot.db)  │  │  │
-│                               │  │   via Drizzle ORM       │  │  │
-│                               │  └─────────────────────────┘  │  │
-│                               │                              │  │
-│                               │  ┌─────────────────────────┐  │  │
-│                               │  │   pino Logger           │  │  │
-│                               │  └─────────────────────────┘  │  │
-│                               └──────────────────────────────┘  │
-│                                                                  │
-│  Volumes: config.yaml (ro), .env (secrets), data/ (SQLite)      │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    Docker Compose Network                      │
+│                                                                │
+│  ┌──────────────────────┐    ┌──────────────────────────────┐ │
+│  │     ogamed           │    │       Go Bot Engine          │ │
+│  │  (Go binary)         │    │                              │ │
+│  │                      │REST│  cmd/bot/main.go             │ │
+│  │  Handles:            │◄───│         │                    │ │
+│  │  • Login/sessions    │    │  internal/                  │ │
+│  │  • Anti-detection    │    │    ├─ config/               │ │
+│  │  • Device fingerprint│    │    │   └─ config.go         │ │
+│  │  • Captcha           │    │    ├─ ogamed/               │ │
+│  │  • Cookie mgmt       │    │    │   ├─ client.go         │ │
+│  │                      │    │    │   ├─ types.go           │ │
+│  │  Port 8080           │    │    │   ├─ rate_limiter.go   │ │
+│  │                      │    │    │   └─ retry.go           │ │
+│  └──────────────────────┘    │    ├─ state/                │ │
+│                               │    │   ├─ manager.go        │ │
+│                               │    │   └─ db.go             │ │
+│                               │    ├─ model/                │ │
+│                               │    │   └─ types.go          │ │
+│                               │    └─ migrations/           │ │
+│                               │        └─ 001_init.sql      │ │
+│                               │                              │ │
+│                               │  ┌─────────┐  ┌───────────┐ │ │
+│                               │  │ SQLite  │  │config.yaml│ │ │
+│                               │  │  DB     │  │  (.env)   │ │ │
+│                               │  └─────────┘  └───────────┘ │ │
+│                               └──────────────────────────────┘ │
+│                                                                │
+│  Volumes:                                                      │
+│    ./data/     → /app/data/    (SQLite database)               │
+│    ./config.yaml → /app/config.yaml  (bot configuration)       │
+│    ./.env      → env_file      (secrets)                       │
+└──────────────────────────────────────────────────────────────┘
+         │
+         │  (ogamed communicates directly with OGame servers)
+         ▼
+   ┌───────────────┐
+   │  OGame Servers │
+   └───────────────┘
 ```
 
 ### Recommended Project Structure
 ```
 ogame/
-├── .env.example                 # Template for secrets (gitignored)
-├── .gitignore
-├── config.example.yaml          # Template for bot configuration
+├── cmd/
+│   └── bot/
+│       └── main.go              # Entrypoint: load config, init DB, start client, run main loop
+├── internal/
+│   ├── config/
+│   │   └── config.go            # YAML loading, env-var interpolation, validation
+│   ├── ogamed/
+│   │   ├── client.go            # HTTP client wrapping ogamed REST API
+│   │   ├── types.go             # Go structs for ogamed request/response types
+│   │   ├── rate_limiter.go      # Shared rate limiter with random delay
+│   │   └── retry.go             # Exponential backoff with jitter
+│   ├── state/
+│   │   ├── manager.go           # Game state manager: poll, cache, expose state
+│   │   └── db.go                # SQLite connection, migrations, query helpers
+│   └── model/
+│       └── types.go             # Domain types: Coordinate, Resources, Planet, Fleet, etc.
+├── migrations/
+│   └── 001_init.sql             # Initial schema: planets, resources, fleets, research tables
+├── Dockerfile                   # Multi-stage Go build
 ├── docker-compose.yml           # ogamed + bot services
-├── package.json                 # Root workspace config
-├── pnpm-workspace.yaml          # Workspace definitions
-├── tsconfig.base.json           # Shared TypeScript config
+├── go.mod
+├── go.sum
+├── config.example.yaml          # Example config (existing, keep)
+├── .env.example                 # Example env vars (existing, keep)
+│
+│   # Existing TS workspace (kept for Phase 5 dashboard)
 ├── packages/
-│   ├── shared/                  # Shared types, schemas, constants
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── src/
-│   │       ├── index.ts         # Barrel export
-│   │       ├── types/           # OGame domain types
-│   │       │   ├── planet.ts    # Planet, Resources, Coordinate, etc.
-│   │       │   ├── fleet.ts     # Fleet, Ship, Mission types
-│   │       │   ├── research.ts  # Research levels
-│   │       │   └── buildings.ts # Building levels
-│   │       ├── schemas/         # Zod schemas for ogamed responses
-│   │       │   ├── ogamed.ts    # Base response envelope {Status, Code, Message, Result}
-│   │       │   ├── planets.ts   # Planet list, planet details, resources
-│   │       │   ├── fleets.ts    # Fleet list, fleet send response
-│   │       │   └── research.ts  # Research response
-│   │       └── constants/       # OGame game constants
-│   │           ├── buildings.ts # Building IDs, names
-│   │           ├── ships.ts     # Ship IDs, names
-│   │           └── missions.ts  # Mission type IDs
-│   ├── bot/                     # Bot engine (core infrastructure)
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   ├── drizzle.config.ts    # Drizzle Kit config for migrations
-│   │   ├── Dockerfile           # Production Docker image
-│   │   └── src/
-│   │       ├── main.ts          # Entry point: load config → init DB → start client
-│   │       ├── client/          # ogamed REST client layer
-│   │       │   ├── ogamed-client.ts  # Typed HTTP wrapper for all endpoints
-│   │       │   ├── rate-limiter.ts   # Centralized request throttle with jitter
-│   │       │   └── retry.ts          # Exponential backoff retry helper
-│   │       ├── config/          # Configuration management
-│   │       │   ├── config-loader.ts  # YAML + env + Zod validation
-│   │       │   └── config-schema.ts  # Zod schema for config structure
-│   │       ├── state/           # Game state management
-│   │       │   ├── game-state.ts     # Central state store with refresh logic
-│   │       │   └── types.ts          # Internal state type definitions
-│   │       ├── db/              # Database layer
-│   │       │   ├── index.ts          # Drizzle instance + connection setup
-│   │       │   ├── schema.ts         # Drizzle table definitions
-│   │       │   └── migrate.ts        # Migration runner
-│   │       └── utils/           # Shared utilities
-│   │           └── logger.ts         # pino logger factory
-│   └── dashboard/               # SolidJS web app (placeholder for Phase 5)
-│       └── package.json
-└── tests/                       # (or co-located tests in each package)
-    └── ...
+│   ├── dashboard/               # SolidJS dashboard (Phase 5)
+│   └── shared/                  # TS types (reference only, will be replaced by Go types + OpenAPI in Phase 5)
+├── package.json                 # pnpm workspace root (kept for dashboard)
+├── pnpm-workspace.yaml
+└── tsconfig.base.json
 ```
 
-### Pattern 1: Typed Ogamed Client with Rate Limiting
-
-**What:** A class that wraps every ogamed REST endpoint with typed request/response, rate limiting, retry, and Zod validation. All ogamed communication goes through this single class.
-
-**When to use:** Every interaction with OGame.
-
+### Pattern 1: Ogamed REST Client with Envelope Validation
+**What:** A Go struct with methods mapping 1:1 to ogamed REST endpoints. Every call goes through envelope validation, rate limiting, and retry.
+**When to use:** All OGame API interaction.
 **Example:**
-```typescript
-// packages/bot/src/client/ogamed-client.ts
-import { ofetch } from 'ofetch';
-import { z } from 'zod';
-import { RateLimiter } from './rate-limiter.js';
-import { retryWithBackoff } from './retry.js';
-import { ogamedResponseSchema } from '@ogame-bot/shared';
+```go
+// Source: Based on existing TS ogamed-client.ts, ported to Go patterns
+// + ogamed wiki: https://github.com/alaingilbert/ogame/wiki/ogamed-full-documentation
 
-export class OgamedClient {
-  private baseUrl: string;
-  private rateLimiter: RateLimiter;
+package ogamed
 
-  constructor(baseUrl: string, rateLimiter: RateLimiter) {
-    this.baseUrl = baseUrl;
-    this.rateLimiter = rateLimiter;
-  }
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+    "time"
+    "log/slog"
+)
 
-  async login(): Promise<void> {
-    await this.get('/bot/login', z.void());
-  }
-
-  async isUnderAttack(): Promise<boolean> {
-    const res = await this.get('/bot/is-under-attack', z.boolean());
-    return res;
-  }
-
-  async getPlanets(): Promise<Planet[]> {
-    return this.get('/bot/planets', planetArraySchema);
-  }
-
-  async getResources(planetId: number): Promise<Resources> {
-    return this.get(`/bot/planets/${planetId}/resources`, resourcesSchema);
-  }
-
-  private async get<T>(path: string, resultSchema: z.ZodType<T>): Promise<T> {
-    await this.rateLimiter.acquire(path);
-    return retryWithBackoff(async () => {
-      const raw = await ofetch<{Status: string; Code: number; Message: string; Result: unknown}>(
-        `${this.baseUrl}${path}`
-      );
-      const envelope = ogamedResponseSchema(resultSchema).parse(raw);
-      if (envelope.Status !== 'ok') {
-        throw new OgamedError(envelope.Message, envelope.Code);
-      }
-      return envelope.Result as T;
-    });
-  }
+// OgamedResponse is the standard envelope for ALL ogamed REST responses.
+// Every endpoint returns: {"Status":"ok"|"error","Code":200,"Message":"","Result":...}
+type OgamedResponse[T any] struct {
+    Status  string `json:"Status"`
+    Code    int    `json:"Code"`
+    Message string `json:"Message"`
+    Result  T      `json:"Result"`
 }
-```
 
-### Pattern 2: YAML Config with Zod Validation and Env Interpolation
+// Client wraps all ogamed REST API calls with rate limiting and retry.
+type Client struct {
+    baseURL     string
+    httpClient  *http.Client
+    rateLimiter *RateLimiter
+    log         *slog.Logger
+}
 
-**What:** Load `config.yaml`, interpolate `${ENV_VAR}` references, validate against Zod schema, exit with clear error if invalid.
-
-**When to use:** Application startup.
-
-**Example:**
-```typescript
-// packages/bot/src/config/config-loader.ts
-import { readFileSync } from 'node:fs';
-import yaml from 'js-yaml';
-import { configSchema } from './config-schema.js';
-
-export function loadConfig(configPath: string): Config {
-  const raw = readFileSync(configPath, 'utf-8');
-  // Interpolate ${ENV_VAR} references
-  const interpolated = raw.replace(/\$\{(\w+)\}/g, (_, varName) => {
-    const value = process.env[varName];
-    if (value === undefined) {
-      throw new Error(`Environment variable ${varName} referenced in config but not set`);
+func NewClient(baseURL string, limiter *RateLimiter, log *slog.Logger) *Client {
+    return &Client{
+        baseURL: baseURL,
+        httpClient: &http.Client{
+            Timeout: 30 * time.Second,
+        },
+        rateLimiter: limiter,
+        log:         log.With("component", "ogamed-client"),
     }
-    return value;
-  });
-  const parsed = yaml.load(interpolated);
-  const result = configSchema.safeParse(parsed);
-  if (!result.success) {
-    console.error('Invalid configuration:');
-    for (const issue of result.error.issues) {
-      console.error(`  ${issue.path.join('.')}: ${issue.message}`);
-    }
-    process.exit(1);
-  }
-  return result.data;
-}
-```
-
-### Pattern 3: Centralized Rate Limiter with Random Jitter
-
-**What:** A rate limiter that enforces minimum delays between requests with configurable per-endpoint overrides and random jitter for anti-detection.
-
-**When to use:** Wraps every ogamed API call.
-
-**Example:**
-```typescript
-// packages/bot/src/client/rate-limiter.ts
-export interface RateLimitConfig {
-  defaultMinDelayMs: number;    // e.g., 2000
-  defaultMaxDelayMs: number;    // e.g., 5000
-  endpointOverrides?: Record<string, { minMs: number; maxMs: number }>;
 }
 
-export class RateLimiter {
-  private lastRequestTime = 0;
-  private config: RateLimitConfig;
-
-  constructor(config: RateLimitConfig) {
-    this.config = config;
-  }
-
-  async acquire(endpoint: string): Promise<void> {
-    const now = Date.now();
-    const elapsed = now - this.lastRequestTime;
-
-    const override = this.config.endpointOverrides?.[endpoint];
-    const minDelay = override?.minMs ?? this.config.defaultMinDelayMs;
-    const maxDelay = override?.maxMs ?? this.config.defaultMaxDelayMs;
-    const randomDelay = minDelay + Math.random() * (maxDelay - minDelay);
-
-    const waitTime = Math.max(0, randomDelay - elapsed);
-    if (waitTime > 0) {
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+// get performs a GET request with rate limiting, retry, and envelope validation.
+func (c *Client) get(ctx context.Context, path string) ([]byte, error) {
+    if err := c.rateLimiter.Wait(ctx, path); err != nil {
+        return nil, fmt.Errorf("rate limiter: %w", err)
     }
 
-    this.lastRequestTime = Date.now();
-  }
+    var body []byte
+    err := retryWithBackoff(ctx, func() error {
+        start := time.Now()
+        req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+        if err != nil {
+            return err
+        }
+        resp, err := c.httpClient.Do(req)
+        if err != nil {
+            return fmt.Errorf("HTTP request failed: %w", err)
+        }
+        defer resp.Body.Close()
+        body, err = io.ReadAll(resp.Body)
+        if err != nil {
+            return fmt.Errorf("reading response body: %w", err)
+        }
+        c.log.Debug("API call completed",
+            "path", path,
+            "duration_ms", time.Since(start).Milliseconds(),
+            "status", resp.StatusCode,
+        )
+        return nil
+    })
+    return body, err
+}
+
+// Login authenticates with ogamed. ogamed handles session persistence internally.
+func (c *Client) Login(ctx context.Context) error {
+    _, err := c.get(ctx, "/bot/login")
+    return err
+}
+
+// IsUnderAttack checks if the account is currently under attack.
+func (c *Client) IsUnderAttack(ctx context.Context) (bool, error) {
+    return c.getBool(ctx, "/bot/is-under-attack")
+}
+
+// GetPlanets retrieves all planets belonging to the account.
+func (c *Client) GetPlanets(ctx context.Context) ([]Planet, error) {
+    var result []Planet
+    err := c.getTyped(ctx, "/bot/planets", &result)
+    return result, err
 }
 ```
 
-### Pattern 4: Drizzle SQLite Schema for Game State
-
-**What:** Define game state tables using Drizzle ORM's `sqliteTable` builder with proper indexes for query performance.
-
-**When to use:** All persistent state storage.
-
+### Pattern 2: YAML Config with Env-Var Interpolation
+**What:** Load YAML config, interpolate `${ENV_VAR}` references from environment, validate with Go struct tags.
+**When to use:** Startup configuration loading.
 **Example:**
-```typescript
-// packages/bot/src/db/schema.ts
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+```go
+// Source: Based on existing TS config-loader.ts, ported to Go
+// + gopkg.in/yaml.v3 patterns [VERIFIED: Context7]
 
-export const planets = sqliteTable('planets', {
-  id: integer('id').primaryKey(),              // OGame planet ID
-  name: text('name').notNull(),
-  galaxy: integer('galaxy').notNull(),
-  system: integer('system').notNull(),
-  position: integer('position').notNull(),
-  diameter: integer('diameter').notNull(),
-  fieldsUsed: integer('fields_used').notNull(),
-  fieldsTotal: integer('fields_total').notNull(),
-  tempMin: integer('temp_min').notNull(),
-  tempMax: integer('temp_max').notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-});
+package config
 
-export const resources = sqliteTable('resources', {
-  planetId: integer('planet_id').primaryKey().references(() => planets.id),
-  metal: real('metal').notNull(),
-  crystal: real('crystal').notNull(),
-  deuterium: real('deuterium').notNull(),
-  energy: real('energy').notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-});
+import (
+    "fmt"
+    "os"
+    "regexp"
+    "log/slog"
 
-export const research = sqliteTable('research', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  energyTech: integer('energy_tech').default(0),
-  laserTech: integer('laser_tech').default(0),
-  combustionDrive: integer('combustion_drive').default(0),
-  // ... all research fields
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-});
+    "gopkg.in/yaml.v3"
+)
 
-export const fleets = sqliteTable('fleets', {
-  id: integer('id').primaryKey(),              // OGame fleet ID
-  mission: integer('mission').notNull(),        // Mission type ID
-  returnFlight: integer('return_flight', { mode: 'boolean' }).notNull(),
-  originGalaxy: integer('origin_galaxy').notNull(),
-  originSystem: integer('origin_system').notNull(),
-  originPosition: integer('origin_position').notNull(),
-  destGalaxy: integer('dest_galaxy').notNull(),
-  destSystem: integer('dest_system').notNull(),
-  destPosition: integer('dest_position').notNull(),
-  arriveIn: integer('arrive_in').notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-});
-```
-
-### Pattern 5: Database Initialization and Migration
-
-**What:** Connect to SQLite file, run pending migrations on startup.
-
-**When to use:** Application startup, before any other initialization.
-
-**Example:**
-```typescript
-// packages/bot/src/db/index.ts
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import * as schema from './schema.js';
-
-export function initDatabase(dbPath: string) {
-  const sqlite = new Database(dbPath);
-  // Enable WAL mode for better concurrent read performance
-  sqlite.pragma('journal_mode = WAL');
-  const db = drizzle(sqlite, { schema });
-  return { db, sqlite };
+// Config is the top-level bot configuration.
+// Validated at startup — invalid config = clear error + exit.
+type Config struct {
+    Account  AccountConfig  `yaml:"account"`
+    Ogamed   OgamedConfig   `yaml:"ogamed"`
+    Features FeaturesConfig `yaml:"features"`
+    RateLimit RateLimitConfig `yaml:"rateLimit"`
+    LogLevel string         `yaml:"logLevel"`
 }
 
-export function runMigrations(dbPath: string, migrationsFolder: string) {
-  const sqlite = new Database(dbPath);
-  const db = drizzle(sqlite);
-  migrate(db, { migrationsFolder });
-  sqlite.close();
+type AccountConfig struct {
+    Universe string `yaml:"universe"`
+    Username string `yaml:"username"`
+    Password string `yaml:"password"` // Will contain ${OGAME_PASSWORD}, interpolated at load
+}
+
+type OgamedConfig struct {
+    URL string `yaml:"url"`
+}
+
+type FeaturesConfig struct {
+    Defender  FeatureConfig `yaml:"defender"`
+    AutoBuild FeatureConfig `yaml:"autoBuild"`
+    AutoFarm  FeatureConfig `yaml:"autoFarm"`
+}
+
+type FeatureConfig struct {
+    Enabled        bool `yaml:"enabled"`
+    PollIntervalMs int  `yaml:"pollIntervalMs"`
+}
+
+type RateLimitConfig struct {
+    DefaultMinDelayMs int                              `yaml:"defaultMinDelayMs"`
+    DefaultMaxDelayMs int                              `yaml:"defaultMaxDelayMs"`
+    EndpointOverrides map[string]EndpointDelayConfig   `yaml:"endpointOverrides"`
+}
+
+type EndpointDelayConfig struct {
+    MinMs int `yaml:"minMs"`
+    MaxMs int `yaml:"maxMs"`
+}
+
+var envVarPattern = regexp.MustCompile(`\$\{(\w+)\}`)
+
+func Load(path string, log *slog.Logger) (*Config, error) {
+    raw, err := os.ReadFile(path)
+    if err != nil {
+        return nil, fmt.Errorf("reading config file: %w", err)
+    }
+
+    // Interpolate ${ENV_VAR} references from environment
+    interpolated := envVarPattern.ReplaceAllStringFunc(string(raw), func(match string) string {
+        varName := envVarPattern.FindStringSubmatch(match)[1]
+        value, ok := os.LookupEnv(varName)
+        if !ok {
+            log.Error("Environment variable referenced in config but not set", "var", varName)
+            os.Exit(1)
+        }
+        return value
+    })
+
+    var cfg Config
+    if err := yaml.Unmarshal([]byte(interpolated), &cfg); err != nil {
+        return nil, fmt.Errorf("parsing YAML config: %w", err)
+    }
+
+    // Manual validation (struct tags don't cover cross-field validation)
+    if err := cfg.Validate(); err != nil {
+        return nil, fmt.Errorf("invalid config: %w", err)
+    }
+
+    return &cfg, nil
+}
+
+func (c *Config) Validate() error {
+    if c.Account.Universe == "" {
+        return fmt.Errorf("account.universe is required")
+    }
+    if c.Account.Username == "" {
+        return fmt.Errorf("account.username is required")
+    }
+    if c.Account.Password == "" {
+        return fmt.Errorf("account.password is required")
+    }
+    if c.Ogamed.URL == "" {
+        return fmt.Errorf("ogamed.url is required")
+    }
+    if c.RateLimit.DefaultMinDelayMs < 500 {
+        return fmt.Errorf("rateLimit.defaultMinDelayMs must be >= 500ms")
+    }
+    return nil
+}
+```
+
+### Pattern 3: Shared Rate Limiter with Random Delay
+**What:** A goroutine-safe rate limiter that enforces random delay intervals between ogamed API calls.
+**When to use:** All ogamed API calls — this is the single chokepoint.
+**Example:**
+```go
+// Source: Based on existing TS rate-limiter.ts, ported to Go
+
+package ogamed
+
+import (
+    "context"
+    "math/rand"
+    "sync"
+    "time"
+)
+
+type RateLimiter struct {
+    mu         sync.Mutex
+    lastCall   time.Time
+    config     RateLimitConfig
+}
+
+func NewRateLimiter(cfg RateLimitConfig) *RateLimiter {
+    return &RateLimiter{config: cfg}
+}
+
+// Wait blocks until the minimum delay since the last API call has elapsed.
+// The delay includes random jitter for anti-detection.
+func (r *RateLimiter) Wait(ctx context.Context, endpoint string) error {
+    r.mu.Lock()
+
+    override, hasOverride := r.config.EndpointOverrides[endpoint]
+    minDelay := r.config.DefaultMinDelayMs
+    maxDelay := r.config.DefaultMaxDelayMs
+    if hasOverride {
+        minDelay = override.MinMs
+        maxDelay = override.MaxMs
+    }
+
+    // Random delay within [minDelay, maxDelay]
+    jitteredDelay := time.Duration(minDelay+rand.Intn(maxDelay-minDelay)) * time.Millisecond
+    elapsed := time.Since(r.lastCall)
+    waitTime := jitteredDelay - elapsed
+
+    r.mu.Unlock()
+
+    if waitTime > 0 {
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        case <-time.After(waitTime):
+        }
+    }
+
+    r.mu.Lock()
+    r.lastCall = time.Now()
+    r.mu.Unlock()
+    return nil
+}
+```
+
+### Pattern 4: SQLite State with Embedded Migrations
+**What:** Open SQLite database, run embedded migrations on startup, provide query helpers for game state.
+**When to use:** All persistent state access.
+**Example:**
+```go
+// Source: modernc.org/sqlite patterns [VERIFIED: Context7]
+// + golang-migrate/migrate patterns [VERIFIED: Context7]
+
+package state
+
+import (
+    "database/sql"
+    "embed"
+    "fmt"
+    "log/slog"
+
+    _ "modernc.org/sqlite"
+    "github.com/golang-migrate/migrate/v4"
+    "github.com/golang-migrate/migrate/v4/source/iofs"
+    "github.com/golang-migrate/migrate/v4/database/sqlite3"
+)
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
+
+func OpenDB(dbPath string, log *slog.Logger) (*sql.DB, error) {
+    // Open with WAL mode for better concurrent read performance
+    dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)", dbPath)
+    db, err := sql.Open("sqlite", dsn)
+    if err != nil {
+        return nil, fmt.Errorf("opening database: %w", err)
+    }
+
+    // Connection pool settings for single-user SQLite
+    db.SetMaxOpenConns(1) // SQLite only allows one writer at a time
+    db.SetMaxIdleConns(1)
+
+    if err := db.Ping(); err != nil {
+        return nil, fmt.Errorf("pinging database: %w", err)
+    }
+
+    // Run migrations
+    if err := runMigrations(db, log); err != nil {
+        return nil, fmt.Errorf("running migrations: %w", err)
+    }
+
+    return db, nil
+}
+
+func runMigrations(db *sql.DB, log *slog.Logger) error {
+    sourceDriver, err := iofs.New(migrationsFS, "migrations")
+    if err != nil {
+        return fmt.Errorf("creating migration source: %w", err)
+    }
+
+    dbDriver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+    if err != nil {
+        return fmt.Errorf("creating migration db driver: %w", err)
+    }
+
+    m, err := migrate.NewWithInstance("iofs", sourceDriver, "sqlite3", dbDriver)
+    if err != nil {
+        return fmt.Errorf("creating migrator: %w", err)
+    }
+    defer m.Close()
+
+    if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+        return fmt.Errorf("applying migrations: %w", err)
+    }
+
+    log.Info("Database migrations applied")
+    return nil
 }
 ```
 
 ### Anti-Patterns to Avoid
-- **Direct ogamed calls outside the client:** All game interaction must go through OgamedClient. Workers/services should never call `ofetch` directly against ogamed. [CITED: ARCHITECTURE.md anti-pattern 1]
-- **Fixed-interval polling:** Never use exact intervals (e.g., `setInterval(fn, 30000)`). Always add ±20-40% random jitter. OGame detects regular patterns. [CITED: PITFALLS.md pitfall 7]
-- **Skipping Zod validation on responses:** ogamed responses can be corrupted by game updates. Every response must be validated. [CITED: PITFALLS.md pitfall 2]
-- **Storing credentials in config.yaml:** Password goes in `.env`, referenced as `${OGAME_PASSWORD}` in config. [CITED: CONTEXT.md D-07]
+- **Multiple HTTP clients to ogamed:** All API calls MUST go through a single `Client` instance with a shared `RateLimiter`. Multiple clients = uncoordinated requests = rate limit violations. [CITED: PITFALLS.md Pitfall 6]
+- **Polling ogamed directly from feature workers:** Workers read from cached state, not from ogamed. Only the `StateManager` refreshes from ogamed. [CITED: ARCHITECTURE.md Anti-Pattern 1]
+- **CGo dependencies:** Use `modernc.org/sqlite` only. Any CGo dependency (mattn/go-sqlite3, sqlite3.h) breaks cross-compilation and inflates the Docker image. [VERIFIED: Context7 modernc docs]
+- **Ignoring context cancellation:** Every HTTP call and long-running operation must accept `context.Context` for graceful shutdown. [ASSUMED] Go best practice.
+- **Global mutable state:** Use dependency injection (pass structs to constructors) rather than package-level variables. Makes testing straightforward.
 
 ## Don't Hand-Roll
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| YAML parsing | Custom YAML parser | `js-yaml` | Handles edge cases, anchors, multi-doc |
-| Schema validation | Manual if/else checks | `zod` | Type inference, nested objects, error messages |
-| SQL query building | String concatenation | `drizzle-orm` | SQL injection prevention, type safety, migrations |
-| HTTP requests | Raw `fetch` with manual error handling | `ofetch` with retry wrapper | Auto JSON, better error messages, timeout support |
-| Logging | `console.log` | `pino` | Structured JSON, log levels, child loggers, performance |
-| Database migrations | Manual SQL files | `drizzle-kit generate` | Auto-generates from schema diffs, versioned, rollback-safe |
-| Environment variables | Manual `process.env` parsing | `dotenv` | `.env` file loading, standard across Node.js projects |
-| Retry logic | Simple `for` loop with `setTimeout` | Exponential backoff helper | Handles transient failures, configurable attempts, jitter on retry delay |
+| SQLite driver | C bindings / custom driver | `modernc.org/sqlite` via `database/sql` | Pure Go, no CGo, drop-in for `database/sql` interface |
+| Database migrations | Custom version tracker | `golang-migrate/migrate` with `embed.FS` | Handles versioning, checksums, up/down. Embedded in binary. |
+| YAML parsing | Custom YAML parser | `gopkg.in/yaml.v3` | De-facto standard, struct tag support, well-tested |
+| Structured logging | Custom log formatter | `log/slog` (stdlib) | JSON handler built-in, level filtering, child loggers |
+| HTTP client | Custom HTTP wrapper around raw TCP | `net/http` (stdlib) | Production-grade, context support, connection pooling |
+| Retry logic | Custom loop without backoff | Port existing TS `retryWithBackoff` pattern | Exponential backoff + jitter is deceptively complex to get right |
+| Rate limiting | `time.Sleep(fixed)` in each caller | Shared `RateLimiter` struct | Centralized delay tracking, per-endpoint config, thread-safe |
 
-**Key insight:** The ogamed API wrapper is the one thing we DO build custom (no library exists for it), but every supporting utility (YAML, validation, SQL, HTTP, logging) has a battle-tested library.
+**Key insight:** Go's standard library is extremely capable. The bot needs only 3 external packages (sqlite, yaml, migrate). Every other problem is solvable with stdlib.
 
 ## Common Pitfalls
 
-### Pitfall 1: ogamed Response Format Not Validated
-**What goes wrong:** OGame updates break ogamed's HTML scrapers. Responses return zeros, empty arrays, or malformed JSON. Bot silently processes garbage data.
-**Why it happens:** ogamed works by scraping OGame's HTML. When Gameforge changes page structure, parsers break silently.
-**How to avoid:** Every ogamed response validated with Zod. Invalid response → log warning + skip update + don't overwrite cached state.
-**Warning signs:** Resource counts all zero, planet count changes unexpectedly, timestamps showing year 0001.
-[VERIFIED: PITFALLS.md pitfall 2, ogamed issues #148, #150]
+### Pitfall 1: SQLite Concurrent Access Pattern
+**What goes wrong:** Opening multiple write connections or not setting `MaxOpenConns(1)` causes "database is locked" errors.
+**Why it happens:** SQLite only supports one writer at a time. Go's `database/sql` pool opens multiple connections by default.
+**How to avoid:** Set `db.SetMaxOpenConns(1)` and use WAL mode (`_pragma=journal_mode(WAL)`). This is standard for single-user Go+SQLite apps. [VERIFIED: Context7 modernc docs]
+**Warning signs:** "database is locked" errors under load; writes timing out.
 
-### Pitfall 2: Rate Limiter Not Shared Across Workers
-**What goes wrong:** Multiple workers each implement their own delays, leading to request spikes when their intervals align.
-**Why it happens:** Workers developed independently without a shared throttle.
-**How to avoid:** Single `RateLimiter` instance injected into `OgamedClient`. All calls go through one choke point.
-**Warning signs:** ogamed returning errors after heavy activity, request bursts in logs.
-[VERIFIED: PITFALLS.md pitfall 6]
+### Pitfall 2: ogamed JSON Field Name Mismatch
+**What goes wrong:** ogamed returns PascalCase JSON fields (`"MetalMine"`, `"PlayerID"`, `"ReturnFlight"`), but Go convention is to use snake_case struct tags.
+**Why it happens:** ogamed is a Go project that serializes its Go structs directly (PascalCase). Your Go structs must explicitly tag `json:"MetalMine"` not `json:"metal_mine"`.
+**How to avoid:** Always match ogamed's exact JSON field names. Reference the wiki examples: `{"Status":"ok","Code":200,"Message":"","Result":{...}}`. [VERIFIED: ogamed wiki full documentation]
+**Warning signs:** All struct fields deserializing as zero values; no errors but wrong data.
 
-### Pitfall 3: Session Loss on ogamed Restart
-**What goes wrong:** ogamed restarts (crash, update, Docker restart) and the bot doesn't reconnect. All subsequent calls fail.
-**Why it happens:** Bot assumes ogamed is always available. No health checks or reconnection logic.
-**How to avoid:** Health check loop (`GET /bot/server/time` as heartbeat). On connection failure, retry with exponential backoff. Set `OGAMED_AUTO_LOGIN=true` so ogamed auto-reconnects to OGame.
-**Warning signs:** All API calls failing with connection refused, bot process running but producing no actions.
-[VERIFIED: ogamed README - OGAMED_AUTO_LOGIN env var]
+### Pitfall 3: Forgetting ogamed Login Before API Calls
+**What goes wrong:** All API calls return errors because ogamed hasn't logged in yet.
+**Why it happens:** ogamed requires `GET /bot/login` before any game API calls. It auto-logins if `OGAMED_AUTO_LOGIN=true` (set in Docker env), but the bot should still call login explicitly to verify connectivity.
+**How to avoid:** Always call `client.Login(ctx)` as the first operation after startup. Verify login succeeded. If ogamed restarts, the bot must re-login. [VERIFIED: ogamed wiki + Dockerfile OGAMED_AUTO_LOGIN env var]
+**Warning signs:** 401/403 responses from ogamed; `Status: "error"` in responses.
 
-### Pitfall 4: SQLite File Not Persisted in Docker
-**What goes wrong:** Docker container restarts and all game state is lost. Database starts empty every time.
-**Why it happens:** SQLite file inside container is ephemeral unless mounted as a volume.
-**How to avoid:** Mount `data/` directory as a Docker volume: `volumes: - ./data:/app/data`. Ensure the path in code points to the mounted location.
-**Warning signs:** Game state resets on `docker compose restart`.
-[ASSUMED — standard Docker behavior]
+### Pitfall 4: Not Using Context for Graceful Shutdown
+**What goes wrong:** Bot process hangs on shutdown because a goroutine is blocked on an HTTP call with no context cancellation.
+**Why it happens:** Using `context.Background()` instead of a cancellable context, or passing `nil` context to HTTP requests.
+**How to avoid:** Create a root context with `context.WithCancel(context.Background())`. Cancel it on SIGINT/SIGTERM. Pass this context to ALL HTTP calls and long-running operations. [ASSUMED] Go best practice.
+**Warning signs:** `docker compose down` takes 30+ seconds (default timeout); hanging goroutines on restart.
 
-### Pitfall 5: Zod Schema Doesn't Match Actual ogamed Responses
-**What goes wrong:** Zod schemas written from documentation don't match actual runtime responses (missing fields, different types, unexpected null values). Every response validation fails.
-**Why it happens:** The ogamed wiki docs show simplified examples. Real responses may have additional fields or edge cases (null vs 0, missing vs empty array).
-**How to avoid:** During development, capture actual ogamed responses and write schemas against real data. Use `.passthrough()` initially to allow unknown fields, then tighten. Use `.default()` for fields that may be missing.
-**Warning signs:** All Zod validations failing at runtime with "unexpected keys" or "required field missing" errors.
+### Pitfall 5: ogamed Response Validation Blind Spots
+**What goes wrong:** OGame game updates change API response structure, ogamed breaks silently, bot stores garbage data in SQLite.
+**Why it happens:** ogamed scrapes HTML — when Gameforge changes page structure, extractors break (ogamed issues #148, #150). Bot has no way to know the data is wrong.
+**How to avoid:** Validate critical fields in responses. If `Resources.Metal` is negative, `Planet.ID` is 0, or timestamps parse to year 0001 — treat as API broken, log error, don't update state. [CITED: PITFALLS.md Pitfall 2]
+**Warning signs:** Zero values in cached state; timestamps with year 0001; sudden planet count changes.
 
-### Pitfall 6: pnpm Workspace Dependencies Not Resolved
-**What goes wrong:** `packages/bot` can't import from `@ogame-bot/shared`. TypeScript compilation fails or runtime module not found.
-**Why it happens:** Workspace protocol not configured correctly, or `package.json` `name` field doesn't match imports.
-**How to avoid:** Use `"@ogame-bot/shared": "workspace:*"` in bot's dependencies. Ensure `packages/shared/package.json` has `"name": "@ogame-bot/shared"`. Run `pnpm install` after adding workspace references.
-**Warning signs:** `ERR_MODULE_NOT_FOUND` at runtime, or TypeScript can't resolve module.
+### Pitfall 6: Docker Networking Misconfiguration
+**What goes wrong:** Bot container can't reach ogamed at `http://ogamed:8080`.
+**Why it happens:** Docker Compose services must be on the same network. Using `localhost` instead of the service name. ogamed binding to `127.0.0.1` instead of `0.0.0.0`.
+**How to avoid:** Use Docker Compose default network. ogamed Dockerfile already sets `OGAMED_HOST=0.0.0.0`. Bot config should reference `http://ogamed:8080` (Docker service name). [VERIFIED: ogamed Dockerfile]
+**Warning signs:** Connection refused errors; bot logs show "dial tcp 127.0.0.1:8080: connect: connection refused".
 
 ## Code Examples
 
-### ogamed REST API Response Envelope
-```typescript
-// Source: https://github.com/alaingilbert/ogame/wiki/ogamed-full-documentation
-// All responses follow this format:
-{
-  "Status": "ok",        // "ok" or "error"
-  "Code": 200,           // HTTP status code
-  "Message": "",         // Error message if Status != "ok"
-  "Result": <T>          // Typed response data
+### Main Entrypoint
+```go
+// cmd/bot/main.go
+// Source: Standard Go CLI pattern + project-specific initialization
+
+package main
+
+import (
+    "context"
+    "fmt"
+    "log/slog"
+    "os"
+    "os/signal"
+    "path/filepath"
+    "syscall"
+
+    "github.com/user/ogame-bot/internal/config"
+    "github.com/user/ogame-bot/internal/ogamed"
+    "github.com/user/ogame-bot/internal/state"
+)
+
+func main() {
+    // 1. Load config
+    log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+    cfg, err := config.Load("config.yaml", log)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
+        os.Exit(1)
+    }
+
+    // 2. Setup structured logging based on config
+    level := parseLogLevel(cfg.LogLevel)
+    log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+
+    // 3. Open SQLite database
+    dbPath := filepath.Join("data", "bot.db")
+    if err := os.MkdirAll("data", 0755); err != nil {
+        log.Error("Failed to create data directory", "error", err)
+        os.Exit(1)
+    }
+    db, err := state.OpenDB(dbPath, log)
+    if err != nil {
+        log.Error("Failed to open database", "error", err)
+        os.Exit(1)
+    }
+    defer db.Close()
+
+    // 4. Create ogamed client with rate limiter
+    rateLimiter := ogamed.NewRateLimiter(cfg.RateLimit)
+    client := ogamed.NewClient(cfg.Ogamed.URL, rateLimiter, log)
+
+    // 5. Login to ogamed
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    if err := client.Login(ctx); err != nil {
+        log.Error("Failed to login to ogamed", "error", err)
+        os.Exit(1)
+    }
+
+    // 6. Start game state manager
+    stateMgr := state.NewManager(db, client, log)
+    go stateMgr.Run(ctx)
+
+    // 7. Wait for shutdown signal
+    sigChan := make(chan os.Signal, 1)
+    signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+    <-sigChan
+    log.Info("Shutting down gracefully...")
+    cancel()
 }
-
-// Zod schema for the envelope:
-import { z } from 'zod';
-
-export const ogamedResponseSchema = <T extends z.ZodTypeAny>(resultSchema: T) =>
-  z.object({
-    Status: z.enum(['ok', 'error']),
-    Code: z.number(),
-    Message: z.string(),
-    Result: resultSchema,
-  });
 ```
 
-### Key ogamed Endpoints for Phase 1
-```typescript
-// Source: https://github.com/alaingilbert/ogame/wiki/ogamed-full-documentation [VERIFIED]
+### Multi-Stage Dockerfile for Go Bot
+```dockerfile
+# Build stage
+FROM golang:1.26-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /bot ./cmd/bot
 
-// Authentication
-'GET  /bot/login'                              // → null
-'GET  /bot/logout'                             // → null
-'GET  /bot/server/time'                        // → ISO datetime string (health check)
-'GET  /bot/is-under-attack'                    // → boolean
-'GET  /bot/user-infos'                         // → {PlayerID, PlayerName, Points, Rank, ...}
+# Runtime stage
+FROM alpine:3.21
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /bot /app/bot
+COPY config.example.yaml /app/config.example.yaml
 
-// Game State (INFRA-02)
-'GET  /bot/planets'                            // → Planet[]
-'GET  /bot/planets/:planetID/resources'         // → {Metal, Crystal, Deuterium, Energy, Darkmatter}
-'GET  /bot/planets/:planetID/resources-buildings' // → {MetalMine, CrystalMine, ...}
-'GET  /bot/planets/:planetID/facilities'        // → {RoboticsFactory, Shipyard, ...}
-'GET  /bot/planets/:planetID/ships'             // → {LightFighter, HeavyFighter, ...}
-'GET  /bot/planets/:planetID/defence'           // → {RocketLauncher, ...}
-'GET  /bot/get-research'                        // → {EnergyTechnology, LaserTechnology, ...}
-'GET  /bot/fleets'                              // → Fleet[]
-'GET  /bot/server/speed'                        // → number (universe speed)
-'GET  /bot/server/version'                      // → string (OGame version)
+WORKDIR /app
+EXPOSE 0
+CMD ["./bot"]
 ```
 
-### Docker Compose Configuration
+### Docker Compose
 ```yaml
-# Source: ogamed docker-compose.yml + Dockerfile [VERIFIED: GitHub]
 # docker-compose.yml
-version: '3.8'
 services:
   ogamed:
-    image: alaingilbert/ogamed:latest  # or build from source
-    container_name: ogame-ogamed
+    build: https://github.com/alaingilbert/ogame.git
     environment:
-      - OGAMED_UNIVERSE=${OGAMED_UNIVERSE}
-      - OGAMED_USERNAME=${OGAMED_USERNAME}
-      - OGAMED_PASSWORD=${OGAMED_PASSWORD}
-      - OGAMED_LANGUAGE=${OGAMED_LANGUAGE}
-      - OGAMED_HOST=0.0.0.0
-      - OGAMED_PORT=8080
-      - OGAMED_AUTO_LOGIN=true
-      - OGAMED_PROXY=${OGAMED_PROXY:-}
-      - OGAMED_PROXY_USERNAME=${OGAMED_PROXY_USERNAME:-}
-      - OGAMED_PROXY_PASSWORD=${OGAMED_PROXY_PASSWORD:-}
-      - OGAMED_PROXY_TYPE=${OGAMED_PROXY_TYPE:-socks5}
-      - OGAMED_PROXY_LOGIN_ONLY=${OGAMED_PROXY_LOGIN_ONLY:-false}
-      - CORS_ENABLED=true
+      OGAMED_UNIVERSE: ${OGAMED_UNIVERSE}
+      OGAMED_USERNAME: ${OGAMED_USERNAME}
+      OGAMED_PASSWORD: ${OGAMED_PASSWORD}
+      OGAMED_LANGUAGE: ${OGAMED_LANGUAGE:-en}
+      OGAMED_HOST: "0.0.0.0"
+      OGAMED_PORT: "8080"
+      OGAMED_AUTO_LOGIN: "true"
+      OGAMED_PROXY: ${OGAMED_PROXY:-}
+      OGAMED_PROXY_TYPE: ${OGAMED_PROXY_TYPE:-socks5}
     ports:
-      - "127.0.0.1:8080:8080"  # Bind to localhost only for security
-    restart: unless-stopped
+      - "8080:8080"  # Expose for debugging; remove in production
 
   bot:
-    build:
-      context: ./packages/bot
-      dockerfile: Dockerfile
-    container_name: ogame-bot
+    build: .
     depends_on:
       - ogamed
-    environment:
-      - OGAME_OGAMED_URL=http://ogamed:8080
-      - OGAME_PASSWORD=${OGAME_PASSWORD}
+    env_file: .env
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./data:/app/data
-    restart: unless-stopped
+    environment:
+      OGAME_PASSWORD: ${OGAME_PASSWORD}
 ```
 
-### Bot Dockerfile
-```dockerfile
-# packages/bot/Dockerfile
-FROM node:22-slim
+### Initial Migration
+```sql
+-- migrations/001_init.sql
+-- Source: Based on ogamed API response structures [VERIFIED: ogamed wiki]
 
-WORKDIR /app
+CREATE TABLE IF NOT EXISTS planets (
+    id              INTEGER PRIMARY KEY,
+    name            TEXT NOT NULL,
+    galaxy          INTEGER NOT NULL,
+    system          INTEGER NOT NULL,
+    position        INTEGER NOT NULL,
+    is_moon         BOOLEAN NOT NULL DEFAULT FALSE,
+    diameter        INTEGER NOT NULL DEFAULT 0,
+    fields_used     INTEGER NOT NULL DEFAULT 0,
+    fields_total    INTEGER NOT NULL DEFAULT 0,
+    temperature_min INTEGER NOT NULL DEFAULT 0,
+    temperature_max INTEGER NOT NULL DEFAULT 0,
+    updated_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+);
 
-# Copy workspace root files
-COPY ../../package.json ../../pnpm-workspace.yaml ../../pnpm-lock.yaml ./
-COPY ../../packages/shared/package.json ./packages/shared/
-COPY ../../packages/bot/package.json ./packages/bot/
+CREATE TABLE IF NOT EXISTS resources (
+    planet_id   INTEGER PRIMARY KEY REFERENCES planets(id),
+    metal       INTEGER NOT NULL DEFAULT 0,
+    crystal     INTEGER NOT NULL DEFAULT 0,
+    deuterium   INTEGER NOT NULL DEFAULT 0,
+    energy      INTEGER NOT NULL DEFAULT 0,
+    updated_at  DATETIME NOT NULL DEFAULT (datetime('now'))
+);
 
-# Install dependencies
-RUN corepack enable && pnpm install --frozen-lockfile --prod
+CREATE TABLE IF NOT EXISTS buildings (
+    planet_id               INTEGER PRIMARY KEY REFERENCES planets(id),
+    metal_mine              INTEGER NOT NULL DEFAULT 0,
+    crystal_mine            INTEGER NOT NULL DEFAULT 0,
+    deuterium_synthesizer   INTEGER NOT NULL DEFAULT 0,
+    solar_plant             INTEGER NOT NULL DEFAULT 0,
+    fusion_reactor          INTEGER NOT NULL DEFAULT 0,
+    metal_storage           INTEGER NOT NULL DEFAULT 0,
+    crystal_storage         INTEGER NOT NULL DEFAULT 0,
+    deuterium_tank          INTEGER NOT NULL DEFAULT 0,
+    updated_at              DATETIME NOT NULL DEFAULT (datetime('now'))
+);
 
-# Copy source
-COPY ../../packages/shared/ ./packages/shared/
-COPY ../../packages/bot/ ./packages/bot/
+CREATE TABLE IF NOT EXISTS facilities (
+    planet_id           INTEGER PRIMARY KEY REFERENCES planets(id),
+    robotics_factory    INTEGER NOT NULL DEFAULT 0,
+    shipyard            INTEGER NOT NULL DEFAULT 0,
+    research_lab        INTEGER NOT NULL DEFAULT 0,
+    nanite_factory      INTEGER NOT NULL DEFAULT 0,
+    terraformer         INTEGER NOT NULL DEFAULT 0,
+    updated_at          DATETIME NOT NULL DEFAULT (datetime('now'))
+);
 
-# Build
-RUN pnpm --filter shared build && pnpm --filter bot build
+CREATE TABLE IF NOT EXISTS research (
+    id                          INTEGER PRIMARY KEY CHECK (id = 1),  -- Singleton row
+    energy_technology           INTEGER NOT NULL DEFAULT 0,
+    laser_technology            INTEGER NOT NULL DEFAULT 0,
+    ion_technology              INTEGER NOT NULL DEFAULT 0,
+    plasma_technology           INTEGER NOT NULL DEFAULT 0,
+    combustion_drive            INTEGER NOT NULL DEFAULT 0,
+    impulse_drive               INTEGER NOT NULL DEFAULT 0,
+    hyperspace_drive            INTEGER NOT NULL DEFAULT 0,
+    espionage_technology        INTEGER NOT NULL DEFAULT 0,
+    computer_technology         INTEGER NOT NULL DEFAULT 0,
+    astrophysics                INTEGER NOT NULL DEFAULT 0,
+    intergalactic_research_net  INTEGER NOT NULL DEFAULT 0,
+    weapons_technology          INTEGER NOT NULL DEFAULT 0,
+    shielding_technology        INTEGER NOT NULL DEFAULT 0,
+    armour_technology           INTEGER NOT NULL DEFAULT 0,
+    updated_at                  DATETIME NOT NULL DEFAULT (datetime('now'))
+);
 
-WORKDIR /app/packages/bot
-CMD ["node", "dist/main.js"]
-```
-
-### pnpm Workspace Configuration
-```yaml
-# pnpm-workspace.yaml
-packages:
-  - 'packages/*'
-```
-
-```json
-// tsconfig.base.json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "dist"
-  }
-}
-```
-
-### pino Logger Setup
-```typescript
-// packages/bot/src/utils/logger.ts
-import pino from 'pino';
-
-export function createLogger(name: string, level: string = 'info') {
-  return pino({
-    name,
-    level,
-    transport: level === 'debug' ? {
-      target: 'pino-pretty',
-      options: { colorize: true }
-    } : undefined,
-  });
-}
-
-// Usage in other modules:
-// const log = createLogger('ogamed-client', config.logLevel);
-// log.info({ planetId: 123 }, 'Fetching resources');
-// log.debug({ duration: 234 }, 'API call completed');
+CREATE TABLE IF NOT EXISTS fleets (
+    id              INTEGER PRIMARY KEY,
+    mission         INTEGER NOT NULL,
+    return_flight   BOOLEAN NOT NULL DEFAULT FALSE,
+    origin_galaxy   INTEGER NOT NULL,
+    origin_system   INTEGER NOT NULL,
+    origin_position INTEGER NOT NULL,
+    dest_galaxy     INTEGER NOT NULL,
+    dest_system     INTEGER NOT NULL,
+    dest_position   INTEGER NOT NULL,
+    metal           INTEGER NOT NULL DEFAULT 0,
+    crystal         INTEGER NOT NULL DEFAULT 0,
+    deuterium       INTEGER NOT NULL DEFAULT 0,
+    arrival_time    INTEGER NOT NULL DEFAULT 0,
+    updated_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+);
 ```
 
 ## State of the Art
 
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
-| Prisma for SQLite | Drizzle ORM | 2024-2025 | Drizzle has no engine binary, 7KB vs 100MB+, native better-sqlite3 driver |
-| CommonJS modules | ESM (Node16 module resolution) | Node.js 16+ | `"type": "module"` in package.json, `.js` extensions in imports |
-| Zod 3.x | Zod 4.x | 2025 | Smaller bundle, improved API, but Zod 3 still widely used |
-| axios for HTTP | ofetch (native fetch wrapper) | 2023+ | Lighter, auto JSON parse, native fetch under the hood |
-| Winston for logging | pino | 2022+ | 5x+ faster, structured JSON by default |
-| Node.js 18 LTS | Node.js 22 LTS | Oct 2024 | Better ESM support, faster runtime |
-| TypeScript 5.x | TypeScript 6.0 | 2025 | Stricter checks, better inference |
+| CGo SQLite (`mattn/go-sqlite3`) | Pure Go SQLite (`modernc.org/sqlite`) | ~2022+ mature | No C toolchain needed, simpler Docker builds, cross-compilation works |
+| Third-party loggers required | `log/slog` in stdlib | Go 1.21 (2023) | No external dependency for structured logging |
+| Manual migration SQL execution | `golang-migrate/migrate` with `embed.FS` | Ongoing | Single-binary deployment with embedded migrations |
+| TypeScript bot engine | Go bot engine | 2026-04-26 pivot | Shares language with ogamed, goroutines for concurrency, single binary |
 
 **Deprecated/outdated:**
-- **Express:** Legacy API design, poor TypeScript support. Use Fastify instead.
-- **Winston:** Synchronous formatting on hot path. Use pino instead.
-- **axios:** Inconsistent `response.data` API. Use ofetch instead.
-- **Prisma for SQLite:** Heavy engine binary, slow cold starts. Use Drizzle instead.
+- `mattn/go-sqlite3`: Still maintained but requires CGo. Use `modernc.org/sqlite` for pure Go. [VERIFIED: Context7]
+- Go `log` package: Replaced by `log/slog` for structured logging in Go 1.21+. [VERIFIED: Go stdlib]
 
 ## Assumptions Log
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | ogamed Docker image available on Docker Hub as `alaingilbert/ogamed` | Docker Compose | Need to build from source Dockerfile instead; adds build time but not blocking |
-| A2 | ogamed v53.0.0 is compatible with current OGame servers | Standard Stack | If OGame updated and v53 broken, need to pin to working version or wait for update |
-| A3 | `OGAMED_AUTO_LOGIN=true` makes ogamed auto-login and maintain session across restarts | Docker Compose | If not, need additional reconnection logic in bot client |
-| A4 | Zod 4.x API is compatible with the schema patterns described (4.x is latest on npm) | Standard Stack | If Zod 4 has breaking changes from 3.x patterns, schemas need adjustment — but 4.x is production-stable |
+| A1 | `docker compose` (v2, as Go plugin) is available and works — verified: Docker Compose v5.1.3 on host | Environment Availability | LOW — verified on host |
+| A2 | ogamed Docker image can be built from GitHub repo directly in Docker Compose `build` directive | Docker | MEDIUM — may need to use a pre-built image or local Dockerfile |
+| A3 | `modernc.org/sqlite` supports WAL mode via pragma in DSN | Standard Stack | LOW — verified via Context7 docs showing pragma support |
+| A4 | `golang-migrate/migrate` has a SQLite3 database driver compatible with `modernc.org/sqlite` | Standard Stack | MEDIUM — needs verification at implementation time; the `sqlite3` driver in migrate may expect the CGo driver |
+| A5 | Go 1.26 is compatible with all listed dependencies | Standard Stack | LOW — all libraries support Go 1.22+ per their go.mod |
 
-## Open Questions (RESOLVED)
+**Key assumption requiring validation:** A4 — `golang-migrate/migrate`'s `sqlite3` database driver uses `github.com/mattn/go-sqlite3` under the hood. Since we use `modernc.org/sqlite` (pure Go), we may need to use the migrate library differently — either: (a) pass the `*sql.DB` instance directly via `sqlite3.WithInstance()` which should work with any `database/sql` driver, or (b) use an alternative migration approach if the driver type is checked. The `WithInstance` approach should work since both register as `database/sql` drivers, but this needs testing. [ASSUMED]
 
-1. **ogamed Docker image availability** — RESOLVED: Use pre-built image `alaingilbert/ogamed:latest` from Docker Hub (confirmed available). Fallback: build from source via Dockerfile in the repo. Plan 01-03 uses the pre-built image.
+## Open Questions
 
-2. **ogamed response schema completeness** — RESOLVED: Start Zod schemas permissive with `.passthrough()` and `.default(0)` for numeric fields that may be missing. Tighten schemas after capturing real ogamed responses during development. Plan 01-01 Task 2 implements this pattern.
+1. **ogamed Docker image source**
+   - What we know: ogamed has a Dockerfile in its repo. No pre-built image on Docker Hub (404 on hub.docker.com/r/alaingilbert/ogamed).
+   - What's unclear: Best way to reference it in docker-compose.yml — `build: https://github.com/alaingilbert/ogame.git` may not work directly since the Dockerfile is in the repo root but the go.mod context matters.
+   - Recommendation: Clone/copy the ogamed Dockerfile locally, or build the ogamed image separately and reference it. Consider adding a `Dockerfile.ogamed` or using a git submodule.
+
+2. **golang-migrate SQLite driver compatibility with modernc**
+   - What we know: golang-migrate has a `sqlite3` driver. modernc.org/sqlite registers as `"sqlite"` driver name (not `"sqlite3"`).
+   - What's unclear: Whether `migrate`'s `sqlite3` driver can open a `*sql.DB` that was opened with `modernc.org/sqlite`.
+   - Recommendation: Use `migrate.NewWithInstance("iofs", sourceDriver, "sqlite3", dbDriver)` where `dbDriver` is created via `sqlite3.WithInstance(db)`. If this doesn't work, fall back to running migrations with raw `db.Exec()` calls (simplest alternative for a small project).
+
+3. **Existing TypeScript code fate**
+   - What we know: `packages/bot/` has 6 TypeScript files implementing client, config, rate limiter, retry, logger. `packages/shared/` has types and schemas.
+   - What's unclear: Should the TS code be deleted, or kept for reference until Go replacement is complete?
+   - Recommendation: Keep TS code during transition. Delete `packages/bot/` once Go replacement is verified working. Keep `packages/shared/` for dashboard (Phase 5) — types will be replaced by OpenAPI codegen later.
 
 ## Environment Availability
 
 | Dependency | Required By | Available | Version | Fallback |
 |------------|------------|-----------|---------|----------|
-| Node.js | Bot runtime | ✓ | 25.9.0 | — |
-| pnpm | Package manager | ✓ | 10+ (checked) | — |
-| Docker | Containerization | ✓ | (available) | — |
-| Docker Compose | Multi-container orchestration | ✓ | (available) | — |
-| npm | Package registry access | ✓ | (available) | — |
-| TypeScript | Compilation | ✓ (via npm) | 6.0.3 | — |
-| Git | Version control | ✓ | (available) | — |
+| Go runtime | Bot engine | ✓ | 1.26.2 | — |
+| Docker | Containerization | ✓ | 29.4.1 | — |
+| Docker Compose | Stack orchestration | ✓ | 5.1.3 | — |
+| Node.js | Dashboard (Phase 5) | ✓ | 25.9.0 | — |
+| pnpm | Dashboard workspace | ✓ | 10.33.2 | — |
+| SQLite (modernc) | State storage | ✓ (Go dep) | v1.50.0 | — |
+| gcc/CGo | Not needed | N/A | N/A | Pure Go — no CGo required |
 
-**Missing dependencies with no fallback:** None — all required tools available.
+**Missing dependencies with no fallback:**
+- None — all required tools are available on the host.
 
-**Missing dependencies with fallback:** None.
+**Missing dependencies with fallback:**
+- None.
 
 ## Validation Architecture
 
 ### Test Framework
 | Property | Value |
 |----------|-------|
-| Framework | Vitest 4.1.5 |
-| Config file | `vitest.config.ts` (per-package or root) — to be created in Wave 0 |
-| Quick run command | `pnpm -r exec vitest run` |
-| Full suite command | `pnpm -r exec vitest run --coverage` |
+| Framework | Go stdlib `testing` + optional `testify` assertions |
+| Config file | None — Go tests follow `*_test.go` convention |
+| Quick run command | `go test ./internal/... -v -count=1` |
+| Full suite command | `go test ./... -v -race -count=1` |
 
 ### Phase Requirements → Test Map
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| INFRA-01 | Ogamed client connects and authenticates | unit (mocked) + integration | `vitest run packages/bot/src/client/` | ❌ Wave 0 |
-| INFRA-01 | Client retries on connection failure | unit | `vitest run packages/bot/src/client/` | ❌ Wave 0 |
-| INFRA-02 | Game state refreshes from ogamed and persists to SQLite | unit (mocked) + integration | `vitest run packages/bot/src/state/` | ❌ Wave 0 |
-| INFRA-02 | Zod schemas validate real ogamed response shapes | unit | `vitest run packages/shared/src/schemas/` | ❌ Wave 0 |
-| INFRA-03 | Config loads from YAML with env interpolation | unit | `vitest run packages/bot/src/config/` | ❌ Wave 0 |
-| INFRA-03 | Invalid config produces clear error and exits | unit | `vitest run packages/bot/src/config/` | ❌ Wave 0 |
-| INFRA-04 | Rate limiter enforces minimum delays between calls | unit | `vitest run packages/bot/src/client/` | ❌ Wave 0 |
-| INFRA-04 | Rate limiter adds random jitter | unit | `vitest run packages/bot/src/client/` | ❌ Wave 0 |
-| INFRA-05 | Docker Compose starts both containers | integration (manual) | `docker compose up --abort-on-container-exit` | ❌ Wave 0 |
-| INFRA-05 | Bot container reaches ogamed via internal network | integration (manual) | `docker compose exec bot wget -qO- http://ogamed:8080/bot/server/time` | ❌ Wave 0 |
+| INFRA-01 | ogamed client connects, login succeeds, retry on failure | unit | `go test ./internal/ogamed/... -run TestClient -v` | ❌ Wave 0 |
+| INFRA-01 | Session survives bot restart | integration | `go test ./internal/ogamed/... -run TestSession -v` | ❌ Wave 0 |
+| INFRA-02 | Game state cached in SQLite, manager polls and updates | unit | `go test ./internal/state/... -run TestManager -v` | ❌ Wave 0 |
+| INFRA-02 | Planet/fleet/resource structs deserialize correctly from ogamed JSON | unit | `go test ./internal/ogamed/... -run TestUnmarshal -v` | ❌ Wave 0 |
+| INFRA-03 | YAML config loads, env vars interpolated, invalid config rejected | unit | `go test ./internal/config/... -run TestLoad -v` | ❌ Wave 0 |
+| INFRA-04 | Rate limiter enforces min delay, random jitter, per-endpoint overrides | unit | `go test ./internal/ogamed/... -run TestRateLimiter -v` | ❌ Wave 0 |
+| INFRA-05 | Docker Compose starts both containers, bot reaches ogamed | manual | `docker compose up --build && docker compose logs bot` | ❌ Wave 0 |
 
 ### Sampling Rate
-- **Per task commit:** `pnpm --filter bot exec vitest run`
-- **Per wave merge:** `pnpm -r exec vitest run`
-- **Phase gate:** Full suite green + `docker compose up` smoke test passes
+- **Per task commit:** `go test ./internal/... -v -count=1`
+- **Per wave merge:** `go test ./... -v -race -count=1`
+- **Phase gate:** Full suite green + `docker compose up --build` smoke test passing
 
 ### Wave 0 Gaps
-- [ ] `vitest.config.ts` — root config for test framework
-- [ ] `packages/bot/tests/` — test directory with shared fixtures
-- [ ] `packages/shared/tests/` — test directory for schema validation
-- [ ] Framework install: `pnpm add -Dw vitest` — needs to be run during scaffolding
-- [ ] Docker integration test script: `tests/docker-smoke.sh`
+- [ ] `internal/config/config_test.go` — covers INFRA-03
+- [ ] `internal/ogamed/client_test.go` — covers INFRA-01
+- [ ] `internal/ogamed/types_test.go` — covers INFRA-02 (deserialization)
+- [ ] `internal/ogamed/rate_limiter_test.go` — covers INFRA-04
+- [ ] `internal/ogamed/retry_test.go` — covers retry behavior
+- [ ] `internal/state/manager_test.go` — covers INFRA-02 (state caching)
+- [ ] `internal/state/db_test.go` — covers SQLite operations
+- [ ] Framework install: `go mod init` — needs to be run (no go.mod exists yet)
 
 ## Security Domain
 
@@ -788,57 +930,47 @@ export function createLogger(name: string, level: string = 'info') {
 
 | ASVS Category | Applies | Standard Control |
 |---------------|---------|-----------------|
-| V2 Authentication | yes | ogamed handles OGame auth; bot config has no direct auth |
-| V3 Session Management | yes | ogamed manages OGame sessions; bot must handle ogamed session resilience |
-| V4 Access Control | yes | Docker network isolation; ogamed bound to localhost; no public exposure |
-| V5 Input Validation | yes | Zod validates all ogamed responses; config validated at startup |
-| V6 Cryptography | no | No custom crypto; secrets in `.env` file (gitignored) |
+| V2 Authentication | yes | ogamed handles OGame authentication. Bot authenticates to ogamed via Docker network (localhost only). |
+| V3 Session Management | yes | ogamed manages sessions. Bot must re-login on ogamed restart. |
+| V4 Access Control | no | Single-user bot, no multi-user access control needed. |
+| V5 Input Validation | yes | Go struct tags + manual validation for config. Response validation for ogamed JSON. |
+| V6 Cryptography | no | No custom crypto needed. HTTPS to OGame handled by ogamed. |
 
-### Known Threat Patterns for OGame Bot Stack
+### Known Threat Patterns for Go Bot + Docker
 
 | Pattern | STRIDE | Standard Mitigation |
 |---------|--------|---------------------|
-| OGame account credentials in git | Information Disclosure | `.env` for secrets, `.gitignore` for `.env` and `data/` |
-| ogamed REST API exposed publicly | Tampering + Spoofing | Bind to `127.0.0.1:8080`, Docker network isolation, firewall rules |
-| Malicious ogamed response (MITM) | Tampering | Zod validation rejects unexpected data shapes |
-| SQLite database corruption | Denial of Service | WAL mode, Docker volume persistence, backup strategy |
-| Config file with sensitive defaults | Information Disclosure | `config.example.yaml` committed, `config.yaml` gitignored |
+| Credential leak in git | Information Disclosure | `.gitignore` for `config.yaml`, `.env`; env-var interpolation for secrets |
+| ogamed port exposed publicly | Tampering | Docker internal networking; don't expose 8080 in production |
+| SQLite database corruption | Denial of Service | WAL mode, single writer (`MaxOpenConns(1)`), backups via volume mount |
+| Container escape | Elevation of Privilege | Run as non-root user in Dockerfile; read-only config mount |
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- **ogamed REST API documentation** — https://github.com/alaingilbert/ogame/wiki/ogamed-full-documentation — All endpoints verified, response formats documented with examples
-- **ogamed Dockerfile** — https://github.com/alaingilbert/ogame/blob/master/Dockerfile — Build configuration and env vars
-- **ogamed docker-compose.yml** — https://github.com/alaingilbert/ogame/blob/master/docker-compose.yml — Service configuration template
-- **ogamed releases** — https://github.com/alaingilbert/ogame/releases — v53.0.0 confirmed as latest
-- **npm registry** — Version verification for all packages (drizzle-orm, better-sqlite3, fastify, zod, pino, etc.)
-- **Context7: Drizzle ORM** — `/drizzle-team/drizzle-orm-docs` — SQLite schema definition, better-sqlite3 setup, migration patterns
-- **Context7: Fastify** — `/fastify/fastify` — TypeScript setup, pino logger config, plugin system
-- **Context7: Zod** — `/colinhacks/zod` — Schema definition, type inference, safeParse patterns
+- ogamed REST API documentation — https://github.com/alaingilbert/ogame/wiki/ogamed-full-documentation (all endpoints verified)
+- ogamed Dockerfile — https://github.com/alaingilbert/ogame/blob/master/Dockerfile (env vars verified)
+- Context7 `/gitlab_cznic/sqlite` — modernc.org/sqlite usage patterns, database/sql driver setup, pragma support
+- Context7 `/golang-migrate/migrate` — embedded migration patterns, iofs source, WithInstance API
+- Existing TypeScript implementation — `packages/bot/src/` (client, config, rate-limiter, retry patterns)
+- Go stdlib documentation — `log/slog`, `net/http`, `testing`, `embed`, `database/sql`
 
 ### Secondary (MEDIUM confidence)
-- **Existing project research** — `.planning/research/STACK.md`, `ARCHITECTURE.md`, `PITFALLS.md` — Pre-researched stack, patterns, and pitfalls (cross-referenced)
+- Go toolchain verification on host — `go version` → 1.26.2
+- Docker/Docker Compose availability on host — Docker 29.4.1, Compose 5.1.3
+- Package version verification — `go list -m` for sqlite, yaml, migrate
 
 ### Tertiary (LOW confidence)
-- **ogamed Docker Hub image availability** — Assumed available as `alaingilbert/ogamed` but not verified; fallback is building from source Dockerfile
-
-## Project Constraints (from AGENTS.md)
-
-The following directives from AGENTS.md must be followed during implementation:
-
-1. **Monorepo structure:** pnpm workspaces with `packages/bot`, `packages/dashboard`, `packages/shared`
-2. **Zod for runtime validation:** All ogamed responses validated with Zod
-3. **YAML config files:** User-facing configuration in YAML format
-4. **Docker Compose for deployment:** ogamed + bot containers
-5. **Run lint/typecheck before committing:** `pnpm lint && pnpm typecheck` (scripts to be defined in Phase 1)
-6. **Commit after each plan completes:** GSD workflow enforcement
+- ogamed Docker Hub image availability — 404 response, no pre-built image found
+- golang-migrate sqlite3 driver compatibility with modernc.org/sqlite — not tested, flagged in assumptions
 
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH — All versions verified against npm registry, all libraries documented via Context7 or official sources
-- Architecture: HIGH — Patterns established by reference projects (TBot, Cruiser), ogamed API fully documented
-- Pitfalls: HIGH — Cross-referenced from 10+ TBot issues, 3+ ogamed issues, community warnings
+- Standard stack: HIGH — all versions verified via `go list -m`, Context7 docs confirm patterns
+- Architecture: HIGH — patterns ported from working TypeScript implementation, Go idioms well-established
+- Pitfalls: HIGH — cross-referenced with existing PITFALLS.md and ogamed issue history
+- Docker: MEDIUM — ogamed Docker image sourcing needs resolution (open question)
 
 **Research date:** 2026-04-26
-**Valid until:** 2026-05-26 (stable — core libraries change slowly)
+**Valid until:** 2026-05-26 (stable — Go ecosystem and libraries change slowly)
