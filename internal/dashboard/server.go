@@ -3,12 +3,18 @@ package dashboard
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/user/ogame-bot/internal/config"
 )
+
+//go:embed static/*
+var staticFS embed.FS
 
 // Server is the HTTP server for the web dashboard API.
 type Server struct {
@@ -47,6 +53,17 @@ func (s *Server) Start(ctx context.Context) {
 	mux.HandleFunc("GET /api/events/farm-attacks", s.handlers.handleFarmAttacks)
 	mux.HandleFunc("GET /ws", s.handleWebSocket)
 
+	// Serve embedded static files for the SolidJS dashboard
+	staticSub, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		s.log.Error("Failed to create static file system", "error", err)
+	} else {
+		fileServer := http.FileServer(http.FS(staticSub))
+		mux.Handle("GET /assets/", fileServer)
+		// SPA catch-all: serve index.html for any non-API, non-WS path
+		mux.HandleFunc("GET /", s.serveSPA(fileServer))
+	}
+
 	// Wrap with CORS middleware
 	handler := s.corsMiddleware(mux)
 
@@ -68,6 +85,38 @@ func (s *Server) Start(ctx context.Context) {
 	<-ctx.Done()
 	s.log.Info("Shutting down dashboard server")
 	srv.Shutdown(context.Background())
+}
+
+// serveSPA returns a handler that serves static files and falls back to index.html
+// for SPA client-side routing (any non-API, non-WS GET request).
+func (s *Server) serveSPA(fileServer http.Handler) http.HandlerFunc {
+	indexHTML, err := staticFS.ReadFile("static/index.html")
+	if err != nil {
+		s.log.Error("Failed to read embedded index.html", "error", err)
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+
+		// Try to serve the exact file first
+		if path != "" {
+			f, err := staticFS.Open("static/" + path)
+			if err == nil {
+				f.Close()
+				fileServer.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		// Fallback to index.html for SPA routing
+		if len(indexHTML) > 0 {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write(indexHTML)
+			return
+		}
+
+		http.NotFound(w, r)
+	}
 }
 
 // handleWebSocket upgrades an HTTP connection to WebSocket and registers with the hub.

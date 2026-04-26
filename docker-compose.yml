@@ -27,6 +27,8 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - bot-data:/app/data
+    ports:
+      - "127.0.0.1:3000:3000"
     restart: unless-stopped
 
 volumes:
