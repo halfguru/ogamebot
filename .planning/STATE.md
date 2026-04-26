@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 
 Phase: 1 of 5 (Core Infrastructure)
 Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-04-25 — Roadmap created
+Status: Context gathered, ready to plan
+Last activity: 2026-04-26 — Phase 1 context captured
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -43,6 +43,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - Roadmap: 5 phases derived from 17 v1 requirements; safety-first ordering (fleet-save before growth features)
+- Phase 1 context: pnpm monorepo, YAML config, SQLite + Drizzle, Zod-validated ogamed client, Docker Compose
 
 ### Pending Todos
 
@@ -51,7 +52,7 @@ None yet.
 ### Blockers/Concerns
 
 - OGame formula constants (building costs, production rates) needed for Phase 3 — research during Phase 2 planning
-- ogamed response schemas need Zod validation — build incrementally during Phase 1
+- ogamed response schemas need Zod definitions — build incrementally during Phase 1
 - Residential proxy required for deployment — operational concern, not blocking development
 
 ## Deferred Items
@@ -64,6 +65,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-25
-Stopped at: Roadmap created, ready for Phase 1 planning
-Resume file: None
+Last session: 2026-04-26
+Stopped at: Phase 1 context gathered, ready for planning
+Resume file: .planning/phases/01-core-infrastructure/01-CONTEXT.md
