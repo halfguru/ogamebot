@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 1 of 5 (Core Infrastructure)
-Plan: 1 of 3 plans complete
-Status: Plan 01-01 complete — Go module, domain types, config loader
-Last activity: 2026-04-26 — Completed 01-01 (Go module + types + config)
+Plan: 2 of 3 plans complete
+Status: Plan 01-02 complete — Ogamed REST client with rate limiting, retry, envelope validation
+Last activity: 2026-04-26 — Completed 01-02 (ogamed client + rate limiter + retry)
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████░░░░] 67%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: 5.3 min
-- Total execution time: 16 min
+- Total execution time: 22 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Core Infrastructure | 3 | 16 min | 5.3 min |
+| 1. Core Infrastructure | 4 | 22 min | 5.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (7 min), 01-02 (3 min), 01-01 (6 min)
+- Last 5 plans: 01-01 (7 min), 01-02 (3 min), 01-01 (6 min), 01-02 (6 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -45,7 +45,7 @@ Recent decisions affecting current work:
 - Roadmap: 5 phases derived from 17 v1 requirements; safety-first ordering (fleet-save before growth features)
 - Phase 1 context: pnpm monorepo, YAML config, SQLite + Drizzle, Zod-validated ogamed client, Docker Compose
 - 01-01 (Go): Missing env vars return immediate error with variable name; all 11 domain structs in single model package; constants use untyped int
-- 01-02 (Go): Zod 4 factory defaults for nested objects, zod as direct bot dep, shared rate limiter chokepoint, no retry on ZodError/4xx
+- 01-02 (Go): rateLimiterInterface for testability, HTTP errors mapped to OgamedError for retry, two-pass generic unmarshal for getTyped[T]
 
 ### Pending Todos
 
@@ -67,5 +67,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-26
-Stopped at: Completed 01-01 (Go module + types + config), ready for 01-02
-Resume file: .planning/phases/01-core-infrastructure/01-02-PLAN.md
+Stopped at: Completed 01-02 (ogamed client + rate limiter + retry), ready for 01-03
+Resume file: .planning/phases/01-core-infrastructure/01-03-PLAN.md
