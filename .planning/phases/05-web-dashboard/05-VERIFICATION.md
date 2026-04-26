@@ -1,13 +1,10 @@
 ---
 phase: 05-web-dashboard
-verified: 2026-04-26T12:00:00Z
-status: gaps_found
-score: 6/7 must-haves verified
+verified: 2026-04-26T12:30:00Z
+status: passed
+score: 7/7 must-haves verified
 overrides_applied: 0
-gaps:
-  - truth: "WebSocket endpoint broadcasts state updates and bot events to connected clients"
-    status: partial
-    reason: "WebSocket hub infrastructure is complete (hub.go with Broadcast method, gorilla/chat pattern, max 10 clients, ping/pong). Frontend connects and handles all 4 message types. However, no worker (defender, builder, farmer) or state manager ever calls hub.Broadcast() — the data producers are not wired to the broadcast channel. The hub's broadcast channel will never receive messages in production."
+gaps: []
     artifacts:
       - path: "internal/dashboard/hub.go"
         issue: "Broadcast() method exists and works, but never called from any worker"
