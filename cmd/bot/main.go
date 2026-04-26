@@ -14,6 +14,7 @@ import (
 
 	"github.com/user/ogame-bot/internal/builder"
 	"github.com/user/ogame-bot/internal/config"
+	"github.com/user/ogame-bot/internal/dashboard"
 	"github.com/user/ogame-bot/internal/defender"
 	"github.com/user/ogame-bot/internal/farmer"
 	"github.com/user/ogame-bot/internal/ogamed"
@@ -90,6 +91,13 @@ func main() {
 		f := farmer.NewFarmer(client, stateMgr, db, cfg.Features.AutoFarm, log)
 		go f.Run(ctx)
 		log.Info("Farmer started", "pollInterval", time.Duration(cfg.Features.AutoFarm.PollIntervalMs)*time.Millisecond)
+	}
+
+	// 8.8. Start dashboard server if enabled
+	if cfg.Dashboard.Enabled {
+		dashSrv := dashboard.NewServer(stateMgr, db, cfg.Dashboard, log)
+		go dashSrv.Start(ctx)
+		log.Info("Dashboard started", "port", cfg.Dashboard.Port)
 	}
 
 	log.Info("Bot started successfully")

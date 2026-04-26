@@ -33,4 +33,10 @@ rateLimit:
   # endpointOverrides:
   #   "/bot/galaxy-infos": { minMs: 5000, maxMs: 10000 }
 
-logLevel: "info" # trace | debug | info | warn | error | fatal
+  logLevel: "info" # trace | debug | info | warn | error | fatal
+
+dashboard:
+  enabled: true
+  port: 3000
+  corsOrigins:
+    - "http://localhost:5173"
