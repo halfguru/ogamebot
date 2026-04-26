@@ -15,6 +15,7 @@ import (
 	"github.com/user/ogame-bot/internal/builder"
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/defender"
+	"github.com/user/ogame-bot/internal/farmer"
 	"github.com/user/ogame-bot/internal/ogamed"
 	"github.com/user/ogame-bot/internal/state"
 )
@@ -82,6 +83,13 @@ func main() {
 		b := builder.NewBuilder(client, stateMgr, db, cfg.Features.AutoBuild, log)
 		go b.Run(ctx)
 		log.Info("Builder started", "pollInterval", time.Duration(cfg.Features.AutoBuild.PollIntervalMs)*time.Millisecond)
+	}
+
+	// 8.7. Start farmer if enabled
+	if cfg.Features.AutoFarm.Enabled {
+		f := farmer.NewFarmer(client, stateMgr, db, cfg.Features.AutoFarm, log)
+		go f.Run(ctx)
+		log.Info("Farmer started", "pollInterval", time.Duration(cfg.Features.AutoFarm.PollIntervalMs)*time.Millisecond)
 	}
 
 	log.Info("Bot started successfully")
