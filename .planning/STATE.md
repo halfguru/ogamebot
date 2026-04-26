@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 
 ## Current Position
 
-Phase: 3 of 5 (Auto-Build)
-Plan: 2 of 2 plans complete
-Status: Plan 03-02 complete (Builder worker + main.go wiring)
-Last activity: 2026-04-26 — Plan 03-02 done (builder worker, ROI poll loop, build events)
+Phase: 4 of 5 (Auto-Farm)
+Plan: 0 of ? plans
+Status: Phase 3 complete, advancing to Phase 4
+Last activity: 2026-04-26 — Phase 3 verified (auto-build, 10/10 passed)
 
-Progress: [██████████] 50%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
