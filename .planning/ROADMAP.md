@@ -13,7 +13,7 @@ Build an OGame automation bot that protects your fleet and grows your empire. St
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Infrastructure** - Connect to OGame via ogamed, maintain game state, throttling, config, Docker ✓ 2026-04-26
-- [ ] **Phase 2: Fleet Safety** - Detect incoming attacks and auto-save fleet with phalanx-safe deploy+recall
+- [ ] **Phase 2: Fleet Safety** - Detect incoming attacks and auto-save fleet with phalanx-safe deploy+recall ✓ 2026-04-26
 - [ ] **Phase 3: Auto-Build** - ROI-based automatic building upgrades across all planets
 - [ ] **Phase 4: Auto-Farm** - Scan galaxy, spy inactives, attack profitable targets
 - [ ] **Phase 5: Web Dashboard** - Real-time empire overview, build queues, fleet movements, activity logs
@@ -50,7 +50,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Extend ogamed client with POST methods (SendFleet, CancelFleet, GetAttacks, GetSlots) + domain types + DefenderConfig ✓ 2026-04-26
 - [x] 02-02-PLAN.md — Escape route calculator (distance, flight time, fuel, safety scoring) ✓ 2026-04-26
-- [ ] 02-03-PLAN.md — Defender worker (poll loop, attack handling, fleet-save execution, recall) + main.go integration
+- [x] 02-03-PLAN.md — Defender worker (poll loop, attack handling, fleet-save execution, recall) + main.go integration ✓ 2026-04-26
 
 ### Phase 3: Auto-Build
 **Goal**: Bot automatically grows the empire by upgrading the most profitable buildings across all planets
@@ -103,7 +103,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Infrastructure | 3/3 | ✓ Complete | 2026-04-26 |
-| 2. Fleet Safety | 2/3 | In progress | - |
+| 2. Fleet Safety | 3/3 | ✓ Complete | 2026-04-26 |
 | 3. Auto-Build | 0/? | Not started | - |
 | 4. Auto-Farm | 0/? | Not started | - |
 | 5. Web Dashboard | 0/? | Not started | - |
