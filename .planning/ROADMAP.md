@@ -64,7 +64,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — ROI calculator + ogamed extensions + config + migration (Wave 1) ✓ 2026-04-26
-- [ ] 03-02-PLAN.md — Builder worker + integration tests + main.go wiring (Wave 2)
+- [x] 03-02-PLAN.md — Builder worker + integration tests + main.go wiring (Wave 2) ✓ 2026-04-26
 
 ### Phase 4: Auto-Farm
 **Goal**: Bot automatically discovers and raids inactive players for resources
@@ -104,6 +104,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Core Infrastructure | 3/3 | ✓ Complete | 2026-04-26 |
 | 2. Fleet Safety | 3/3 | ✓ Complete | 2026-04-26 |
-| 3. Auto-Build | 1/? | In progress | - |
+| 3. Auto-Build | 2/2 | ✓ Complete | 2026-04-26 |
 | 4. Auto-Farm | 0/? | Not started | - |
 | 5. Web Dashboard | 0/? | Not started | - |

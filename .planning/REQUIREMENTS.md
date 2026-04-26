@@ -17,14 +17,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Safety
 
-- [ ] **SAFE-01**: Bot monitors for incoming attacks by polling hostile fleet events at randomized intervals
+- [x] **SAFE-01**: Bot monitors for incoming attacks by polling hostile fleet events at randomized intervals — *Defender worker in Plan 02-03 ✓ 2026-04-26*
 - [x] **SAFE-02**: Bot auto-saves fleet and resources when attack is detected using phalanx-safe deploy + recall — *Escape route calculator in Plan 02 ✓ 2026-04-26*
 - [x] **SAFE-03**: Bot handles fleet-save for moons separately with appropriate escape destinations — *Moon handling + safety scoring in Plan 02 ✓ 2026-04-26*
 
 ### Growth
 
 - [x] **GROW-01**: Bot calculates ROI (production increase / build cost) for every upgradeable building across all planets
-- [ ] **GROW-02**: Bot automatically queues the most profitable building upgrade based on ROI calculation
+- [x] **GROW-02**: Bot automatically queues the most profitable building upgrade based on ROI calculation — *Builder worker in Plan 03-02 ✓ 2026-04-26*
 - [x] **GROW-03**: Bot respects configurable max-level caps per building type per planet
 
 ### Combat
@@ -87,11 +87,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-03 | Phase 1 | Complete (01-01) |
 | INFRA-04 | Phase 1 | Complete (01-02) |
 | INFRA-05 | Phase 1 | Complete (01-03) |
-| SAFE-01 | Phase 2 | Pending |
+| SAFE-01 | Phase 2 | Complete (02-03) |
 | SAFE-02 | Phase 2 | Complete (02-02) |
 | SAFE-03 | Phase 2 | Complete (02-02) |
 | GROW-01 | Phase 3 | ✓ Complete (03-01) |
-| GROW-02 | Phase 3 | Pending |
+| GROW-02 | Phase 3 | Complete (03-02) |
 | GROW-03 | Phase 3 | ✓ Complete (03-01) |
 | COMB-01 | Phase 4 | Pending |
 | COMB-02 | Phase 4 | Pending |
@@ -107,4 +107,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-25*
-*Last updated: 2026-04-26 after 02-02 completion*
+*Last updated: 2026-04-26 after 03-02 completion*

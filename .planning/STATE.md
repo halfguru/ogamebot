@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 3 of 5 (Auto-Build)
-Plan: 1 of ? plans complete
-Status: Plan 03-01 complete (ROI calculator + infrastructure)
-Last activity: 2026-04-26 — Plan 03-01 done (ROI calculator, client extensions, config)
+Plan: 2 of 2 plans complete
+Status: Plan 03-02 complete (Builder worker + main.go wiring)
+Last activity: 2026-04-26 — Plan 03-02 done (builder worker, ROI poll loop, build events)
 
-Progress: [████░░░░░░] 40%
+Progress: [██████████] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 8.9 min
-- Total execution time: 80 min
+- Total plans completed: 10
+- Average duration: 9.0 min
+- Total execution time: 90 min
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [████░░░░░░] 40%
 |-------|-------|-------|----------|
 | 1. Core Infrastructure | 5 | 33 min | 6.6 min |
 | 2. Fleet Safety | 3 | 36 min | 12.0 min |
-| 3. Auto-Build | 1 | 11 min | 11.0 min |
+| 3. Auto-Build | 2 | 21 min | 10.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (12 min), 02-02 (9 min), 02-03 (15 min), 03-01 (11 min)
+- Last 5 plans: 02-02 (9 min), 02-03 (15 min), 03-01 (11 min), 03-02 (10 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -53,6 +53,7 @@ Recent decisions affecting current work:
 - 02-02 (Go): Planet↔moon at distance=0 is valid escape route (10s min flight, 0 fuel); safety scoring uses weighted sum (+1000 attacked, +500 planet, -100 moon, +distance/50, +fuel/10k)
 - 02-03 (Go): Active fleet-save check in savePlanet for defense-in-depth; reaction delay = minDelay + rand(0, timeUntilAttack - safetyMargin - minDelay); test fastDefenderConfig() pattern for timing-dependent tests
 - 03-01 (Go): ROI uses metal-equivalent scoring (metal=1, crystal=1.5, deuterium=2.0); energy-producing buildings valued at 0.5 per unit; AutoBuildConfig defaults {MetalMine:30, CrystalMine:28, DeutSynth:26, SolarPlant:26, FusionReactor:20}; server speed cached in state manager
+- 03-02 (Go): Builder poll loop evaluates ROI across all planets each tick; anti-detection via configurable antiDetectPct (7% default, 0 in tests); per-planet max-level overrides take precedence over global defaults; builder skips planet on GetConstructions error (conservative)
 
 ### Pending Todos
 
@@ -74,5 +75,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-26
-Stopped at: Completed 03-01 (ROI calculator + infrastructure). Phase 3 in progress.
-Resume file: .planning/phases/03-auto-build/03-01-SUMMARY.md
+Stopped at: Completed 03-02 (Builder worker). Phase 3 Auto-Build complete.
+Resume file: .planning/phases/03-auto-build/03-02-SUMMARY.md
