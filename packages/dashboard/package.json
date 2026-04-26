@@ -1,0 +1,11 @@
+{
+  "name": "@ogame-bot/dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Dashboard placeholder - Phase 5'",
+    "typecheck": "echo 'No source yet'",
+    "lint": "echo 'No source yet'"
+  }
+}
