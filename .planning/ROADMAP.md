@@ -78,7 +78,7 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md — Client extensions (galaxy scan, espionage reports) + domain types + config + migration (Wave 1) ✓ 2026-04-26
-- [ ] 04-02-PLAN.md — Farmer worker (scan/spy/attack) + tests + main.go wiring (Wave 2)
+- [x] 04-02-PLAN.md — Farmer worker (scan/spy/attack) + tests + main.go wiring (Wave 2) ✓ 2026-04-26
 
 ### Phase 5: Web Dashboard
 **Goal**: Users can monitor their empire and bot activity from any device through a web interface
@@ -105,5 +105,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Core Infrastructure | 3/3 | ✓ Complete | 2026-04-26 |
 | 2. Fleet Safety | 3/3 | ✓ Complete | 2026-04-26 |
 | 3. Auto-Build | 2/2 | ✓ Complete | 2026-04-26 |
-| 4. Auto-Farm | 1/2 | In progress | - |
+| 4. Auto-Farm | 2/2 | ✓ Complete | 2026-04-26 |
 | 5. Web Dashboard | 0/? | Not started | - |
