@@ -60,11 +60,11 @@ Plans:
   1. Bot calculates ROI (production increase / build cost) for every upgradeable building across all planets
   2. Bot automatically queues the highest-ROI building upgrade when a build slot is free
   3. Bot never upgrades a building beyond its configured max-level cap
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — ROI calculator + ogamed extensions + config + migration (Wave 1)
+- [ ] 03-02-PLAN.md — Builder worker + integration tests + main.go wiring (Wave 2)
 
 ### Phase 4: Auto-Farm
 **Goal**: Bot automatically discovers and raids inactive players for resources
