@@ -17,8 +17,13 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
-COPY --from=dashboard-builder /dashboard/internal/dashboard/static ./internal/dashboard/static/
+COPY cmd/ cmd/
+COPY internal/ internal/
+
+# Copy built dashboard into embed path
+RUN rm -rf internal/dashboard/static/*
+COPY --from=dashboard-builder /dashboard/packages/dashboard/dist/ internal/dashboard/static/
+
 RUN CGO_ENABLED=0 GOOS=linux go build -o /bot ./cmd/bot
 
 # Runtime stage
