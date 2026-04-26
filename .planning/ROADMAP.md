@@ -92,7 +92,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 05-01-PLAN.md — Go REST API + WebSocket server + config + main.go wiring (Wave 1)
+- [x] 05-01-PLAN.md — Go REST API + WebSocket server + config + main.go wiring (Wave 1) ✓ 2026-04-26
 - [ ] 05-02-PLAN.md — SolidJS dashboard frontend with empire overview, fleet movements, activity feed, real-time WebSocket (Wave 2)
 
 ## Progress
@@ -106,4 +106,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Fleet Safety | 3/3 | ✓ Complete | 2026-04-26 |
 | 3. Auto-Build | 2/2 | ✓ Complete | 2026-04-26 |
 | 4. Auto-Farm | 2/2 | ✓ Complete | 2026-04-26 |
-| 5. Web Dashboard | 0/? | Not started | - |
+| 5. Web Dashboard | 1/? | In progress | - |

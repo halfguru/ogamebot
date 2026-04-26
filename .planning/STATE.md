@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** The bot must reliably protect your fleet and grow your empire while you're away — if fleet-save fails, everything else is pointless.
-**Current focus:** Phase 4 — Auto-Farm (in progress)
+**Current focus:** Phase 5 — Web Dashboard (final)
 
 ## Current Position
 
 Phase: 5 of 5 (Web Dashboard)
-Plan: 0 of ? plans
-Status: Phase 4 complete, advancing to Phase 5 (final)
-Last activity: 2026-04-26 — Phase 4 verified (auto-farm, 9/9 passed)
+Plan: 1 of ? plans
+Status: Plan 05-01 complete (Dashboard API layer)
+Last activity: 2026-04-26 — Plan 05-01 complete
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: 8.7 min
-- Total execution time: 104 min
+- Total plans completed: 13
+- Average duration: 8.5 min
+- Total execution time: 110 min
 
 **By Phase:**
 
@@ -31,9 +31,10 @@ Progress: [████████░░] 80%
 | 2. Fleet Safety | 3 | 36 min | 12.0 min |
 | 3. Auto-Build | 2 | 21 min | 10.5 min |
 | 4. Auto-Farm | 2 | 14 min | 7.0 min |
+| 5. Web Dashboard | 1 | 6 min | 6.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (11 min), 03-02 (10 min), 04-01 (7 min), 04-02 (7 min)
+- Last 5 plans: 03-02 (10 min), 04-01 (7 min), 04-02 (7 min), 05-01 (6 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -57,6 +58,7 @@ Recent decisions affecting current work:
 - 03-02 (Go): Builder poll loop evaluates ROI across all planets each tick; anti-detection via configurable antiDetectPct (7% default, 0 in tests); per-planet max-level overrides take precedence over global defaults; builder skips planet on GetConstructions error (conservative)
 - 04-01 (Go): GalaxyRange type alias in config to avoid circular import; AutoFarmConfig embeds FeatureConfig inline; AutoFarm poll minimum 60s (galaxy scans are expensive); mock clients updated in all 3 test packages when ClientInterface expanded
 - 04-02 (Go): Inlined estimateFuelCost in farmer instead of exporting from defender; farmer reserves 2 fleet slots for defender; max 10 probes per cycle to avoid API spam; simplified fuel formula (baseFuel only, no drive tech variation)
+- 05-01 (Go): StateReader interface decouples dashboard from state.Manager; gorilla/chat hub pattern with max 10 WS clients; Go 1.22+ method routing for REST endpoints; CORS middleware supports wildcard or whitelist
 
 ### Pending Todos
 
@@ -78,5 +80,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-26
-Stopped at: Completed 04-02 (Farmer worker). Phase 4 Auto-Farm complete.
-Resume file: .planning/phases/04-auto-farm/04-02-SUMMARY.md
+Stopped at: Completed 05-01 (Dashboard API layer). Phase 5 in progress.
+Resume file: .planning/phases/05-web-dashboard/05-01-SUMMARY.md

@@ -35,9 +35,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Monitoring
 
-- [ ] **MON-01**: Web dashboard shows real-time empire overview (planets, resources, fleet movements)
-- [ ] **MON-02**: Web dashboard shows build queues, recent bot actions, and event logs
-- [ ] **MON-03**: Web dashboard updates in real-time via WebSocket connection
+- [x] **MON-01**: Web dashboard shows real-time empire overview (planets, resources, fleet movements)
+- [x] **MON-02**: Web dashboard shows build queues, recent bot actions, and event logs
+- [x] **MON-03**: Web dashboard updates in real-time via WebSocket connection
 
 ## v2 Requirements
 
@@ -96,9 +96,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COMB-01 | Phase 4 | ✓ Complete (04-01) |
 | COMB-02 | Phase 4 | ✓ Complete (04-01) |
 | COMB-03 | Phase 4 | ✓ Complete (04-02) |
-| MON-01 | Phase 5 | Pending |
-| MON-02 | Phase 5 | Pending |
-| MON-03 | Phase 5 | Pending |
+| MON-01 | Phase 5 | ✓ Complete | 2026-04-26 |
+| MON-02 | Phase 5 | ✓ Complete | 2026-04-26 |
+| MON-03 | Phase 5 | ✓ Complete | 2026-04-26 |
 
 **Coverage:**
 - v1 requirements: 17 total
