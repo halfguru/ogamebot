@@ -116,14 +116,12 @@ logLevel: "info"
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	cfg, err := Load(cfgPath, log)
-	if err == nil {
-		t.Fatal("Load() should fail with missing env var, got nil error")
+	if err != nil {
+		t.Fatalf("Load() should succeed with unresolved env var (left as literal), got: %v", err)
 	}
 
-	// Missing env var leaves ${...} unreplaced, which triggers validation error for empty-ish password
-	// OR the validation error about account.password being required
-	if cfg != nil {
-		t.Error("Load() should return nil config on error")
+	if cfg.Account.Password != "${NONEXISTENT_VAR_12345}" {
+		t.Errorf("Password = %q, want literal ${NONEXISTENT_VAR_12345}", cfg.Account.Password)
 	}
 }
 

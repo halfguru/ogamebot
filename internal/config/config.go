@@ -151,36 +151,48 @@ type DashboardConfig struct {
 
 var envVarPattern = regexp.MustCompile(`\$\{(\w+)\}`)
 
-// Load reads a YAML config file, interpolates ${ENV_VAR} references from
-// the environment, parses the YAML, and validates required fields.
 func Load(path string, log *slog.Logger) (*Config, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("reading config file: %w", err)
+	cfg := Config{
+		Ogamed: OgamedConfig{
+			URL: envOrDefault("OGAMED_URL", "http://ogamed:8080"),
+		},
+		Account: AccountConfig{
+			Universe: os.Getenv("OGAMED_UNIVERSE"),
+			Username: os.Getenv("OGAMED_USERNAME"),
+			Password: os.Getenv("OGAMED_PASSWORD"),
+		},
+		RateLimit: RateLimitConfig{
+			DefaultMinDelayMs: 2000,
+			DefaultMaxDelayMs: 5000,
+		},
+		Dashboard: DashboardConfig{
+			Enabled:     true,
+			Port:        3000,
+			CorsOrigins: []string{"*"},
+		},
+		LogLevel: "info",
 	}
 
-	// Interpolate ${ENV_VAR} references from environment.
-	// Missing env vars cause an immediate error with the variable name.
-	var interpolationErr error
-	interpolated := envVarPattern.ReplaceAllStringFunc(string(raw), func(match string) string {
-		if interpolationErr != nil {
-			return match // short-circuit on first error
+	if _, err := os.Stat(path); err == nil {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading config file: %w", err)
 		}
-		varName := envVarPattern.FindStringSubmatch(match)[1]
-		value, ok := os.LookupEnv(varName)
-		if !ok {
-			interpolationErr = fmt.Errorf("environment variable %s referenced in config but not set", varName)
-			return match
-		}
-		return value
-	})
-	if interpolationErr != nil {
-		return nil, interpolationErr
-	}
 
-	var cfg Config
-	if err := yaml.Unmarshal([]byte(interpolated), &cfg); err != nil {
-		return nil, fmt.Errorf("parsing YAML config: %w", err)
+		interpolated := envVarPattern.ReplaceAllStringFunc(string(raw), func(match string) string {
+			varName := envVarPattern.FindStringSubmatch(match)[1]
+			value, ok := os.LookupEnv(varName)
+			if !ok {
+				return match
+			}
+			return value
+		})
+
+		if err := yaml.Unmarshal([]byte(interpolated), &cfg); err != nil {
+			return nil, fmt.Errorf("parsing YAML config: %w", err)
+		}
+	} else {
+		log.Info("No config.yaml found, using env vars and defaults")
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -188,6 +200,13 @@ func Load(path string, log *slog.Logger) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 // Validate checks that all required config fields are present and valid.

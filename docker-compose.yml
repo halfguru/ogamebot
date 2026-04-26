@@ -23,10 +23,15 @@ services:
     container_name: ogame-bot
     depends_on:
       - ogamed
+    environment:
+      OGAMED_UNIVERSE: ${OGAMED_UNIVERSE}
+      OGAMED_USERNAME: ${OGAMED_USERNAME}
+      OGAMED_PASSWORD: ${OGAMED_PASSWORD}
     env_file: .env
     volumes:
-      - ./config.yaml:/app/config.yaml:ro
       - bot-data:/app/data
+      # Optional: mount config.yaml to override defaults
+      # - ./config.yaml:/app/config.yaml:ro
     ports:
       - "127.0.0.1:3000:3000"
     restart: unless-stopped
