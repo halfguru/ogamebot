@@ -12,6 +12,8 @@ import (
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/constants"
 	"github.com/user/ogame-bot/internal/model"
+
+	_ "github.com/user/ogame-bot/internal/state" // registers sqlite driver
 )
 
 // --- Mock implementations ---
@@ -321,9 +323,9 @@ func TestPollPicksHighestROI(t *testing.T) {
 	insertTestPlanet(t, db, 1, "Homeworld", 50, 200)
 	insertTestPlanet(t, db, 2, "Colony", 30, 200)
 
-	// Planet 1: Metal Mine 15, Crystal Mine 12 — Metal Mine has better ROI at lower levels
-	// Planet 2: Metal Mine 5, Crystal Mine 3 — Lower level means MUCH better ROI
-	// Expect: Planet 2's Metal Mine (level 5→6) wins — lower cost, better ratio
+	// Planet 1: Metal Mine 15, Crystal Mine 12 — expensive upgrades
+	// Planet 2: Metal Mine 1, Crystal Mine 1 — cheap upgrades, very high ROI
+	// Expect: Planet 2's buildings dominate; Metal Mine 1→2 should win
 	mc := &mockBuilderClient{}
 	ms := &mockBuilderStateReader{
 		planets: []model.Planet{
@@ -337,7 +339,7 @@ func TestPollPicksHighestROI(t *testing.T) {
 		research: model.Research{PlasmaTechnology: 10, EnergyTechnology: 5},
 		buildings: map[int]model.ResourceBuildings{
 			1: {MetalMine: 15, CrystalMine: 12, DeuteriumSynthesizer: 10, SolarPlant: 18, FusionReactor: 5},
-			2: {MetalMine: 5, CrystalMine: 3, DeuteriumSynthesizer: 2, SolarPlant: 8, FusionReactor: 0},
+			2: {MetalMine: 1, CrystalMine: 1, DeuteriumSynthesizer: 0, SolarPlant: 5, FusionReactor: 0},
 		},
 		facilities: map[int]model.Facilities{
 			1: {RoboticsFactory: 5, NaniteFactory: 0},
@@ -355,10 +357,11 @@ func TestPollPicksHighestROI(t *testing.T) {
 	if !mc.buildCalled {
 		t.Fatal("BuildBuilding should have been called")
 	}
-	// Planet 2's Metal Mine (level 5) should have the highest ROI
+	// Planet 2 should win (lower level buildings have better ROI)
 	if mc.lastPlanetID != 2 {
 		t.Errorf("expected build on planet 2, got planet %d", mc.lastPlanetID)
 	}
+	// Metal Mine 1→2 should win (ROI ~0.35) over Crystal Mine 1→2 (ROI ~0.19)
 	if mc.lastBuildingID != constants.BuildingMetalMine {
 		t.Errorf("expected Metal Mine (1), got building %d", mc.lastBuildingID)
 	}
@@ -563,7 +566,7 @@ func TestPollRecordsBuildEvent(t *testing.T) {
 		},
 		research: model.Research{PlasmaTechnology: 5, EnergyTechnology: 3},
 		buildings: map[int]model.ResourceBuildings{
-			1: {MetalMine: 5, CrystalMine: 3, SolarPlant: 8},
+			1: {MetalMine: 1, CrystalMine: 10, SolarPlant: 15},
 		},
 		facilities: map[int]model.Facilities{
 			1: {RoboticsFactory: 2},
@@ -591,7 +594,7 @@ func TestPollRecordsBuildEvent(t *testing.T) {
 		t.Errorf("expected 1 build event, got %d", count)
 	}
 
-	// Verify fields
+	// Verify fields — Metal Mine 1→2 should have the best ROI
 	var buildingName string
 	var fromLevel, toLevel int
 	var roiScore float64
@@ -603,8 +606,8 @@ func TestPollRecordsBuildEvent(t *testing.T) {
 	if buildingName != "Metal Mine" {
 		t.Errorf("expected Metal Mine, got %s", buildingName)
 	}
-	if fromLevel != 5 || toLevel != 6 {
-		t.Errorf("expected from_level=5, to_level=6, got %d→%d", fromLevel, toLevel)
+	if fromLevel != 1 || toLevel != 2 {
+		t.Errorf("expected from_level=1, to_level=2, got %d→%d", fromLevel, toLevel)
 	}
 	if roiScore <= 0 {
 		t.Errorf("expected positive ROI score, got %f", roiScore)
