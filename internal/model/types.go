@@ -188,3 +188,63 @@ type Slots struct {
 	ExpInUse int `json:"ExpInUse"`
 	ExpTotal int `json:"ExpTotal"`
 }
+
+// SystemInfos represents the result of scanning one solar system via ogamed galaxy-infos endpoint.
+type SystemInfos struct {
+	Galaxy  int              `json:"Galaxy"`
+	System  int              `json:"System"`
+	Planets []PlanetPosition `json:"Planets"`
+}
+
+// PlanetPosition represents a planet slot in a solar system scan result.
+// JSON tags match ogamed's PascalCase response format.
+type PlanetPosition struct {
+	Position     int        `json:"Position"`
+	Name         string     `json:"Name"`
+	PlayerID     int64      `json:"PlayerID"`
+	PlayerName   string     `json:"PlayerName"`
+	Inactive     bool       `json:"Inactive"`
+	LongInactive bool       `json:"LongInactive"`
+	Vacation     bool       `json:"Vacation"`
+	Banned       bool       `json:"Banned"`
+	Rank         int        `json:"Rank"`
+	Coordinate   Coordinate `json:"Coordinate"`
+	Moon         bool       `json:"Moon"`
+}
+
+// EspionageReportSummary represents a summary entry from the espionage report message list.
+type EspionageReportSummary struct {
+	ID         int64      `json:"ID"`
+	Coordinate Coordinate `json:"Coordinate"`
+	Date       time.Time  `json:"Date"`
+}
+
+// EspionageReport represents a detailed espionage report parsed from ogamed.
+// Defense and fleet fields are only populated when the corresponding Has* fields are true
+// (depends on number of probes sent vs target's espionage tech level).
+type EspionageReport struct {
+	ID                     int64      `json:"ID"`
+	Metal                  int64      `json:"Metal"`
+	Crystal                int64      `json:"Crystal"`
+	Deuterium              int64      `json:"Deuterium"`
+	HasDefensesInformation bool       `json:"HasDefensesInformation"`
+	HasFleetInformation    bool       `json:"HasFleetInformation"`
+	IsInactive             bool       `json:"IsInactive"`
+	Coordinate             Coordinate `json:"Coordinate"`
+	// Defense fields — only valid when HasDefensesInformation is true
+	RocketLauncher  int `json:"RocketLauncher"`
+	LightLaser      int `json:"LightLaser"`
+	HeavyLaser      int `json:"HeavyLaser"`
+	GaussCannon     int `json:"GaussCannon"`
+	IonCannon       int `json:"IonCannon"`
+	PlasmaTurret    int `json:"PlasmaTurret"`
+	SmallShieldDome int `json:"SmallShieldDome"`
+	LargeShieldDome int `json:"LargeShieldDome"`
+}
+
+// GalaxyRange defines a galaxy/system range to scan for inactive players.
+type GalaxyRange struct {
+	Galaxy      int `yaml:"galaxy"`
+	SystemStart int `yaml:"systemStart"`
+	SystemEnd   int `yaml:"systemEnd"`
+}
