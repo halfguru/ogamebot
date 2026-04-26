@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** The bot must reliably protect your fleet and grow your empire while you're away — if fleet-save fails, everything else is pointless.
-**Current focus:** Phase 3 — Auto-Build (in progress)
+**Current focus:** Phase 4 — Auto-Farm (in progress)
 
 ## Current Position
 
 Phase: 4 of 5 (Auto-Farm)
-Plan: 0 of ? plans
-Status: Phase 3 complete, advancing to Phase 4
-Last activity: 2026-04-26 — Phase 3 verified (auto-build, 10/10 passed)
+Plan: 1 of 2 plans complete
+Status: Plan 04-01 complete (auto-farm foundation)
+Last activity: 2026-04-26 — Plan 04-01 complete (galaxy scan, espionage types, config, migration)
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 65%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
-- Average duration: 9.0 min
-- Total execution time: 90 min
+- Total plans completed: 11
+- Average duration: 8.8 min
+- Total execution time: 97 min
 
 **By Phase:**
 
@@ -30,9 +30,10 @@ Progress: [██████░░░░] 60%
 | 1. Core Infrastructure | 5 | 33 min | 6.6 min |
 | 2. Fleet Safety | 3 | 36 min | 12.0 min |
 | 3. Auto-Build | 2 | 21 min | 10.5 min |
+| 4. Auto-Farm | 1 | 7 min | 7.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (9 min), 02-03 (15 min), 03-01 (11 min), 03-02 (10 min)
+- Last 5 plans: 02-03 (15 min), 03-01 (11 min), 03-02 (10 min), 04-01 (7 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -54,6 +55,7 @@ Recent decisions affecting current work:
 - 02-03 (Go): Active fleet-save check in savePlanet for defense-in-depth; reaction delay = minDelay + rand(0, timeUntilAttack - safetyMargin - minDelay); test fastDefenderConfig() pattern for timing-dependent tests
 - 03-01 (Go): ROI uses metal-equivalent scoring (metal=1, crystal=1.5, deuterium=2.0); energy-producing buildings valued at 0.5 per unit; AutoBuildConfig defaults {MetalMine:30, CrystalMine:28, DeutSynth:26, SolarPlant:26, FusionReactor:20}; server speed cached in state manager
 - 03-02 (Go): Builder poll loop evaluates ROI across all planets each tick; anti-detection via configurable antiDetectPct (7% default, 0 in tests); per-planet max-level overrides take precedence over global defaults; builder skips planet on GetConstructions error (conservative)
+- 04-01 (Go): GalaxyRange type alias in config to avoid circular import; AutoFarmConfig embeds FeatureConfig inline; AutoFarm poll minimum 60s (galaxy scans are expensive); mock clients updated in all 3 test packages when ClientInterface expanded
 
 ### Pending Todos
 
@@ -75,5 +77,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-26
-Stopped at: Completed 03-02 (Builder worker). Phase 3 Auto-Build complete.
-Resume file: .planning/phases/03-auto-build/03-02-SUMMARY.md
+Stopped at: Completed 04-01 (Auto-farm foundation). Phase 4 Auto-Farm in progress.
+Resume file: .planning/phases/04-auto-farm/04-01-SUMMARY.md

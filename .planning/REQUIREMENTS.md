@@ -29,8 +29,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Combat
 
-- [ ] **COMB-01**: Bot scans configurable galaxy/system ranges for inactive players
-- [ ] **COMB-02**: Bot sends espionage probes to inactive players and parses spy reports for resources and defense
+- [x] **COMB-01**: Bot scans configurable galaxy/system ranges for inactive players
+- [x] **COMB-02**: Bot sends espionage probes to inactive players and parses spy reports for resources and defense
 - [ ] **COMB-03**: Bot attacks targets when estimated loot exceeds configurable profit threshold
 
 ### Monitoring
@@ -93,8 +93,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GROW-01 | Phase 3 | ✓ Complete (03-01) |
 | GROW-02 | Phase 3 | Complete (03-02) |
 | GROW-03 | Phase 3 | ✓ Complete (03-01) |
-| COMB-01 | Phase 4 | Pending |
-| COMB-02 | Phase 4 | Pending |
+| COMB-01 | Phase 4 | ✓ Complete (04-01) |
+| COMB-02 | Phase 4 | ✓ Complete (04-01) |
 | COMB-03 | Phase 4 | Pending |
 | MON-01 | Phase 5 | Pending |
 | MON-02 | Phase 5 | Pending |
