@@ -19,6 +19,7 @@ type Config struct {
 	Ogamed    OgamedConfig    `yaml:"ogamed"`
 	Features  FeaturesConfig  `yaml:"features"`
 	RateLimit RateLimitConfig `yaml:"rateLimit"`
+	Dashboard DashboardConfig `yaml:"dashboard"`
 	LogLevel  string          `yaml:"logLevel"`
 }
 
@@ -141,6 +142,13 @@ type EndpointDelayConfig struct {
 	MaxMs int `yaml:"maxMs"`
 }
 
+// DashboardConfig holds the web dashboard settings.
+type DashboardConfig struct {
+	Enabled     bool     `yaml:"enabled"`
+	Port        int      `yaml:"port"`
+	CorsOrigins []string `yaml:"corsOrigins"`
+}
+
 var envVarPattern = regexp.MustCompile(`\$\{(\w+)\}`)
 
 // Load reads a YAML config file, interpolates ${ENV_VAR} references from
@@ -201,6 +209,11 @@ func (c *Config) Validate() error {
 	}
 	if c.RateLimit.DefaultMaxDelayMs < c.RateLimit.DefaultMinDelayMs {
 		return fmt.Errorf("rateLimit.defaultMaxDelayMs must be >= defaultMinDelayMs")
+	}
+
+	// Dashboard defaults
+	if c.Dashboard.Port == 0 {
+		c.Dashboard.Port = 3000
 	}
 
 	// Apply defender defaults before validation
