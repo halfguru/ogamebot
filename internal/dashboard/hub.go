@@ -12,15 +12,17 @@ import (
 )
 
 const (
-	// Time allowed to write a message to the peer.
 	writeWait = 10 * time.Second
-	// Time allowed to read the next pong message from the peer.
 	pongWait = 60 * time.Second
-	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = 54 * time.Second
-	// Maximum number of WebSocket clients to prevent DoS (T-05-02).
 	maxClients = 10
 )
+
+// Broadcaster is the interface for broadcasting WebSocket messages.
+// Workers depend on this interface, not the concrete Hub.
+type Broadcaster interface {
+	Broadcast(msgType string, data interface{})
+}
 
 // Upgrader upgrades HTTP connections to WebSocket.
 var upgrader = websocket.Upgrader{

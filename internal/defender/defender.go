@@ -46,11 +46,16 @@ type endangeredPlanet struct {
 
 // Defender orchestrates fleet-save operations: polls for attacks, saves endangered fleets, recalls after danger passes.
 type Defender struct {
-	client   ogamed.ClientInterface
-	stateMgr StateReader
-	db       *sql.DB
-	cfg      config.DefenderConfig
-	log      *slog.Logger
+	client      ogamed.ClientInterface
+	stateMgr    StateReader
+	db          *sql.DB
+	cfg         config.DefenderConfig
+	log         *slog.Logger
+	broadcaster Broadcaster
+}
+
+type Broadcaster interface {
+	Broadcast(msgType string, data interface{})
 }
 
 // NewDefender creates a new Defender with all required dependencies.
@@ -61,6 +66,16 @@ func NewDefender(client ogamed.ClientInterface, stateMgr StateReader, db *sql.DB
 		db:       db,
 		cfg:      cfg,
 		log:      log.With("component", "defender"),
+	}
+}
+
+func (d *Defender) SetBroadcaster(b Broadcaster) {
+	d.broadcaster = b
+}
+
+func (d *Defender) broadcast(msgType string, data interface{}) {
+	if d.broadcaster != nil {
+		d.broadcaster.Broadcast(msgType, data)
 	}
 }
 
@@ -446,6 +461,12 @@ func (d *Defender) savePlanet(ctx context.Context, planet model.Planet, attacks 
 
 	d.log.Info("Fleet-save executed successfully",
 		"planet", planet.Name, "fleetID", fleetID, "destination", route.Dest)
+	d.broadcast("fleet_save", map[string]interface{}{
+		"planetId":   planet.ID,
+		"planetName": planet.Name,
+		"fleetId":    fleetID,
+		"destination": route.Dest,
+	})
 }
 
 // --- Recall Processing ---

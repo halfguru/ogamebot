@@ -19,11 +19,16 @@ import (
 
 // Farmer orchestrates auto-farming: scans galaxies, spies inactives, attacks profitable targets.
 type Farmer struct {
-	client   ogamed.ClientInterface
-	stateMgr FarmerStateReader
-	db       *sql.DB
-	cfg      config.AutoFarmConfig
-	log      *slog.Logger
+	client      ogamed.ClientInterface
+	stateMgr    FarmerStateReader
+	db          *sql.DB
+	cfg         config.AutoFarmConfig
+	log         *slog.Logger
+	broadcaster Broadcaster
+}
+
+type Broadcaster interface {
+	Broadcast(msgType string, data interface{})
 }
 
 // NewFarmer creates a new Farmer with all required dependencies.
@@ -34,6 +39,16 @@ func NewFarmer(client ogamed.ClientInterface, stateMgr FarmerStateReader, db *sq
 		db:       db,
 		cfg:      cfg,
 		log:      log.With("component", "farmer"),
+	}
+}
+
+func (f *Farmer) SetBroadcaster(b Broadcaster) {
+	f.broadcaster = b
+}
+
+func (f *Farmer) broadcast(msgType string, data interface{}) {
+	if f.broadcaster != nil {
+		f.broadcaster.Broadcast(msgType, data)
 	}
 }
 
@@ -354,6 +369,14 @@ func (f *Farmer) attackTargets(ctx context.Context, targets []FarmTarget, slots 
 
 		// Record attack in DB
 		f.recordAttack(ctx, fleetID, int64(origin.ID), target, int(cargoCount))
+
+		f.broadcast("farm_attack", map[string]interface{}{
+			"fleetId":  fleetID,
+			"target":   fmt.Sprintf("%d:%d:%d", target.Coordinate.Galaxy, target.Coordinate.System, target.Coordinate.Position),
+			"origin":   origin.Name,
+			"ships":    cargoCount,
+			"profit":   target.NetProfit,
+		})
 
 		attacked++
 	}

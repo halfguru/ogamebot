@@ -24,6 +24,11 @@ type Server struct {
 	log      *slog.Logger
 }
 
+// GetBroadcaster returns the hub as a Broadcaster interface for passing to workers.
+func (s *Server) GetBroadcaster() Broadcaster {
+	return s.hub
+}
+
 // NewServer creates a new dashboard server.
 func NewServer(stateMgr StateReader, db *sql.DB, cfg config.DashboardConfig, log *slog.Logger) *Server {
 	hub := NewHub(log)

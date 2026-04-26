@@ -72,9 +72,19 @@ func main() {
 	stateMgr := state.NewManager(db, client, log)
 	go stateMgr.Run(ctx)
 
+	// 8.4. Create dashboard server early to get broadcaster for workers
+	var broadcaster dashboard.Broadcaster
+	if cfg.Dashboard.Enabled {
+		dashSrv := dashboard.NewServer(stateMgr, db, cfg.Dashboard, log)
+		broadcaster = dashSrv.GetBroadcaster()
+		go dashSrv.Start(ctx)
+		log.Info("Dashboard started", "port", cfg.Dashboard.Port)
+	}
+
 	// 8.5. Start defender if enabled
 	if cfg.Features.Defender.Enabled {
 		def := defender.NewDefender(client, stateMgr, db, cfg.Features.Defender, log)
+		def.SetBroadcaster(broadcaster)
 		go def.Run(ctx)
 		log.Info("Defender started", "pollInterval", time.Duration(cfg.Features.Defender.PollIntervalMs)*time.Millisecond)
 	}
@@ -82,6 +92,7 @@ func main() {
 	// 8.6. Start builder if enabled
 	if cfg.Features.AutoBuild.Enabled {
 		b := builder.NewBuilder(client, stateMgr, db, cfg.Features.AutoBuild, log)
+		b.SetBroadcaster(broadcaster)
 		go b.Run(ctx)
 		log.Info("Builder started", "pollInterval", time.Duration(cfg.Features.AutoBuild.PollIntervalMs)*time.Millisecond)
 	}
@@ -89,15 +100,9 @@ func main() {
 	// 8.7. Start farmer if enabled
 	if cfg.Features.AutoFarm.Enabled {
 		f := farmer.NewFarmer(client, stateMgr, db, cfg.Features.AutoFarm, log)
+		f.SetBroadcaster(broadcaster)
 		go f.Run(ctx)
 		log.Info("Farmer started", "pollInterval", time.Duration(cfg.Features.AutoFarm.PollIntervalMs)*time.Millisecond)
-	}
-
-	// 8.8. Start dashboard server if enabled
-	if cfg.Dashboard.Enabled {
-		dashSrv := dashboard.NewServer(stateMgr, db, cfg.Dashboard, log)
-		go dashSrv.Start(ctx)
-		log.Info("Dashboard started", "port", cfg.Dashboard.Port)
 	}
 
 	log.Info("Bot started successfully")

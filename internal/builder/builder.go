@@ -52,7 +52,12 @@ type Builder struct {
 	db            *sql.DB
 	cfg           config.AutoBuildConfig
 	log           *slog.Logger
-	antiDetectPct float64 // probability of picking 2nd-best (default 0.07, set to 0 in tests)
+	antiDetectPct float64
+	broadcaster   Broadcaster
+}
+
+type Broadcaster interface {
+	Broadcast(msgType string, data interface{})
 }
 
 // NewBuilder creates a new Builder with all required dependencies.
@@ -64,6 +69,16 @@ func NewBuilder(client ogamed.ClientInterface, stateMgr BuilderStateReader, db *
 		cfg:           cfg,
 		log:           log.With("component", "builder"),
 		antiDetectPct: 0.07,
+	}
+}
+
+func (b *Builder) SetBroadcaster(br Broadcaster) {
+	b.broadcaster = br
+}
+
+func (b *Builder) broadcast(msgType string, data interface{}) {
+	if b.broadcaster != nil {
+		b.broadcaster.Broadcast(msgType, data)
 	}
 }
 
@@ -212,6 +227,15 @@ func (b *Builder) poll(ctx context.Context) {
 	if err := b.recordBuildEvent(ctx, best); err != nil {
 		b.log.Error("Failed to record build event", "error", err)
 	}
+
+	b.broadcast("build", map[string]interface{}{
+		"planetId":     best.PlanetID,
+		"buildingId":   best.BuildingID,
+		"buildingName": best.BuildingName,
+		"fromLevel":    best.CurrentLevel,
+		"toLevel":      best.TargetLevel,
+		"roiScore":     best.ROIScore,
+	})
 }
 
 // resolveMaxLevel returns the max level cap for a building on a specific planet.
