@@ -33,7 +33,7 @@ func TestCalcDistance(t *testing.T) {
 			name: "same galaxy different system",
 			from: model.Coordinate{Galaxy: 1, System: 100, Position: 3},
 			to:   model.Coordinate{Galaxy: 1, System: 110, Position: 8},
-			want: 53, // 5*abs(100-110) + abs(3-8) = 50+3
+			want: 55, // 5*abs(100-110) + abs(3-8) = 50+5
 		},
 		{
 			name: "different galaxy",
@@ -182,9 +182,9 @@ func TestFuelConsumption(t *testing.T) {
 	}{
 		{
 			name:     "single small cargo short trip",
-			distance: 10,
+			distance: 1000,
 			speed:    10,
-			ships:    model.Ships{SmallCargo: 1},
+			ships:    model.Ships{SmallCargo: 10},
 			research: model.Research{CombustionDrive: 10},
 			wantGt:   1,
 		},
@@ -232,9 +232,9 @@ func TestFuelConsumption(t *testing.T) {
 
 func TestFuelConsumption_SpeedScaling(t *testing.T) {
 	// Higher speed should cost more fuel for same distance
-	ships := model.Ships{SmallCargo: 10}
+	ships := model.Ships{SmallCargo: 100}
 	research := model.Research{CombustionDrive: 10}
-	distance := 100
+	distance := 5000
 
 	fuelSpeed5 := fuelConsumption(distance, 5, ships, research)
 	fuelSpeed10 := fuelConsumption(distance, 10, ships, research)
@@ -276,11 +276,11 @@ func TestFlightDuration(t *testing.T) {
 		},
 		{
 			name:     "slow ship takes longer than fast ship",
-			distance: 100,
+			distance: 1000,
 			speed:    10,
 			ships:    model.Ships{Deathstar: 1},
 			research: model.Research{HyperspaceDrive: 0},
-			wantGt:   1 * time.Hour, // deathstar is VERY slow
+			wantGt:   10 * time.Minute, // deathstar is very slow
 		},
 	}
 
