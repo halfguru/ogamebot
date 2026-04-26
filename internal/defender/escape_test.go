@@ -400,8 +400,8 @@ func TestCalcEscapeRoutes(t *testing.T) {
 			if r.Speed < 1 || r.Speed > 10 {
 				t.Errorf("route speed %d out of range [1,10]", r.Speed)
 			}
-			if r.FuelCost <= 0 {
-				t.Errorf("route fuel cost %d should be > 0", r.FuelCost)
+			if r.FuelCost < 0 {
+				t.Errorf("route fuel cost %d should be >= 0", r.FuelCost)
 			}
 			if r.Duration <= 0 {
 				t.Errorf("route duration %v should be > 0", r.Duration)

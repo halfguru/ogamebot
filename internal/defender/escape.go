@@ -4,6 +4,7 @@ package defender
 
 import (
 	"math"
+	"sort"
 	"time"
 
 	"github.com/user/ogame-bot/internal/model"
@@ -150,13 +151,14 @@ func slowestShipSpeed(ships model.Ships, research model.Research) int64 {
 // OGame formula: flightTime = round((3500 / speed * sqrt(distance * 10 / slowestSpeed) + 10) / universeSpeed) seconds
 // where speed is the speed setting (1-10) and slowestSpeed is the effective speed of the slowest ship.
 func flightDuration(distance int, speed int, from, to model.Coordinate, ships model.Ships, research model.Research) time.Duration {
-	if distance == 0 {
-		return 0
-	}
-
 	slowest := slowestShipSpeed(ships, research)
 	if slowest == 0 {
 		return 0
+	}
+
+	if distance == 0 {
+		// Planet↔moon at same position: minimum 10 seconds per OGame formula
+		return 10 * time.Second
 	}
 
 	// OGame flight time formula in seconds
@@ -215,6 +217,149 @@ func shipsToSlice(ships model.Ships) []struct{ ID, Count int } {
 		{215, ships.Battlecruiser},
 		// SolarSatellite (212) intentionally excluded — not mobile
 	}
+}
+
+// EscapeRoute represents a viable fleet-save destination with computed metrics.
+type EscapeRoute struct {
+	Dest         model.Coordinate
+	DestPlanetID int           // planet ID for send-fleet call
+	Speed        int           // 1-10
+	Duration     time.Duration // flight time at this speed
+	FuelCost     int64         // deuterium consumed
+	SafetyScore  int           // lower = safer
+	MetalLoad    int64         // resources that can be loaded
+	CrystalLoad  int64
+	DeutLoad     int64 // remaining deuterium after fuel
+	Mission      int   // mission type (always deploy for fleet-save)
+}
+
+// CalcEscapeRoutes generates all viable escape routes for an endangered planet,
+// ranked by safety score (lower = safer). Returns an empty slice if no ships
+// or no viable destinations exist — never returns nil.
+func CalcEscapeRoutes(
+	origin model.Planet,
+	ships model.Ships,
+	resources model.Resources,
+	ownPlanets []model.Planet,
+	attacks []model.AttackEvent,
+	research model.Research,
+) []EscapeRoute {
+	// No ships — nothing to save
+	if !hasShips(ships) {
+		return []EscapeRoute{}
+	}
+
+	// No destinations — nowhere to go
+	if len(ownPlanets) == 0 {
+		return []EscapeRoute{}
+	}
+
+	var routes []EscapeRoute
+
+	for _, dest := range ownPlanets {
+		// Skip if destination is the same as origin
+		if dest.ID == origin.ID {
+			continue
+		}
+
+		distance := CalcDistance(origin.Coordinate, dest.Coordinate)
+		// Distance 0 is valid for planet↔moon at same position (shortest deploy)
+		// but skip if it's the exact same body (same ID, same type)
+		if distance == 0 && origin.Coordinate.Type == dest.Coordinate.Type {
+			continue
+		}
+
+		// Try speed settings from 10 (fastest) down to 1 (slowest)
+		for speed := 10; speed >= 1; speed-- {
+			fuel := fuelConsumption(distance, speed, ships, research)
+			availableDeut := int64(resources.Deuterium)
+
+			// Fuel insufficient — skip this speed
+			if fuel > availableDeut {
+				continue
+			}
+
+			duration := flightDuration(distance, speed, origin.Coordinate, dest.Coordinate, ships, research)
+
+			route := EscapeRoute{
+				Dest:         dest.Coordinate,
+				DestPlanetID: dest.ID,
+				Speed:        speed,
+				Duration:     duration,
+				FuelCost:     fuel,
+				MetalLoad:    int64(resources.Metal),
+				CrystalLoad:  int64(resources.Crystal),
+				DeutLoad:     availableDeut - fuel,
+				Mission:      3, // MissionDeploy
+			}
+			route.SafetyScore = calcSafetyScore(route, distance, attacks)
+
+			routes = append(routes, route)
+		}
+	}
+
+	// Sort by safety score ascending (lower = safer)
+	sort.Slice(routes, func(i, j int) bool {
+		return routes[i].SafetyScore < routes[j].SafetyScore
+	})
+
+	if routes == nil {
+		routes = []EscapeRoute{}
+	}
+
+	return routes
+}
+
+// calcSafetyScore computes a safety score for a route (lower = safer).
+//
+// Scoring criteria:
+//   - Base: 0
+//   - +1000 if destination has incoming hostile attack
+//   - +500 if destination is a planet (moons are safer — no phalanx)
+//   - -100 if destination is a moon (bonus for moon destination)
+//   - +distance/50 (farther = riskier)
+//   - +fuelCost/10000 (more fuel = riskier)
+func calcSafetyScore(route EscapeRoute, distance int, attacks []model.AttackEvent) int {
+	score := 0
+
+	// Check if destination is under attack
+	for _, atk := range attacks {
+		if coordsEqual(atk.Destination, route.Dest) {
+			score += 1000
+			break
+		}
+	}
+
+	// Moon vs planet bonus
+	if route.Dest.Type == "moon" {
+		score -= 100 // moon is safer (can't be phalanxed)
+	} else {
+		score += 500 // planet is phalanx-visible
+	}
+
+	// Distance penalty (farther = riskier)
+	score += distance / 50
+
+	// Fuel cost penalty
+	score += int(route.FuelCost / 10000)
+
+	return score
+}
+
+// hasShips checks if any mobile ships exist in the fleet.
+func hasShips(ships model.Ships) bool {
+	return ships.SmallCargo > 0 || ships.LargeCargo > 0 ||
+		ships.LightFighter > 0 || ships.HeavyFighter > 0 ||
+		ships.Cruiser > 0 || ships.Battleship > 0 ||
+		ships.Battlecruiser > 0 || ships.Bomber > 0 ||
+		ships.Destroyer > 0 || ships.Deathstar > 0 ||
+		ships.ColonyShip > 0 || ships.Recycler > 0 ||
+		ships.EspionageProbe > 0
+}
+
+// coordsEqual checks if two coordinates are the same position and type.
+func coordsEqual(a, b model.Coordinate) bool {
+	return a.Galaxy == b.Galaxy && a.System == b.System && a.Position == b.Position && a.Type == b.Type
 }
 
 // abs returns the absolute value of an integer.
