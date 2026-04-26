@@ -1,0 +1,31 @@
+# OGame Bot Configuration
+# Copy to config.yaml and fill in your details
+
+account:
+  universe: "s123-en.ogame.gameforge.com" # Your universe URL
+  username: "your_username"
+  password: "${OGAME_PASSWORD}" # Loaded from .env file
+
+ogamed:
+  url: "http://ogamed:8080" # ogamed container URL
+
+features:
+  defender:
+    enabled: false
+    pollIntervalMs: 30000 # Check for attacks every 30s
+  autoBuild:
+    enabled: false
+    pollIntervalMs: 120000 # Check for builds every 2 min
+  autoFarm:
+    enabled: false
+    pollIntervalMs: 300000 # Check for farm targets every 5 min
+
+rateLimit:
+  defaultMinDelayMs: 2000 # Minimum 2s between requests
+  defaultMaxDelayMs: 5000 # Maximum 5s between requests
+  endpointOverrides: {}
+  # Example: galaxy scanning needs longer delays
+  # endpointOverrides:
+  #   "/bot/galaxy-infos": { minMs: 5000, maxMs: 10000 }
+
+logLevel: "info" # trace | debug | info | warn | error | fatal
