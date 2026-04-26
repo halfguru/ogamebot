@@ -32,6 +32,10 @@ type mockClient struct {
 	getResearchFunc        func(ctx context.Context) (model.Research, error)
 	getServerSpeedFunc     func(ctx context.Context) (int, error)
 	getServerVersionFunc   func(ctx context.Context) (string, error)
+	getAttacksFunc         func(ctx context.Context) ([]model.AttackEvent, error)
+	getSlotsFunc           func(ctx context.Context) (model.Slots, error)
+	sendFleetFunc          func(ctx context.Context, req model.SendFleetRequest) (int64, error)
+	cancelFleetFunc        func(ctx context.Context, fleetID int64) error
 }
 
 func (m *mockClient) Login(ctx context.Context) error {
@@ -117,6 +121,30 @@ func (m *mockClient) GetServerVersion(ctx context.Context) (string, error) {
 		return m.getServerVersionFunc(ctx)
 	}
 	return "", nil
+}
+func (m *mockClient) GetAttacks(ctx context.Context) ([]model.AttackEvent, error) {
+	if m.getAttacksFunc != nil {
+		return m.getAttacksFunc(ctx)
+	}
+	return nil, nil
+}
+func (m *mockClient) GetSlots(ctx context.Context) (model.Slots, error) {
+	if m.getSlotsFunc != nil {
+		return m.getSlotsFunc(ctx)
+	}
+	return model.Slots{}, nil
+}
+func (m *mockClient) SendFleet(ctx context.Context, req model.SendFleetRequest) (int64, error) {
+	if m.sendFleetFunc != nil {
+		return m.sendFleetFunc(ctx, req)
+	}
+	return 0, nil
+}
+func (m *mockClient) CancelFleet(ctx context.Context, fleetID int64) error {
+	if m.cancelFleetFunc != nil {
+		return m.cancelFleetFunc(ctx, fleetID)
+	}
+	return nil
 }
 
 // setupTestDB creates a fresh SQLite database for testing.

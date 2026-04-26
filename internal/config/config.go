@@ -38,11 +38,49 @@ type FeatureConfig struct {
 	PollIntervalMs int  `yaml:"pollIntervalMs"`
 }
 
+// DefenderConfig holds the defender feature settings including safety margins.
+type DefenderConfig struct {
+	FeatureConfig     `yaml:",inline"`
+	SafetyMarginMs    int  `yaml:"safetyMarginMs"`
+	RecallEnabled     *bool `yaml:"recallEnabled"`
+	MaxReturnFlightS  int  `yaml:"maxReturnFlightS"`
+	MinReactionDelayS int  `yaml:"minReactionDelayS"`
+	MaxReactionDelayS int  `yaml:"maxReactionDelayS"`
+}
+
+// DefenderDefaults applies default values for zero-valued DefenderConfig fields.
+func (d *DefenderConfig) DefenderDefaults() {
+	if d.SafetyMarginMs == 0 {
+		d.SafetyMarginMs = 120000
+	}
+	if d.RecallEnabled == nil {
+		v := true
+		d.RecallEnabled = &v
+	}
+	if d.MaxReturnFlightS == 0 {
+		d.MaxReturnFlightS = 600
+	}
+	if d.MinReactionDelayS == 0 {
+		d.MinReactionDelayS = 30
+	}
+	if d.MaxReactionDelayS == 0 {
+		d.MaxReactionDelayS = 120
+	}
+}
+
+// IsRecallEnabled returns the RecallEnabled value, defaulting to true.
+func (d *DefenderConfig) IsRecallEnabled() bool {
+	if d.RecallEnabled == nil {
+		return true
+	}
+	return *d.RecallEnabled
+}
+
 // FeaturesConfig holds per-feature toggle settings.
 type FeaturesConfig struct {
-	Defender  FeatureConfig `yaml:"defender"`
-	AutoBuild FeatureConfig `yaml:"autoBuild"`
-	AutoFarm  FeatureConfig `yaml:"autoFarm"`
+	Defender  DefenderConfig `yaml:"defender"`
+	AutoBuild FeatureConfig  `yaml:"autoBuild"`
+	AutoFarm  FeatureConfig  `yaml:"autoFarm"`
 }
 
 // RateLimitConfig holds rate limiting configuration for ogamed API calls.
@@ -119,5 +157,21 @@ func (c *Config) Validate() error {
 	if c.RateLimit.DefaultMaxDelayMs < c.RateLimit.DefaultMinDelayMs {
 		return fmt.Errorf("rateLimit.defaultMaxDelayMs must be >= defaultMinDelayMs")
 	}
+
+	// Apply defender defaults before validation
+	c.Features.Defender.DefenderDefaults()
+
+	if c.Features.Defender.Enabled {
+		if c.Features.Defender.SafetyMarginMs < 10000 {
+			return fmt.Errorf("features.defender.safetyMarginMs must be >= 10000ms, got %d", c.Features.Defender.SafetyMarginMs)
+		}
+		if c.Features.Defender.MinReactionDelayS < 5 {
+			return fmt.Errorf("features.defender.minReactionDelayS must be >= 5s, got %d", c.Features.Defender.MinReactionDelayS)
+		}
+		if c.Features.Defender.MaxReactionDelayS < c.Features.Defender.MinReactionDelayS {
+			return fmt.Errorf("features.defender.maxReactionDelayS must be >= minReactionDelayS")
+		}
+	}
+
 	return nil
 }

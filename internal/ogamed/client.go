@@ -7,6 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/user/ogame-bot/internal/model"
@@ -31,6 +34,10 @@ type ClientInterface interface {
 	GetResearch(ctx context.Context) (model.Research, error)
 	GetServerSpeed(ctx context.Context) (int, error)
 	GetServerVersion(ctx context.Context) (string, error)
+	GetAttacks(ctx context.Context) ([]model.AttackEvent, error)
+	GetSlots(ctx context.Context) (model.Slots, error)
+	SendFleet(ctx context.Context, req model.SendFleetRequest) (int64, error)
+	CancelFleet(ctx context.Context, fleetID int64) error
 }
 
 // Client implements ClientInterface with rate limiting and retry.
@@ -106,11 +113,90 @@ func (c *Client) get(ctx context.Context, path string) ([]byte, error) {
 	return body, nil
 }
 
+// post performs a POST request with rate limiting and retry. Returns the response body bytes.
+func (c *Client) post(ctx context.Context, path string, data url.Values) ([]byte, error) {
+	if err := c.rateLimiter.Wait(ctx, path); err != nil {
+		return nil, fmt.Errorf("rate limiter wait: %w", err)
+	}
+
+	var body []byte
+	err := retryWithBackoff(ctx, func() error {
+		start := time.Now()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader(data.Encode()))
+		if err != nil {
+			return fmt.Errorf("creating request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("executing request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("reading response body: %w", err)
+		}
+
+		c.log.Debug("ogamed POST request completed",
+			"path", path,
+			"status", resp.StatusCode,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
+
+		// Map HTTP-level errors to OgamedError for retry decisions
+		if resp.StatusCode >= 500 {
+			return &OgamedError{Code: resp.StatusCode, Message: fmt.Sprintf("HTTP %d", resp.StatusCode)}
+		}
+		if resp.StatusCode >= 400 {
+			return &OgamedError{Code: resp.StatusCode, Message: fmt.Sprintf("HTTP %d", resp.StatusCode)}
+		}
+
+		return nil
+	}, c.retryCfg, c.log)
+
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
 // getTyped performs a GET request and deserializes the ogamed response envelope into type T.
 func getTyped[T any](c *Client, ctx context.Context, path string) (T, error) {
 	var zero T
 
 	body, err := c.get(ctx, path)
+	if err != nil {
+		return zero, err
+	}
+
+	// First unmarshal into envelope with raw message
+	var envelope OgamedResponse[json.RawMessage]
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return zero, fmt.Errorf("unmarshaling ogamed response: %w", err)
+	}
+
+	if envelope.Status != "ok" {
+		return zero, &OgamedError{Code: envelope.Code, Message: envelope.Message}
+	}
+
+	// Unmarshal the Result field into the target type
+	var result T
+	if envelope.Result != nil {
+		if err := json.Unmarshal(envelope.Result, &result); err != nil {
+			return zero, fmt.Errorf("unmarshaling result: %w", err)
+		}
+	}
+
+	return result, nil
+}
+
+// postTyped performs a POST request and deserializes the ogamed response envelope into type T.
+func postTyped[T any](c *Client, ctx context.Context, path string, data url.Values) (T, error) {
+	var zero T
+
+	body, err := c.post(ctx, path, data)
 	if err != nil {
 		return zero, err
 	}
@@ -211,4 +297,42 @@ func (c *Client) GetServerSpeed(ctx context.Context) (int, error) {
 // GetServerVersion returns the OGame server version.
 func (c *Client) GetServerVersion(ctx context.Context) (string, error) {
 	return getTyped[string](c, ctx, "/bot/server/version")
+}
+
+// GetAttacks returns all incoming attacks.
+func (c *Client) GetAttacks(ctx context.Context) ([]model.AttackEvent, error) {
+	return getTyped[[]model.AttackEvent](c, ctx, "/bot/attacks")
+}
+
+// GetSlots returns the current fleet and expedition slot usage.
+func (c *Client) GetSlots(ctx context.Context) (model.Slots, error) {
+	return getTyped[model.Slots](c, ctx, "/bot/slots")
+}
+
+// SendFleet dispatches a fleet and returns the fleet ID.
+func (c *Client) SendFleet(ctx context.Context, req model.SendFleetRequest) (int64, error) {
+	path := fmt.Sprintf("/bot/planets/%d/send-fleet", req.PlanetID)
+
+	data := url.Values{}
+	for _, ship := range req.Ships {
+		data.Add("ships", fmt.Sprintf("%d,%d", ship.ID, ship.Count))
+	}
+	data.Set("speed", strconv.Itoa(req.Speed))
+	data.Set("galaxy", strconv.Itoa(req.Galaxy))
+	data.Set("system", strconv.Itoa(req.System))
+	data.Set("position", strconv.Itoa(req.Position))
+	data.Set("type", strconv.Itoa(req.Type))
+	data.Set("mission", strconv.Itoa(req.Mission))
+	data.Set("metal", strconv.FormatInt(req.Metal, 10))
+	data.Set("crystal", strconv.FormatInt(req.Crystal, 10))
+	data.Set("deuterium", strconv.FormatInt(req.Deuterium, 10))
+
+	return postTyped[int64](c, ctx, path, data)
+}
+
+// CancelFleet cancels a fleet by its ID.
+func (c *Client) CancelFleet(ctx context.Context, fleetID int64) error {
+	path := fmt.Sprintf("/bot/fleets/%d/cancel", fleetID)
+	_, err := postTyped[any](c, ctx, path, url.Values{})
+	return err
 }

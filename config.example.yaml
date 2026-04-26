@@ -13,6 +13,11 @@ features:
   defender:
     enabled: false
     pollIntervalMs: 30000 # Check for attacks every 30s
+    safetyMarginMs: 120000 # Minimum time before attack arrival to trigger fleet-save (default 2 min)
+    recallEnabled: true # Auto-recall fleet after attack passes (default true)
+    maxReturnFlightS: 600 # Maximum return flight duration to consider recall-safe (default 10 min)
+    minReactionDelayS: 30 # Minimum random delay before reacting to attack (default 30s)
+    maxReactionDelayS: 120 # Maximum random delay before reacting to attack (default 120s)
   autoBuild:
     enabled: false
     pollIntervalMs: 120000 # Check for builds every 2 min

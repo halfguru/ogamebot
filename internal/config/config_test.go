@@ -277,8 +277,8 @@ logLevel: "debug"
 	if cfg.Features.Defender.SafetyMarginMs != 60000 {
 		t.Errorf("Defender.SafetyMarginMs = %d, want 60000", cfg.Features.Defender.SafetyMarginMs)
 	}
-	if cfg.Features.Defender.RecallEnabled != false {
-		t.Error("Defender.RecallEnabled = true, want false")
+	if cfg.Features.Defender.RecallEnabled == nil || *cfg.Features.Defender.RecallEnabled != false {
+		t.Error("Defender.RecallEnabled should be false")
 	}
 	if cfg.Features.Defender.MaxReturnFlightS != 300 {
 		t.Errorf("Defender.MaxReturnFlightS = %d, want 300", cfg.Features.Defender.MaxReturnFlightS)
@@ -325,8 +325,8 @@ logLevel: "info"
 	if cfg.Features.Defender.SafetyMarginMs != 120000 {
 		t.Errorf("Defender.SafetyMarginMs default = %d, want 120000", cfg.Features.Defender.SafetyMarginMs)
 	}
-	if cfg.Features.Defender.RecallEnabled != true {
-		t.Error("Defender.RecallEnabled default = false, want true")
+	if cfg.Features.Defender.RecallEnabled == nil || *cfg.Features.Defender.RecallEnabled != true {
+		t.Error("Defender.RecallEnabled default should be true")
 	}
 	if cfg.Features.Defender.MaxReturnFlightS != 600 {
 		t.Errorf("Defender.MaxReturnFlightS default = %d, want 600", cfg.Features.Defender.MaxReturnFlightS)
