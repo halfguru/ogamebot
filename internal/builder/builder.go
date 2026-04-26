@@ -47,21 +47,23 @@ var buildingNameToMaxLevelKey = map[int]string{
 // Builder orchestrates auto-building: polls all planets, computes ROI,
 // picks the best candidate, and executes the build.
 type Builder struct {
-	client   ogamed.ClientInterface
-	stateMgr BuilderStateReader
-	db       *sql.DB
-	cfg      config.AutoBuildConfig
-	log      *slog.Logger
+	client        ogamed.ClientInterface
+	stateMgr      BuilderStateReader
+	db            *sql.DB
+	cfg           config.AutoBuildConfig
+	log           *slog.Logger
+	antiDetectPct float64 // probability of picking 2nd-best (default 0.07, set to 0 in tests)
 }
 
 // NewBuilder creates a new Builder with all required dependencies.
 func NewBuilder(client ogamed.ClientInterface, stateMgr BuilderStateReader, db *sql.DB, cfg config.AutoBuildConfig, log *slog.Logger) *Builder {
 	return &Builder{
-		client:   client,
-		stateMgr: stateMgr,
-		db:       db,
-		cfg:      cfg,
-		log:      log.With("component", "builder"),
+		client:        client,
+		stateMgr:      stateMgr,
+		db:            db,
+		cfg:           cfg,
+		log:           log.With("component", "builder"),
+		antiDetectPct: 0.07,
 	}
 }
 
@@ -179,9 +181,9 @@ func (b *Builder) poll(ctx context.Context) {
 		return candidates[i].ROIScore > candidates[j].ROIScore
 	})
 
-	// 5. Pick best candidate (anti-detection: 7% chance to pick 2nd best)
+	// 5. Pick best candidate (anti-detection: configurable chance to pick 2nd best)
 	pickIdx := 0
-	if len(candidates) > 1 && rand.Float64() < 0.07 {
+	if len(candidates) > 1 && b.antiDetectPct > 0 && rand.Float64() < b.antiDetectPct {
 		pickIdx = 1
 		b.log.Info("Anti-detection: picking 2nd-best ROI candidate")
 	}

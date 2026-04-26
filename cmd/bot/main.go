@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/user/ogame-bot/internal/builder"
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/defender"
 	"github.com/user/ogame-bot/internal/ogamed"
@@ -74,6 +75,13 @@ func main() {
 		def := defender.NewDefender(client, stateMgr, db, cfg.Features.Defender, log)
 		go def.Run(ctx)
 		log.Info("Defender started", "pollInterval", time.Duration(cfg.Features.Defender.PollIntervalMs)*time.Millisecond)
+	}
+
+	// 8.6. Start builder if enabled
+	if cfg.Features.AutoBuild.Enabled {
+		b := builder.NewBuilder(client, stateMgr, db, cfg.Features.AutoBuild, log)
+		go b.Run(ctx)
+		log.Info("Builder started", "pollInterval", time.Duration(cfg.Features.AutoBuild.PollIntervalMs)*time.Millisecond)
 	}
 
 	log.Info("Bot started successfully")

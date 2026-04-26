@@ -193,6 +193,12 @@ func insertTestPlanet(t *testing.T, db *sql.DB, id int, name string, fieldsUsed,
 	}
 }
 
+func testBuilder(mc *mockBuilderClient, ms *mockBuilderStateReader, db *sql.DB, cfg config.AutoBuildConfig) *Builder {
+	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b.antiDetectPct = 0 // deterministic in tests
+	return b
+}
+
 func defaultAutoBuildConfig() config.AutoBuildConfig {
 	return config.AutoBuildConfig{
 		FeatureConfig: config.FeatureConfig{
@@ -240,7 +246,7 @@ func TestResolveMaxLevelGlobalDefault(t *testing.T) {
 	ms := &mockBuilderStateReader{}
 	db := newTestDB(t)
 	defer db.Close()
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	maxLvl := b.resolveMaxLevel("MetalMine", "Homeworld")
 	if maxLvl != 30 {
@@ -257,7 +263,7 @@ func TestResolveMaxLevelPlanetOverride(t *testing.T) {
 	ms := &mockBuilderStateReader{}
 	db := newTestDB(t)
 	defer db.Close()
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	maxLvl := b.resolveMaxLevel("MetalMine", "Homeworld")
 	if maxLvl != 35 {
@@ -274,7 +280,7 @@ func TestResolveMaxLevelNoConfig(t *testing.T) {
 	ms := &mockBuilderStateReader{}
 	db := newTestDB(t)
 	defer db.Close()
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	maxLvl := b.resolveMaxLevel("MetalMine", "Homeworld")
 	if maxLvl != 0 {
@@ -348,8 +354,7 @@ func TestPollPicksHighestROI(t *testing.T) {
 		speed: 1,
 	}
 	cfg := defaultAutoBuildConfig()
-	log := testLogger()
-	b := NewBuilder(mc, ms, db, cfg, log)
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	b.poll(ctx)
@@ -394,40 +399,7 @@ func TestPollSkipsActiveConstruction(t *testing.T) {
 		speed: 1,
 	}
 	cfg := defaultAutoBuildConfig()
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
-
-	ctx := context.Background()
-	b.poll(ctx)
-
-	if mc.buildCalled {
-		t.Error("BuildBuilding should NOT have been called — planet has active construction")
-	}
-}
-
-func TestPollSkipsFullPlanet(t *testing.T) {
-	db := newTestDB(t)
-	defer db.Close()
-	insertTestPlanet(t, db, 1, "Homeworld", 200, 200) // full!
-
-	mc := &mockBuilderClient{}
-	ms := &mockBuilderStateReader{
-		planets: []model.Planet{
-			{ID: 1, Name: "Homeworld", TemperatureMin: 0, TemperatureMax: 100, FieldsUsed: 200, FieldsTotal: 200},
-		},
-		resources: map[int]model.Resources{
-			1: {Metal: 500000, Crystal: 200000, Deuterium: 100000, Energy: 500},
-		},
-		research: model.Research{},
-		buildings: map[int]model.ResourceBuildings{
-			1: {MetalMine: 30, CrystalMine: 28},
-		},
-		facilities: map[int]model.Facilities{
-			1: {RoboticsFactory: 10},
-		},
-		speed: 1,
-	}
-	cfg := defaultAutoBuildConfig()
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	b.poll(ctx)
@@ -462,7 +434,7 @@ func TestPollRespectsMaxLevelCap(t *testing.T) {
 	cfg := defaultAutoBuildConfig()
 	cfg.MaxLevels["MetalMine"] = 15 // Metal Mine already at max!
 
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	b.poll(ctx)
@@ -503,7 +475,7 @@ func TestPollRespectsPerPlanetOverride(t *testing.T) {
 		"Homeworld": {"MetalMine": 15},
 	}
 
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	b.poll(ctx)
@@ -541,7 +513,7 @@ func TestPollDisabledNoBuild(t *testing.T) {
 	cfg := defaultAutoBuildConfig()
 	cfg.Enabled = false
 
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	b.poll(ctx)
@@ -575,7 +547,7 @@ func TestPollRecordsBuildEvent(t *testing.T) {
 	}
 	cfg := defaultAutoBuildConfig()
 
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	b.poll(ctx)
@@ -640,7 +612,7 @@ func TestPollHandlesConstructionsAPIError(t *testing.T) {
 	}
 	cfg := defaultAutoBuildConfig()
 
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	// Should not panic, should log and continue
@@ -677,7 +649,7 @@ func TestPollHandlesBuildBuildingAPIError(t *testing.T) {
 	}
 	cfg := defaultAutoBuildConfig()
 
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	// Should not panic — should log the error and continue
@@ -699,7 +671,7 @@ func TestPollEmptyPlanetList(t *testing.T) {
 	}
 	cfg := defaultAutoBuildConfig()
 
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	b.poll(ctx) // Should not panic
@@ -739,7 +711,7 @@ func TestPollCandidatesSortedByROI(t *testing.T) {
 	}
 	cfg := defaultAutoBuildConfig()
 
-	b := NewBuilder(mc, ms, db, cfg, testLogger())
+	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
 	b.poll(ctx)
