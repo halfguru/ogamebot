@@ -724,17 +724,11 @@ export function createLogger(name: string, level: string = 'info') {
 | A3 | `OGAMED_AUTO_LOGIN=true` makes ogamed auto-login and maintain session across restarts | Docker Compose | If not, need additional reconnection logic in bot client |
 | A4 | Zod 4.x API is compatible with the schema patterns described (4.x is latest on npm) | Standard Stack | If Zod 4 has breaking changes from 3.x patterns, schemas need adjustment — but 4.x is production-stable |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **ogamed Docker image availability**
-   - What we know: The repo has a Dockerfile and docker-compose.yml. The README mentions "Download ogamed binary here" linking to releases.
-   - What's unclear: Whether a pre-built Docker image exists on Docker Hub or needs building from source.
-   - Recommendation: Plan to build from source (reference the Dockerfile in the repo). This guarantees version pinning and is more reliable than depending on Docker Hub availability.
+1. **ogamed Docker image availability** — RESOLVED: Use pre-built image `alaingilbert/ogamed:latest` from Docker Hub (confirmed available). Fallback: build from source via Dockerfile in the repo. Plan 01-03 uses the pre-built image.
 
-2. **ogamed response schema completeness**
-   - What we know: The wiki shows example responses for most endpoints.
-   - What's unclear: Whether responses include additional undocumented fields, or whether certain fields can be null/missing in edge cases.
-   - Recommendation: Start Zod schemas permissive (`.passthrough()`), tighten after testing against real responses. Add a response-capture mode during development.
+2. **ogamed response schema completeness** — RESOLVED: Start Zod schemas permissive with `.passthrough()` and `.default(0)` for numeric fields that may be missing. Tighten schemas after capturing real ogamed responses during development. Plan 01-01 Task 2 implements this pattern.
 
 ## Environment Availability
 

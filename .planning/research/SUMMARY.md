@@ -6,7 +6,7 @@
 **Confidence:** HIGH
 
 ## Executive Summary
-
+ 
 This is a single-user game automation bot for OGame — a browser-based space strategy MMO. The standard architecture across all reference projects (TBot, Cruiser, r4fek) is: a Go-based REST backend (ogamed) handles anti-detection and game protocol, while a separate bot logic layer handles automation decisions. The bot runs 24/7 on a VPS, accessed remotely via Telegram notifications and a web dashboard. The critical value proposition is fleet protection — if fleet-save fails, months of player progress can be destroyed in seconds, making reliability the #1 concern above all other features.
 
 The recommended approach is a TypeScript/Node.js monorepo (pnpm workspaces) with four packages: `shared` (types, schemas, constants), `bot` (core engine with worker pattern), `api` (Fastify web server), and `dashboard` (SolidJS frontend). SQLite via Drizzle ORM provides persistent state with zero ops overhead. The architecture follows a strict layering: ogamed REST client → game state manager (cached) → scheduler/event bus → independent feature workers → presentation layer (dashboard + Telegram). Each worker (defender, auto-build, auto-farm, expeditions) operates on scheduled ticks and competes for fleet slots through a priority-based coordinator.
