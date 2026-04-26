@@ -12,3 +12,19 @@ export {
 } from './planets.js';
 export { fleetSchema, fleetArraySchema } from './fleets.js';
 export { researchSchema } from './research.js';
+export {
+  apiResourcesSchema,
+  apiBuildingsSchema,
+  apiPlanetSchema,
+  apiPlanetArraySchema,
+  apiFleetSchema,
+  apiFleetArraySchema,
+  apiResearchSchema,
+  apiBuildEventSchema,
+  apiBuildEventArraySchema,
+  apiFleetSaveEventSchema,
+  apiFleetSaveEventArraySchema,
+  apiFarmAttackSchema,
+  apiFarmAttackArraySchema,
+  wsMessageSchema,
+} from './dashboard.js';

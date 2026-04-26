@@ -1,0 +1,54 @@
+import type { APIPlanet } from '@ogame-bot/shared';
+import { Show } from 'solid-js';
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  return n.toString();
+}
+
+export default function PlanetCard(props: { planet: APIPlanet }) {
+  const fieldsPercent = () => (props.planet.fieldsUsed / props.planet.fieldsTotal) * 100;
+  const fieldsClass = () =>
+    fieldsPercent() >= 90 ? 'fields-critical' : fieldsPercent() >= 70 ? 'fields-warning' : 'fields-ok';
+
+  return (
+    <div class="planet-card">
+      <div class="planet-header">
+        <h3>{props.planet.name}</h3>
+        <span class="coords">
+          [{props.planet.galaxy}:{props.planet.system}:{props.planet.position}]
+        </span>
+        <Show when={props.planet.isMoon}>
+          <span class="badge moon">🌙 Moon</span>
+        </Show>
+      </div>
+      <div class={`planet-fields ${fieldsClass()}`}>
+        Fields: {props.planet.fieldsUsed}/{props.planet.fieldsTotal}
+      </div>
+      <div class="planet-resources">
+        <div class="resource metal">⛏ {formatNumber(props.planet.resources.metal)}</div>
+        <div class="resource crystal">💎 {formatNumber(props.planet.resources.crystal)}</div>
+        <div class="resource deuterium">⛽ {formatNumber(props.planet.resources.deuterium)}</div>
+        <div class="resource energy">⚡ {formatNumber(props.planet.resources.energy)}</div>
+      </div>
+      <div class="planet-buildings">
+        <Show when={props.planet.buildings.metalMine > 0}>
+          <span>Metal: {props.planet.buildings.metalMine}</span>
+        </Show>
+        <Show when={props.planet.buildings.crystalMine > 0}>
+          <span>Crystal: {props.planet.buildings.crystalMine}</span>
+        </Show>
+        <Show when={props.planet.buildings.deuteriumSynthesizer > 0}>
+          <span>Deut: {props.planet.buildings.deuteriumSynthesizer}</span>
+        </Show>
+        <Show when={props.planet.buildings.solarPlant > 0}>
+          <span>Solar: {props.planet.buildings.solarPlant}</span>
+        </Show>
+        <Show when={props.planet.buildings.fusionReactor > 0}>
+          <span>Fusion: {props.planet.buildings.fusionReactor}</span>
+        </Show>
+      </div>
+    </div>
+  );
+}

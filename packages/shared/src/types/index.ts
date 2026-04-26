@@ -7,3 +7,14 @@ export type {
   Ships,
 } from './buildings.js';
 export type { Research } from './research.js';
+export type {
+  APIResources,
+  APIBuildings,
+  APIPlanet,
+  APIFleet,
+  APIResearch,
+  APIBuildEvent,
+  APIFleetSaveEvent,
+  APIFarmAttack,
+  WSMessage,
+} from './dashboard.js';
