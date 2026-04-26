@@ -287,7 +287,7 @@ func TestCalcLootValue(t *testing.T) {
 		{"metal only", 1000, 0, 0, 1000},
 		{"crystal only", 0, 1000, 0, 1500},           // 1000 * 1.5
 		{"deuterium only", 0, 0, 1000, 2000},          // 1000 * 2.0
-		{"mixed", 10000, 4000, 2000, 22000},           // 10000 + 4000*1.5 + 2000*2.0 = 10000+6000+4000
+		{"mixed", 10000, 4000, 2000, 20000},           // 10000 + 4000*1.5 + 2000*2.0 = 10000+6000+4000
 		{"typical farm", 50000, 30000, 10000, 115000}, // 50000 + 30000*1.5 + 10000*2.0 = 50000+45000+20000
 	}
 
@@ -446,7 +446,8 @@ func TestEstimateFuelCost(t *testing.T) {
 			speed:      10,
 			cargoCount: 10,
 			research:   model.Research{CombustionDrive: 10},
-			expected:   6, // baseFuel(10) * 10 * (100/35000) * ((10/10+1)/2)^2 = 100*0.002857*0.25 = ~0.07 → too small, let me recalc
+			// baseFuel(10) * 10 * (100/35000) * ((10/10+1)/2)^2 = 100*0.002857*1.0 = 0.2857 → rounds to 0
+			expected: 0,
 		},
 		{
 			name:       "long distance with many ships",
@@ -454,8 +455,8 @@ func TestEstimateFuelCost(t *testing.T) {
 			speed:      10,
 			cargoCount: 100,
 			research:   model.Research{CombustionDrive: 10},
-			// 10 * 100 * (20000/35000) * ((10/10+1)/2)^2 = 1000 * 0.571 * 0.25 = ~143
-			expected: 143,
+			// 10 * 100 * (20000/35000) * ((10/10+1)/2)^2 = 1000 * 0.5714 * 1.0 = ~571
+			expected: 571,
 		},
 	}
 
