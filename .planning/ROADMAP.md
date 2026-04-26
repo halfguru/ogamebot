@@ -45,11 +45,12 @@ Plans:
   1. Bot detects incoming hostile fleets within a configurable polling interval
   2. Bot automatically deploys fleet + resources on a phalanx-safe mission (deploy with recall) before the attack lands
   3. Bot handles moon-based fleets with appropriate escape destinations and mission types
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Extend ogamed client with POST methods (SendFleet, CancelFleet, GetAttacks, GetSlots) + domain types + DefenderConfig
+- [ ] 02-02-PLAN.md — Escape route calculator (distance, flight time, fuel, safety scoring)
+- [ ] 02-03-PLAN.md — Defender worker (poll loop, attack handling, fleet-save execution, recall) + main.go integration
 
 ### Phase 3: Auto-Build
 **Goal**: Bot automatically grows the empire by upgrading the most profitable buildings across all planets
