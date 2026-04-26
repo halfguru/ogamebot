@@ -2,7 +2,7 @@
 
 ## What This Is
 
-An open-source OGame automation bot that handles the tedious parts of playing OGame — auto-building, auto-farming, fleet-saving, and expedition management. Built on top of `ogamed` (alaingilbert/ogame Go library) as a REST backend, with a TypeScript-based bot logic layer and a web dashboard for monitoring and configuration. Designed to run 24/7 on a server, accessible from anywhere.
+An open-source OGame automation bot that handles the tedious parts of playing OGame — auto-building, auto-farming, fleet-saving, and expedition management. Built on top of `ogamed` (alaingilbert/ogame Go library) as a REST backend, with a Go-based bot engine for automation logic and a SolidJS web dashboard for monitoring and configuration. Designed to run 24/7 on a server, accessible from anywhere.
 
 ## Core Value
 
@@ -69,7 +69,7 @@ The bot must reliably protect your fleet and grow your empire while you're away 
 ## Constraints
 
 - **Backend**: Must use ogamed (Go) for OGame API interaction — it's the only maintained library
-- **Bot Logic**: TypeScript/Node.js for the automation logic and web dashboard
+- **Bot Logic**: Go for the automation engine; SolidJS/TypeScript for the web dashboard only
 - **Runtime**: Must run 24/7 headless on a VPS
 - **Security**: Credentials must be stored securely, never committed
 - **Anti-ban**: Scripting/botting violates OGame TOS — anti-detection measures are mandatory, not optional
@@ -79,7 +79,8 @@ The bot must reliably protect your fleet and grow your empire while you're away 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | ogamed as REST backend | Only maintained OGame API wrapper; REST API allows language flexibility | — Pending |
-| TypeScript for bot + dashboard | Shared language for bot logic and web UI; good ecosystem for automation | — Pending |
+| Go for bot engine | Developer knows Go best; shares language with ogamed; goroutines for parallel ops; single binary deployment | — Pending |
+| TypeScript for dashboard only | SolidJS web UI still in TS for rich ecosystem, shared types with Go via OpenAPI/codegen | — Pending |
 | Telegram for notifications | Industry standard for bots; easy to set up; supports commands | — Pending |
 | Web dashboard (not terminal) | 24/7 service needs remote monitoring; mobile-accessible | — Pending |
 | Open source from the start | User wants others to be able to use it | — Pending |

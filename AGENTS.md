@@ -7,8 +7,8 @@ An open-source OGame automation bot built on ogamed (Go REST backend) + TypeScri
 ## Architecture
 
 - **ogamed** (Go) — REST daemon handling all OGame API communication (runs in Docker)
-- **Bot Engine** (TypeScript/Node.js) — automation decisions, scheduling, game state management
-- **Web Dashboard** (SolidJS) — real-time monitoring and configuration
+- **Bot Engine** (Go) — automation decisions, scheduling, game state management, exposes REST API for dashboard
+- **Web Dashboard** (SolidJS/TypeScript) — real-time monitoring and configuration
 
 ## Planning
 
@@ -26,16 +26,17 @@ Project uses GSD (Get Shit Done) workflow. All planning artifacts in `.planning/
 ## Key Decisions
 
 - ogamed REST backend (only maintained OGame API wrapper)
-- TypeScript for bot + dashboard (shared language)
-- SQLite + Drizzle ORM (zero-ops, single-user)
-- Fastify 5 for API/WebSocket server
-- SolidJS for web dashboard
-- Telegraf for Telegram integration (v2)
+- Go for bot engine (developer knows Go best, shares language with ogamed)
+- SolidJS/TypeScript for web dashboard only
+- SQLite + Go standard library (zero-ops, single-user)
+- YAML config files for user-facing configuration
+- Docker Compose for deployment (ogamed + bot)
 
 ## Conventions
 
-- Monorepo with pnpm workspaces (`packages/bot`, `packages/dashboard`, `packages/shared`)
-- Zod for runtime validation of ogamed responses
+- Go module for bot engine (`cmd/bot/`, `internal/`)
+- pnpm workspace for dashboard (`packages/dashboard`, `packages/shared`)
+- Zod for runtime validation of dashboard API responses
 - YAML config files for user-facing configuration
 - Docker Compose for deployment (ogamed + bot)
 
