@@ -358,6 +358,117 @@ func TestSlotsJSON(t *testing.T) {
 	}
 }
 
+func TestSystemInfosFields(t *testing.T) {
+	s := SystemInfos{
+		Galaxy:  1,
+		System:  50,
+		Planets: []PlanetPosition{{Position: 1, PlayerName: "Test"}},
+	}
+	if s.Galaxy != 1 {
+		t.Errorf("Galaxy = %d, want 1", s.Galaxy)
+	}
+	if s.System != 50 {
+		t.Errorf("System = %d, want 50", s.System)
+	}
+	if len(s.Planets) != 1 {
+		t.Fatalf("Planets length = %d, want 1", len(s.Planets))
+	}
+	if s.Planets[0].PlayerName != "Test" {
+		t.Errorf("Planets[0].PlayerName = %q, want %q", s.Planets[0].PlayerName, "Test")
+	}
+}
+
+func TestPlanetPositionFields(t *testing.T) {
+	p := PlanetPosition{
+		Position:     5,
+		Name:         "Planet",
+		PlayerID:     123,
+		PlayerName:   "Player1",
+		Inactive:     true,
+		LongInactive: false,
+		Vacation:     false,
+		Banned:       false,
+		Rank:         500,
+		Coordinate:   Coordinate{Galaxy: 1, System: 50, Position: 5},
+		Moon:         true,
+	}
+	if !p.Inactive {
+		t.Error("Inactive = false, want true")
+	}
+	if p.PlayerID != 123 {
+		t.Errorf("PlayerID = %d, want 123", p.PlayerID)
+	}
+	if p.Rank != 500 {
+		t.Errorf("Rank = %d, want 500", p.Rank)
+	}
+	if !p.Moon {
+		t.Error("Moon = false, want true")
+	}
+}
+
+func TestEspionageReportSummaryFields(t *testing.T) {
+	s := EspionageReportSummary{
+		ID:         999,
+		Coordinate: Coordinate{Galaxy: 2, System: 100, Position: 3},
+	}
+	if s.ID != 999 {
+		t.Errorf("ID = %d, want 999", s.ID)
+	}
+	if s.Coordinate.Galaxy != 2 {
+		t.Errorf("Coordinate.Galaxy = %d, want 2", s.Coordinate.Galaxy)
+	}
+}
+
+func TestEspionageReportFields(t *testing.T) {
+	r := EspionageReport{
+		ID:                     42,
+		Metal:                  100000,
+		Crystal:                50000,
+		Deuterium:              20000,
+		HasDefensesInformation: true,
+		HasFleetInformation:    false,
+		IsInactive:             true,
+		Coordinate:             Coordinate{Galaxy: 1, System: 50, Position: 8},
+		RocketLauncher:         50,
+		LightLaser:             20,
+		HeavyLaser:             5,
+		GaussCannon:            2,
+		IonCannon:              0,
+		PlasmaTurret:           1,
+		SmallShieldDome:        0,
+		LargeShieldDome:        0,
+	}
+	if r.Metal != 100000 {
+		t.Errorf("Metal = %d, want 100000", r.Metal)
+	}
+	if !r.HasDefensesInformation {
+		t.Error("HasDefensesInformation = false, want true")
+	}
+	if r.RocketLauncher != 50 {
+		t.Errorf("RocketLauncher = %d, want 50", r.RocketLauncher)
+	}
+	if !r.IsInactive {
+		t.Error("IsInactive = false, want true")
+	}
+}
+
+func TestGalaxyRangeFields(t *testing.T) {
+	g := GalaxyRange{
+		Galaxy:      1,
+		SystemStart: 100,
+		SystemEnd:   200,
+	}
+	if g.Galaxy != 1 {
+		t.Errorf("Galaxy = %d, want 1", g.Galaxy)
+	}
+	if g.SystemStart != 100 {
+		t.Errorf("SystemStart = %d, want 100", g.SystemStart)
+	}
+	if g.SystemEnd != 200 {
+		t.Errorf("SystemEnd = %d, want 200", g.SystemEnd)
+	}
+}
+
 func TestSendFleetRequest_Fields(t *testing.T) {
 	req := SendFleetRequest{
 		PlanetID: 336,
