@@ -63,7 +63,7 @@ Plans:
 **Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 03-01-PLAN.md — ROI calculator + ogamed extensions + config + migration (Wave 1)
+- [x] 03-01-PLAN.md — ROI calculator + ogamed extensions + config + migration (Wave 1) ✓ 2026-04-26
 - [ ] 03-02-PLAN.md — Builder worker + integration tests + main.go wiring (Wave 2)
 
 ### Phase 4: Auto-Farm
@@ -104,6 +104,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Core Infrastructure | 3/3 | ✓ Complete | 2026-04-26 |
 | 2. Fleet Safety | 3/3 | ✓ Complete | 2026-04-26 |
-| 3. Auto-Build | 0/? | Not started | - |
+| 3. Auto-Build | 1/? | In progress | - |
 | 4. Auto-Farm | 0/? | Not started | - |
 | 5. Web Dashboard | 0/? | Not started | - |

@@ -23,9 +23,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Growth
 
-- [ ] **GROW-01**: Bot calculates ROI (production increase / build cost) for every upgradeable building across all planets
+- [x] **GROW-01**: Bot calculates ROI (production increase / build cost) for every upgradeable building across all planets
 - [ ] **GROW-02**: Bot automatically queues the most profitable building upgrade based on ROI calculation
-- [ ] **GROW-03**: Bot respects configurable max-level caps per building type per planet
+- [x] **GROW-03**: Bot respects configurable max-level caps per building type per planet
 
 ### Combat
 
@@ -90,9 +90,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAFE-01 | Phase 2 | Pending |
 | SAFE-02 | Phase 2 | Complete (02-02) |
 | SAFE-03 | Phase 2 | Complete (02-02) |
-| GROW-01 | Phase 3 | Pending |
+| GROW-01 | Phase 3 | ✓ Complete (03-01) |
 | GROW-02 | Phase 3 | Pending |
-| GROW-03 | Phase 3 | Pending |
+| GROW-03 | Phase 3 | ✓ Complete (03-01) |
 | COMB-01 | Phase 4 | Pending |
 | COMB-02 | Phase 4 | Pending |
 | COMB-03 | Phase 4 | Pending |
