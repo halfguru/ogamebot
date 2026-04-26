@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 
 ## Current Position
 
-Phase: 4 of 5 (Auto-Farm)
-Plan: 2 of 2 plans complete
-Status: Plan 04-02 complete (farmer worker)
-Last activity: 2026-04-26 — Plan 04-02 complete (farmer scan/spy/attack, main.go wiring)
+Phase: 5 of 5 (Web Dashboard)
+Plan: 0 of ? plans
+Status: Phase 4 complete, advancing to Phase 5 (final)
+Last activity: 2026-04-26 — Phase 4 verified (auto-farm, 9/9 passed)
 
 Progress: [████████░░] 80%
 
