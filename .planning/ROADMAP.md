@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans in 3 waves (Go rewrite after pivot)
 
 Plans:
-- [ ] 01-01-PLAN.md — Go module + domain types + constants + config loader
+- [x] 01-01-PLAN.md — Go module + domain types + constants + config loader ✓ 2026-04-26
 - [ ] 01-02-PLAN.md — Ogamed REST client with rate limiting, retry, and envelope validation
 - [ ] 01-03-PLAN.md — SQLite + state manager + main entrypoint + Docker Compose
 
@@ -101,7 +101,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Infrastructure | 0/3 | Replanning (Go pivot) | 2026-04-26 |
+| 1. Core Infrastructure | 1/3 | In progress | - |
 | 2. Fleet Safety | 0/? | Not started | - |
 | 3. Auto-Build | 0/? | Not started | - |
 | 4. Auto-Farm | 0/? | Not started | - |
