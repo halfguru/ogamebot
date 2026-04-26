@@ -10,8 +10,10 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/user/ogame-bot/internal/config"
+	"github.com/user/ogame-bot/internal/defender"
 	"github.com/user/ogame-bot/internal/ogamed"
 	"github.com/user/ogame-bot/internal/state"
 )
@@ -66,6 +68,13 @@ func main() {
 	// 8. Start game state manager per D-09
 	stateMgr := state.NewManager(db, client, log)
 	go stateMgr.Run(ctx)
+
+	// 8.5. Start defender if enabled
+	if cfg.Features.Defender.Enabled {
+		def := defender.NewDefender(client, stateMgr, db, cfg.Features.Defender, log)
+		go def.Run(ctx)
+		log.Info("Defender started", "pollInterval", time.Duration(cfg.Features.Defender.PollIntervalMs)*time.Millisecond)
+	}
 
 	log.Info("Bot started successfully")
 

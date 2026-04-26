@@ -536,6 +536,20 @@ func TestHandleAttacksSkipsTooClose(t *testing.T) {
 	}
 }
 
+func fastDefenderConfig() config.DefenderConfig {
+	return config.DefenderConfig{
+		FeatureConfig: config.FeatureConfig{
+			Enabled:        true,
+			PollIntervalMs: 100,
+		},
+		SafetyMarginMs:    2000, // 2 seconds — fast for tests
+		RecallEnabled:     boolPtr(true),
+		MaxReturnFlightS:  600,
+		MinReactionDelayS: 1,
+		MaxReactionDelayS: 2,
+	}
+}
+
 func TestSavePlanetNoViableRoutes(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -553,7 +567,7 @@ func TestSavePlanetNoViableRoutes(t *testing.T) {
 		research:  model.Research{},
 	}
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	cfg := defaultDefenderConfig()
+	cfg := fastDefenderConfig()
 
 	d := NewDefender(mc, ms, db, cfg, log)
 	ctx := context.Background()
@@ -564,7 +578,7 @@ func TestSavePlanetNoViableRoutes(t *testing.T) {
 	}
 
 	// Should not panic, should not send fleet
-	d.savePlanet(ctx, planet, attacks, 30*time.Minute)
+	d.savePlanet(ctx, planet, attacks, 10*time.Second)
 
 	if mc.sendCalled {
 		t.Error("SendFleet should NOT have been called with no viable routes")
@@ -588,7 +602,7 @@ func TestSavePlanetFleetSlotsFull(t *testing.T) {
 		research:  model.Research{},
 	}
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	cfg := defaultDefenderConfig()
+	cfg := fastDefenderConfig()
 
 	d := NewDefender(mc, ms, db, cfg, log)
 	ctx := context.Background()
@@ -598,7 +612,7 @@ func TestSavePlanetFleetSlotsFull(t *testing.T) {
 		{ID: 1, MissionType: 1, ArrivalTime: time.Now().Add(30 * time.Minute).UTC()},
 	}
 
-	d.savePlanet(ctx, planet, attacks, 30*time.Minute)
+	d.savePlanet(ctx, planet, attacks, 10*time.Second)
 
 	if mc.sendCalled {
 		t.Error("SendFleet should NOT have been called when slots are full")
@@ -624,7 +638,7 @@ func TestSavePlanetDoesNotResave(t *testing.T) {
 		research:  model.Research{CombustionDrive: 10},
 	}
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	cfg := defaultDefenderConfig()
+	cfg := fastDefenderConfig()
 
 	d := NewDefender(mc, ms, db, cfg, log)
 	ctx := context.Background()
@@ -641,7 +655,7 @@ func TestSavePlanetDoesNotResave(t *testing.T) {
 	}
 
 	// Should skip because active fleet-save exists
-	d.savePlanet(ctx, planet, attacks, 30*time.Minute)
+	d.savePlanet(ctx, planet, attacks, 10*time.Second)
 
 	if mc.sendCalled {
 		t.Error("SendFleet should NOT have been called — planet already has active save")
@@ -666,7 +680,7 @@ func TestSavePlanetNoShips(t *testing.T) {
 		research:  model.Research{},
 	}
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	cfg := defaultDefenderConfig()
+	cfg := fastDefenderConfig()
 
 	d := NewDefender(mc, ms, db, cfg, log)
 	ctx := context.Background()
@@ -676,7 +690,7 @@ func TestSavePlanetNoShips(t *testing.T) {
 		{ID: 1, MissionType: 1, ArrivalTime: time.Now().Add(30 * time.Minute).UTC()},
 	}
 
-	d.savePlanet(ctx, planet, attacks, 30*time.Minute)
+	d.savePlanet(ctx, planet, attacks, 10*time.Second)
 
 	if mc.sendCalled {
 		t.Error("SendFleet should NOT have been called with no ships")
@@ -702,9 +716,7 @@ func TestSavePlanetSuccessful(t *testing.T) {
 		research:  model.Research{CombustionDrive: 10},
 	}
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	cfg := defaultDefenderConfig()
-	cfg.MinReactionDelayS = 1 // Speed up test
-	cfg.MaxReactionDelayS = 2
+	cfg := fastDefenderConfig()
 
 	d := NewDefender(mc, ms, db, cfg, log)
 	ctx := context.Background()
@@ -714,7 +726,7 @@ func TestSavePlanetSuccessful(t *testing.T) {
 		{ID: 10, MissionType: 1, ArrivalTime: time.Now().Add(30 * time.Minute).UTC()},
 	}
 
-	d.savePlanet(ctx, planet, attacks, 30*time.Minute)
+	d.savePlanet(ctx, planet, attacks, 10*time.Second)
 
 	if !mc.sendCalled {
 		t.Fatal("SendFleet should have been called")
