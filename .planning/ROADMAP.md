@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Monorepo scaffolding + shared types, schemas, and constants ✓ 2026-04-26
-- [ ] 01-02-PLAN.md — Config loader, logger, ogamed client with rate limiting and retry
+- [x] 01-02-PLAN.md — Config loader, logger, ogamed client with rate limiting and retry ✓ 2026-04-26
 - [ ] 01-03-PLAN.md — Database schema, game state manager, main entry point, Docker Compose
 
 ### Phase 2: Fleet Safety
@@ -101,7 +101,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Infrastructure | 1/3 | In progress | 2026-04-26 |
+| 1. Core Infrastructure | 2/3 | In progress | 2026-04-26 |
 | 2. Fleet Safety | 0/? | Not started | - |
 | 3. Auto-Build | 0/? | Not started | - |
 | 4. Auto-Farm | 0/? | Not started | - |

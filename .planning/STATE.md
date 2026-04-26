@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 1 of 5 (Core Infrastructure)
-Plan: 1 of 3 plans executed
-Status: Plan 01-01 complete — monorepo scaffolded, shared package built
-Last activity: 2026-04-26 — 01-01 executed (monorepo + shared package)
+Plan: 2 of 3 plans executed
+Status: Plan 01-02 complete — config, logger, and ogamed client built
+Last activity: 2026-04-26 — 01-02 executed (config + logger + ogamed client)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 6 min
-- Total execution time: 6 min
+- Total plans completed: 2
+- Average duration: 4.5 min
+- Total execution time: 9 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Core Infrastructure | 1 | 6 min | 6 min |
+| 1. Core Infrastructure | 2 | 9 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min)
-- Trend: Starting
+- Last 5 plans: 01-02 (3 min), 01-01 (6 min)
+- Trend: Accelerating
 
 *Updated after each plan completion*
 
@@ -45,6 +45,7 @@ Recent decisions affecting current work:
 - Roadmap: 5 phases derived from 17 v1 requirements; safety-first ordering (fleet-save before growth features)
 - Phase 1 context: pnpm monorepo, YAML config, SQLite + Drizzle, Zod-validated ogamed client, Docker Compose
 - 01-01: TypeScript strict mode + ESM, Zod 4.x with .default(0) for ogamed resilience, const assertion type pattern for game constants
+- 01-02: Zod 4 factory defaults for nested objects, zod as direct bot dep, shared rate limiter chokepoint, no retry on ZodError/4xx
 
 ### Pending Todos
 
@@ -53,7 +54,6 @@ None yet.
 ### Blockers/Concerns
 
 - OGame formula constants (building costs, production rates) needed for Phase 3 — research during Phase 2 planning
-- ogamed response schemas Zod definitions built in 01-01 — shared package exports planet/fleet/research/resource schemas
 - Residential proxy required for deployment — operational concern, not blocking development
 
 ## Deferred Items
@@ -67,5 +67,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-26
-Stopped at: Plan 01-01 complete, next: 01-02-PLAN.md
-Resume file: .planning/phases/01-core-infrastructure/01-02-PLAN.md
+Stopped at: Plan 01-02 complete, next: 01-03-PLAN.md
+Resume file: .planning/phases/01-core-infrastructure/01-03-PLAN.md
