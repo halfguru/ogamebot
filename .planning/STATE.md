@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** The bot must reliably protect your fleet and grow your empire while you're away — if fleet-save fails, everything else is pointless.
-**Current focus:** Phase 5 — Web Dashboard (final)
+**Current focus:** Phase 5 — Web Dashboard (COMPLETE)
 
 ## Current Position
 
 Phase: 5 of 5 (Web Dashboard)
-Plan: 1 of ? plans
-Status: Plan 05-01 complete (Dashboard API layer)
-Last activity: 2026-04-26 — Plan 05-01 complete
+Plan: 2 of 2 plans
+Status: Phase 5 complete — All plans done. Project v1 complete.
+Last activity: 2026-04-26 — Plan 05-02 complete
 
-Progress: [█████████░] 85%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 8.5 min
-- Total execution time: 110 min
+- Total plans completed: 14
+- Average duration: 8.4 min
+- Total execution time: 118 min
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: [█████████░] 85%
 | 2. Fleet Safety | 3 | 36 min | 12.0 min |
 | 3. Auto-Build | 2 | 21 min | 10.5 min |
 | 4. Auto-Farm | 2 | 14 min | 7.0 min |
-| 5. Web Dashboard | 1 | 6 min | 6.0 min |
+| 5. Web Dashboard | 2 | 14 min | 7.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-02 (10 min), 04-01 (7 min), 04-02 (7 min), 05-01 (6 min)
+- Last 5 plans: 04-01 (7 min), 04-02 (7 min), 05-01 (6 min), 05-02 (8 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -59,15 +59,15 @@ Recent decisions affecting current work:
 - 04-01 (Go): GalaxyRange type alias in config to avoid circular import; AutoFarmConfig embeds FeatureConfig inline; AutoFarm poll minimum 60s (galaxy scans are expensive); mock clients updated in all 3 test packages when ClientInterface expanded
 - 04-02 (Go): Inlined estimateFuelCost in farmer instead of exporting from defender; farmer reserves 2 fleet slots for defender; max 10 probes per cycle to avoid API spam; simplified fuel formula (baseFuel only, no drive tech variation)
 - 05-01 (Go): StateReader interface decouples dashboard from state.Manager; gorilla/chat hub pattern with max 10 WS clients; Go 1.22+ method routing for REST endpoints; CORS middleware supports wildcard or whitelist
+- 05-02 (TS): Vite builds dashboard to internal/dashboard/static/ for Go embed.FS; tsconfig uses bundler moduleResolution for SolidJS; all components created together since App.tsx imports them; SPA fallback reads embedded index.html at init
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- OGame formula constants (building costs, production rates) — RESOLVED in Phase 3 research, implemented in 03-01
-- Residential proxy required for deployment — operational concern, not blocking development
+None. All phases complete.
 
 ## Deferred Items
 
@@ -80,5 +80,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-26
-Stopped at: Completed 05-01 (Dashboard API layer). Phase 5 in progress.
-Resume file: .planning/phases/05-web-dashboard/05-01-SUMMARY.md
+Stopped at: Completed 05-02 (SolidJS dashboard frontend). All phases complete — v1 finished.
+Resume file: .planning/phases/05-web-dashboard/05-02-SUMMARY.md
