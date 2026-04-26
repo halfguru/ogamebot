@@ -1,4 +1,4 @@
-# Dashboard build stage
+# Dashboard build stage — outputs directly to the Go embed path
 FROM node:22-alpine AS dashboard-builder
 WORKDIR /dashboard
 RUN corepack enable
@@ -19,10 +19,7 @@ RUN go mod download
 
 COPY cmd/ cmd/
 COPY internal/ internal/
-
-# Copy built dashboard into embed path
-RUN rm -rf internal/dashboard/static/*
-COPY --from=dashboard-builder /dashboard/packages/dashboard/dist/ internal/dashboard/static/
+COPY --from=dashboard-builder /dashboard/internal/dashboard/static/ internal/dashboard/static/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /bot ./cmd/bot
 
