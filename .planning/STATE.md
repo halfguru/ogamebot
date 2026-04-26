@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 1 of 5 (Core Infrastructure)
-Plan: 0 of 3 plans executed
-Status: Planning complete — 3 plans in 3 waves, verified
-Last activity: 2026-04-26 — Phase 1 planned (01-01, 01-02, 01-03)
+Plan: 1 of 3 plans executed
+Status: Plan 01-01 complete — monorepo scaffolded, shared package built
+Last activity: 2026-04-26 — 01-01 executed (monorepo + shared package)
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: —
+- Total plans completed: 1
+- Average duration: 6 min
+- Total execution time: 6 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| — | — | — | — |
+| 1. Core Infrastructure | 1 | 6 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: —
-- Trend: —
+- Last 5 plans: 01-01 (6 min)
+- Trend: Starting
 
 *Updated after each plan completion*
 
@@ -44,6 +44,7 @@ Recent decisions affecting current work:
 
 - Roadmap: 5 phases derived from 17 v1 requirements; safety-first ordering (fleet-save before growth features)
 - Phase 1 context: pnpm monorepo, YAML config, SQLite + Drizzle, Zod-validated ogamed client, Docker Compose
+- 01-01: TypeScript strict mode + ESM, Zod 4.x with .default(0) for ogamed resilience, const assertion type pattern for game constants
 
 ### Pending Todos
 
@@ -52,7 +53,7 @@ None yet.
 ### Blockers/Concerns
 
 - OGame formula constants (building costs, production rates) needed for Phase 3 — research during Phase 2 planning
-- ogamed response schemas need Zod definitions — build incrementally during Phase 1
+- ogamed response schemas Zod definitions built in 01-01 — shared package exports planet/fleet/research/resource schemas
 - Residential proxy required for deployment — operational concern, not blocking development
 
 ## Deferred Items
@@ -66,5 +67,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-26
-Stopped at: Phase 1 planned — ready to execute
-Resume file: .planning/phases/01-core-infrastructure/01-01-PLAN.md
+Stopped at: Plan 01-01 complete, next: 01-02-PLAN.md
+Resume file: .planning/phases/01-core-infrastructure/01-02-PLAN.md

@@ -10,7 +10,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Infrastructure
 
 - [ ] **INFRA-01**: Bot connects to ogamed REST API and maintains session across restarts
-- [ ] **INFRA-02**: Bot retrieves and caches game state (planets, resources, fleets, buildings, research)
+- [ ] **INFRA-02**: Bot retrieves and caches game state (planets, resources, fleets, buildings, research) — *types/schemas/constants scaffolded in 01-01*
 - [ ] **INFRA-03**: Bot loads configuration from YAML/JSON file with feature toggles and per-feature parameters
 - [ ] **INFRA-04**: Bot implements request throttling with random intervals between actions
 - [ ] **INFRA-05**: Bot runs as a Docker Compose stack (ogamed + bot) with environment-based config
@@ -83,7 +83,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Partial (types/schemas ready) |
 | INFRA-03 | Phase 1 | Pending |
 | INFRA-04 | Phase 1 | Pending |
 | INFRA-05 | Phase 1 | Pending |
