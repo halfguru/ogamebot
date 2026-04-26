@@ -2,6 +2,8 @@
 // JSON tags use PascalCase to match ogamed's exact response field names.
 package model
 
+import "time"
+
 // Coordinate represents a position in the OGame universe.
 type Coordinate struct {
 	Galaxy   int    `json:"Galaxy"`
@@ -132,4 +134,43 @@ type Research struct {
 	WeaponTechnology             int `json:"WeaponTechnology"`
 	ShieldingTechnology          int `json:"ShieldingTechnology"`
 	ArmourTechnology             int `json:"ArmourTechnology"`
+}
+
+// AttackEvent represents an incoming attack detected by ogamed.
+type AttackEvent struct {
+	ID              int64       `json:"ID"`
+	MissionType     int         `json:"MissionType"`
+	Origin          Coordinate  `json:"Origin"`
+	Destination     Coordinate  `json:"Destination"`
+	DestinationName string      `json:"DestinationName"`
+	ArrivalTime     time.Time   `json:"ArrivalTime"`
+	ArriveIn        int64       `json:"ArriveIn"`
+	AttackerName    string      `json:"AttackerName"`
+	AttackerID      int64       `json:"AttackerID"`
+	UnionID         int64       `json:"UnionID"`
+	Missiles        int64       `json:"Missiles"`
+	Ships           *[]ShipCount `json:"Ships"`
+}
+
+// SendFleetRequest contains all parameters needed to dispatch a fleet.
+type SendFleetRequest struct {
+	PlanetID  int
+	Ships     []ShipCount
+	Speed     int // 1-10
+	Galaxy    int
+	System    int
+	Position  int
+	Type      int // 1=planet, 3=moon
+	Mission   int
+	Metal     int64
+	Crystal   int64
+	Deuterium int64
+}
+
+// Slots represents fleet and expedition slot usage.
+type Slots struct {
+	InUse    int `json:"InUse"`
+	Total    int `json:"Total"`
+	ExpInUse int `json:"ExpInUse"`
+	ExpTotal int `json:"ExpTotal"`
 }

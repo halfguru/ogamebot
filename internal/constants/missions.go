@@ -3,14 +3,15 @@ package constants
 
 // Mission type IDs matching ogamed mission types.
 const (
-	MissionAttack         = 1
-	MissionACSAttack      = 2
-	MissionDeploy         = 3
-	MissionTransport      = 4
-	MissionACSTransport   = 5
-	MissionEspionage      = 6
-	MissionColonize       = 7
-	MissionHarvest        = 8
+	MissionAttack          = 1
+	MissionACSAttack       = 2
+	MissionDeploy          = 3
+	MissionTransport       = 4
+	MissionHold            = 5
+	MissionEspionage       = 6
+	MissionColonize        = 7
+	MissionHarvest         = 8
 	MissionMoonDestruction = 9
-	MissionExpedition     = 15
+	MissionMissileAttack   = 10
+	MissionExpedition      = 15
 )

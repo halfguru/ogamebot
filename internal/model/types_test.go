@@ -3,7 +3,6 @@ package model
 import (
 	"encoding/json"
 	"testing"
-	"time"
 )
 
 func TestCoordinateJSON(t *testing.T) {
