@@ -79,6 +79,12 @@ func (m *mockClient) CancelFleet(_ context.Context, fleetID int64) error {
 	m.cancelled = append(m.cancelled, fleetID)
 	return m.cancelErr
 }
+func (m *mockClient) GetConstructions(_ context.Context, _ int) (model.Constructions, error) {
+	return model.Constructions{}, nil
+}
+func (m *mockClient) BuildBuilding(_ context.Context, _, _ int) error {
+	return nil
+}
 
 // mockStateReader satisfies StateReader for defender tests.
 type mockStateReader struct {

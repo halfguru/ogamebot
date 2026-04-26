@@ -746,5 +746,5 @@ func TestClient_PostThroughRateLimiter(t *testing.T) {
 // TestClient_AllEndpointsExist18 verifies Client implements ClientInterface with 18 methods
 func TestClient_AllEndpointsExist18(t *testing.T) {
 	var _ ClientInterface = (*Client)(nil)
-	t.Log("Client implements ClientInterface with all 18 methods")
+	t.Log("Client implements ClientInterface with all 20 methods")
 }

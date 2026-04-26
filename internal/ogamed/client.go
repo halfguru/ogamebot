@@ -38,6 +38,8 @@ type ClientInterface interface {
 	GetSlots(ctx context.Context) (model.Slots, error)
 	SendFleet(ctx context.Context, req model.SendFleetRequest) (int64, error)
 	CancelFleet(ctx context.Context, fleetID int64) error
+	GetConstructions(ctx context.Context, planetID int) (model.Constructions, error)
+	BuildBuilding(ctx context.Context, planetID, buildingID int) error
 }
 
 // Client implements ClientInterface with rate limiting and retry.
@@ -333,6 +335,19 @@ func (c *Client) SendFleet(ctx context.Context, req model.SendFleetRequest) (int
 // CancelFleet cancels a fleet by its ID.
 func (c *Client) CancelFleet(ctx context.Context, fleetID int64) error {
 	path := fmt.Sprintf("/bot/fleets/%d/cancel", fleetID)
+	_, err := postTyped[any](c, ctx, path, url.Values{})
+	return err
+}
+
+// GetConstructions returns the current construction status for a planet.
+func (c *Client) GetConstructions(ctx context.Context, planetID int) (model.Constructions, error) {
+	path := fmt.Sprintf("/bot/planets/%d/constructions", planetID)
+	return getTyped[model.Constructions](c, ctx, path)
+}
+
+// BuildBuilding starts constructing the given building on the specified planet.
+func (c *Client) BuildBuilding(ctx context.Context, planetID, buildingID int) error {
+	path := fmt.Sprintf("/bot/planets/%d/build/building/%d", planetID, buildingID)
 	_, err := postTyped[any](c, ctx, path, url.Values{})
 	return err
 }

@@ -17,10 +17,11 @@ const defaultRefreshInterval = 60 * time.Second
 // Per D-09 (game state cached): the manager is the ONLY component that
 // refreshes from ogamed — workers read from cached SQLite state.
 type Manager struct {
-	db       *sql.DB
-	client   ogamed.ClientInterface
-	log      *slog.Logger
-	interval time.Duration
+	db          *sql.DB
+	client      ogamed.ClientInterface
+	log         *slog.Logger
+	interval    time.Duration
+	serverSpeed int // cached from ogamed, never changes for a given universe
 }
 
 // NewManager creates a game state manager with the default refresh interval.
@@ -73,6 +74,17 @@ func (m *Manager) refresh(ctx context.Context) error {
 	planets, err := m.client.GetPlanets(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching planets: %w", err)
+	}
+
+	// Cache server speed on first refresh (never changes for a given universe)
+	if m.serverSpeed == 0 {
+		speed, err := m.client.GetServerSpeed(ctx)
+		if err != nil {
+			m.log.Warn("Failed to fetch server speed", "error", err)
+		} else {
+			m.serverSpeed = speed
+			m.log.Info("Cached server speed", "speed", speed)
+		}
 	}
 
 	fleets, err := m.client.GetFleets(ctx)
@@ -293,4 +305,41 @@ func (m *Manager) GetResearch(ctx context.Context) (model.Research, error) {
 		return model.Research{}, fmt.Errorf("querying research: %w", err)
 	}
 	return r, nil
+}
+
+// GetBuildings returns the cached resource buildings for a planet.
+func (m *Manager) GetBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error) {
+	var b model.ResourceBuildings
+	err := m.db.QueryRowContext(ctx,
+		`SELECT metal_mine, crystal_mine, deuterium_synthesizer, solar_plant, fusion_reactor,
+			metal_storage, crystal_storage, deuterium_tank FROM buildings WHERE planet_id = ?`, planetID).
+		Scan(&b.MetalMine, &b.CrystalMine, &b.DeuteriumSynthesizer, &b.SolarPlant, &b.FusionReactor,
+			&b.MetalStorage, &b.CrystalStorage, &b.DeuteriumStorage)
+	if err != nil {
+		return model.ResourceBuildings{}, fmt.Errorf("querying buildings for planet %d: %w", planetID, err)
+	}
+	return b, nil
+}
+
+// GetFacilities returns the cached facilities for a planet.
+func (m *Manager) GetFacilities(ctx context.Context, planetID int) (model.Facilities, error) {
+	var f model.Facilities
+	err := m.db.QueryRowContext(ctx,
+		`SELECT robotics_factory, shipyard, research_lab, alliance_depot,
+			missile_silo, nanite_factory, terraformer, space_dock FROM facilities WHERE planet_id = ?`, planetID).
+		Scan(&f.RoboticsFactory, &f.Shipyard, &f.ResearchLab, &f.AllianceDepot,
+			&f.MissileSilo, &f.NaniteFactory, &f.Terraformer, &f.SpaceDock)
+	if err != nil {
+		return model.Facilities{}, fmt.Errorf("querying facilities for planet %d: %w", planetID, err)
+	}
+	return f, nil
+}
+
+// GetServerSpeed returns the cached server speed multiplier.
+// Returns error if the value hasn't been cached yet (refresh hasn't run).
+func (m *Manager) GetServerSpeed(_ context.Context) (int, error) {
+	if m.serverSpeed == 0 {
+		return 0, fmt.Errorf("server speed not yet cached — wait for first refresh")
+	}
+	return m.serverSpeed, nil
 }

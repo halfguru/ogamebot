@@ -167,6 +167,20 @@ type SendFleetRequest struct {
 	Deuterium int64
 }
 
+// Construction represents an active construction on a planet.
+type Construction struct {
+	ID        int   `json:"ID"`
+	Level     int   `json:"Level"`
+	Countdown int64 `json:"Countdown"`
+}
+
+// Constructions represents all active constructions on a planet.
+type Constructions struct {
+	Building  Construction `json:"Building"`
+	Research  Construction `json:"Research"`
+	Shipyard  Construction `json:"Shipyard"`
+}
+
 // Slots represents fleet and expedition slot usage.
 type Slots struct {
 	InUse    int `json:"InUse"`

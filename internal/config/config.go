@@ -78,9 +78,26 @@ func (d *DefenderConfig) IsRecallEnabled() bool {
 
 // FeaturesConfig holds per-feature toggle settings.
 type FeaturesConfig struct {
-	Defender  DefenderConfig `yaml:"defender"`
-	AutoBuild FeatureConfig  `yaml:"autoBuild"`
-	AutoFarm  FeatureConfig  `yaml:"autoFarm"`
+	Defender  DefenderConfig  `yaml:"defender"`
+	AutoBuild AutoBuildConfig `yaml:"autoBuild"`
+	AutoFarm  FeatureConfig   `yaml:"autoFarm"`
+}
+
+// AutoBuildConfig holds the auto-build feature settings including per-building caps.
+type AutoBuildConfig struct {
+	FeatureConfig   `yaml:",inline"`
+	MaxLevels       map[string]int            `yaml:"maxLevels"`       // global defaults: {"MetalMine": 30, ...}
+	PlanetOverrides map[string]map[string]int `yaml:"planetOverrides"` // per-planet: {"Homeworld": {"MetalMine": 35}}
+}
+
+// AutoBuildDefaults applies default max-level caps when not set.
+func (a *AutoBuildConfig) AutoBuildDefaults() {
+	if a.MaxLevels == nil {
+		a.MaxLevels = map[string]int{
+			"MetalMine": 30, "CrystalMine": 28, "DeuteriumSynthesizer": 26,
+			"SolarPlant": 26, "FusionReactor": 20,
+		}
+	}
 }
 
 // RateLimitConfig holds rate limiting configuration for ogamed API calls.
@@ -161,6 +178,9 @@ func (c *Config) Validate() error {
 	// Apply defender defaults before validation
 	c.Features.Defender.DefenderDefaults()
 
+	// Apply auto-build defaults before validation
+	c.Features.AutoBuild.AutoBuildDefaults()
+
 	if c.Features.Defender.Enabled {
 		if c.Features.Defender.SafetyMarginMs < 10000 {
 			return fmt.Errorf("features.defender.safetyMarginMs must be >= 10000ms, got %d", c.Features.Defender.SafetyMarginMs)
@@ -170,6 +190,23 @@ func (c *Config) Validate() error {
 		}
 		if c.Features.Defender.MaxReactionDelayS < c.Features.Defender.MinReactionDelayS {
 			return fmt.Errorf("features.defender.maxReactionDelayS must be >= minReactionDelayS")
+		}
+	}
+
+	// AutoBuild validation
+	if c.Features.AutoBuild.Enabled {
+		if c.Features.AutoBuild.PollIntervalMs > 0 && c.Features.AutoBuild.PollIntervalMs < 10000 {
+			return fmt.Errorf("features.autoBuild.pollIntervalMs must be >= 10000ms, got %d", c.Features.AutoBuild.PollIntervalMs)
+		}
+	}
+	// MaxLevel validation: each max level must be in range [1, 100]
+	for name, maxLvl := range c.Features.AutoBuild.MaxLevels {
+		if maxLvl < 1 || maxLvl > 100 {
+			return fmt.Errorf("features.autoBuild.maxLevels[%s] must be in range [1, 100], got %d", name, maxLvl)
+		}
+		if maxLvl > 50 {
+			// Would log warning but Validate doesn't have access to logger;
+			// callers can check after load. Validation still passes.
 		}
 	}
 
