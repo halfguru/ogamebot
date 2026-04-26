@@ -7,3 +7,7 @@ data/
 *.db-journal
 *.db-wal
 .DS_Store
+
+# Go build output
+/bot
+*.exe
