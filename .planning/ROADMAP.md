@@ -88,12 +88,12 @@ Plans:
   1. Dashboard displays real-time empire overview with planets, resources, and fleet movements
   2. Dashboard shows build queues, recent bot actions, and event logs
   3. Dashboard updates in real-time via WebSocket without manual page refresh
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 **UI hint**: yes
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 05-01-PLAN.md — Go REST API + WebSocket server + config + main.go wiring (Wave 1)
+- [ ] 05-02-PLAN.md — SolidJS dashboard frontend with empire overview, fleet movements, activity feed, real-time WebSocket (Wave 2)
 
 ## Progress
 
