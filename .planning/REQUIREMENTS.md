@@ -18,8 +18,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Safety
 
 - [ ] **SAFE-01**: Bot monitors for incoming attacks by polling hostile fleet events at randomized intervals
-- [ ] **SAFE-02**: Bot auto-saves fleet and resources when attack is detected using phalanx-safe deploy + recall
-- [ ] **SAFE-03**: Bot handles fleet-save for moons separately with appropriate escape destinations
+- [x] **SAFE-02**: Bot auto-saves fleet and resources when attack is detected using phalanx-safe deploy + recall — *Escape route calculator in Plan 02 ✓ 2026-04-26*
+- [x] **SAFE-03**: Bot handles fleet-save for moons separately with appropriate escape destinations — *Moon handling + safety scoring in Plan 02 ✓ 2026-04-26*
 
 ### Growth
 
@@ -88,8 +88,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-04 | Phase 1 | Complete (01-02) |
 | INFRA-05 | Phase 1 | Complete (01-03) |
 | SAFE-01 | Phase 2 | Pending |
-| SAFE-02 | Phase 2 | Pending |
-| SAFE-03 | Phase 2 | Pending |
+| SAFE-02 | Phase 2 | Complete (02-02) |
+| SAFE-03 | Phase 2 | Complete (02-02) |
 | GROW-01 | Phase 3 | Pending |
 | GROW-02 | Phase 3 | Pending |
 | GROW-03 | Phase 3 | Pending |
@@ -107,4 +107,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-25*
-*Last updated: 2026-04-26 after 01-03 completion (Phase 1 complete)*
+*Last updated: 2026-04-26 after 02-02 completion*
