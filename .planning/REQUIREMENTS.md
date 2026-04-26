@@ -10,10 +10,10 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Infrastructure
 
 - [x] **INFRA-01**: Bot connects to ogamed REST API and maintains session across restarts — *Go ogamed client in Plan 02 ✓ 2026-04-26*
-- [ ] **INFRA-02**: Bot retrieves and caches game state (planets, resources, fleets, buildings, research) — *Go types in Plan 01 ✓ + SQLite state in Plan 03*
+- [x] **INFRA-02**: Bot retrieves and caches game state (planets, resources, fleets, buildings, research) — *SQLite state manager in Plan 03 ✓ 2026-04-26*
 - [x] **INFRA-03**: Bot loads configuration from YAML/JSON file with feature toggles and per-feature parameters — *Go config loader in Plan 01 ✓ 2026-04-26*
 - [x] **INFRA-04**: Bot implements request throttling with random intervals between actions — *Go rate limiter in Plan 02 ✓ 2026-04-26*
-- [ ] **INFRA-05**: Bot runs as a Docker Compose stack (ogamed + bot) with environment-based config — *Docker setup in Plan 03*
+- [x] **INFRA-05**: Bot runs as a Docker Compose stack (ogamed + bot) with environment-based config — *Docker setup in Plan 03 ✓ 2026-04-26*
 
 ### Safety
 
@@ -83,10 +83,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | INFRA-01 | Phase 1 | Complete (01-02) |
-| INFRA-02 | Phase 1 | Partial (types in 01-01, caching in 01-03) |
+| INFRA-02 | Phase 1 | Complete (01-03) |
 | INFRA-03 | Phase 1 | Complete (01-01) |
 | INFRA-04 | Phase 1 | Complete (01-02) |
-| INFRA-05 | Phase 1 | Pending |
+| INFRA-05 | Phase 1 | Complete (01-03) |
 | SAFE-01 | Phase 2 | Pending |
 | SAFE-02 | Phase 2 | Pending |
 | SAFE-03 | Phase 2 | Pending |
@@ -107,4 +107,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-25*
-*Last updated: 2026-04-26 after 01-02 completion*
+*Last updated: 2026-04-26 after 01-03 completion (Phase 1 complete)*
