@@ -346,3 +346,253 @@ func TestFlightDuration_LowerSpeedTakesLonger(t *testing.T) {
 		t.Errorf("speed 5 / speed 10 ratio = %.2f, expected ~2.0", ratio)
 	}
 }
+
+// ---------- CalcEscapeRoutes ----------
+
+func TestCalcEscapeRoutes(t *testing.T) {
+	origin := model.Planet{
+		ID:   1,
+		Name: "Homeworld",
+		Coordinate: model.Coordinate{
+			Galaxy:   1,
+			System:   100,
+			Position: 3,
+			Type:     "planet",
+		},
+		IsMoon: false,
+	}
+
+	destPlanet := model.Planet{
+		ID:   2,
+		Name: "Colony",
+		Coordinate: model.Coordinate{
+			Galaxy:   1,
+			System:   150,
+			Position: 8,
+			Type:     "planet",
+		},
+		IsMoon: false,
+	}
+
+	destMoon := model.Planet{
+		ID:   3,
+		Name: "Homeworld Moon",
+		Coordinate: model.Coordinate{
+			Galaxy:   1,
+			System:   100,
+			Position: 3,
+			Type:     "moon",
+		},
+		IsMoon: true,
+	}
+
+	ships := model.Ships{SmallCargo: 100, LargeCargo: 20}
+	resources := model.Resources{Metal: 500000, Crystal: 200000, Deuterium: 100000}
+	research := model.Research{CombustionDrive: 12}
+
+	t.Run("generates routes to all own planets at multiple speeds", func(t *testing.T) {
+		routes := CalcEscapeRoutes(origin, ships, resources, []model.Planet{destPlanet, destMoon}, nil, research)
+		if len(routes) == 0 {
+			t.Fatal("expected routes, got empty slice")
+		}
+		// Should have routes for different speed settings to multiple destinations
+		for _, r := range routes {
+			if r.Speed < 1 || r.Speed > 10 {
+				t.Errorf("route speed %d out of range [1,10]", r.Speed)
+			}
+			if r.FuelCost <= 0 {
+				t.Errorf("route fuel cost %d should be > 0", r.FuelCost)
+			}
+			if r.Duration <= 0 {
+				t.Errorf("route duration %v should be > 0", r.Duration)
+			}
+		}
+	})
+
+	t.Run("routes filtered by fuel sufficiency", func(t *testing.T) {
+		// Very little deuterium — only the cheapest routes should survive
+		lowDeut := model.Resources{Metal: 500000, Crystal: 200000, Deuterium: 5}
+		routes := CalcEscapeRoutes(origin, ships, lowDeut, []model.Planet{destPlanet}, nil, research)
+		for _, r := range routes {
+			if r.FuelCost > 5 {
+				t.Errorf("route fuel cost %d exceeds available deuterium 5", r.FuelCost)
+			}
+		}
+	})
+
+	t.Run("destination under attack is penalized", func(t *testing.T) {
+		attacks := []model.AttackEvent{
+			{
+				ID:          1,
+				MissionType: 1,
+				Destination: destPlanet.Coordinate,
+				ArriveIn:    600,
+			},
+		}
+
+		routesNoAttack := CalcEscapeRoutes(origin, ships, resources, []model.Planet{destPlanet, destMoon}, nil, research)
+		routesWithAttack := CalcEscapeRoutes(origin, ships, resources, []model.Planet{destPlanet, destMoon}, attacks, research)
+
+		if len(routesNoAttack) == 0 || len(routesWithAttack) == 0 {
+			t.Fatal("expected routes in both cases")
+		}
+
+		// Find routes to destPlanet and compare safety scores
+		var scoreNoAttack, scoreWithAttack int
+		for _, r := range routesNoAttack {
+			if r.DestPlanetID == destPlanet.ID {
+				scoreNoAttack = r.SafetyScore
+				break
+			}
+		}
+		for _, r := range routesWithAttack {
+			if r.DestPlanetID == destPlanet.ID {
+				scoreWithAttack = r.SafetyScore
+				break
+			}
+		}
+
+		if scoreWithAttack <= scoreNoAttack {
+			t.Errorf("attacked destination score %d should be > safe score %d", scoreWithAttack, scoreNoAttack)
+		}
+	})
+
+	t.Run("empty fleet returns empty routes", func(t *testing.T) {
+		routes := CalcEscapeRoutes(origin, model.Ships{}, resources, []model.Planet{destPlanet}, nil, research)
+		if len(routes) != 0 {
+			t.Errorf("expected 0 routes for empty fleet, got %d", len(routes))
+		}
+	})
+
+	t.Run("no destinations returns empty slice without error", func(t *testing.T) {
+		routes := CalcEscapeRoutes(origin, ships, resources, nil, nil, research)
+		if routes == nil {
+			t.Error("expected empty slice, not nil")
+		}
+		if len(routes) != 0 {
+			t.Errorf("expected 0 routes with no destinations, got %d", len(routes))
+		}
+	})
+
+	t.Run("routes sorted by safety score ascending", func(t *testing.T) {
+		routes := CalcEscapeRoutes(origin, ships, resources, []model.Planet{destPlanet, destMoon}, nil, research)
+		if len(routes) < 2 {
+			t.Skip("need at least 2 routes to verify sorting")
+		}
+		for i := 1; i < len(routes); i++ {
+			if routes[i].SafetyScore < routes[i-1].SafetyScore {
+				t.Errorf("routes not sorted: route[%d].SafetyScore=%d < route[%d].SafetyScore=%d",
+					i, routes[i].SafetyScore, i-1, routes[i-1].SafetyScore)
+			}
+		}
+	})
+
+	t.Run("fuel deducted from available deuterium", func(t *testing.T) {
+		routes := CalcEscapeRoutes(origin, ships, resources, []model.Planet{destPlanet}, nil, research)
+		if len(routes) == 0 {
+			t.Fatal("expected at least one route")
+		}
+		for _, r := range routes {
+			expectedDeut := int64(resources.Deuterium) - r.FuelCost
+			if expectedDeut < 0 {
+				expectedDeut = 0
+			}
+			if r.DeutLoad != expectedDeut {
+				t.Errorf("DeutLoad = %d, want %d (deuterium %d - fuel %d)",
+					r.DeutLoad, expectedDeut, resources.Deuterium, r.FuelCost)
+			}
+		}
+	})
+
+	t.Run("deploy mission used for all routes", func(t *testing.T) {
+		routes := CalcEscapeRoutes(origin, ships, resources, []model.Planet{destPlanet}, nil, research)
+		for _, r := range routes {
+			if r.Mission != 3 { // MissionDeploy
+				t.Errorf("route mission = %d, want 3 (deploy)", r.Mission)
+			}
+		}
+	})
+
+	t.Run("speed 10 preferred when fuel allows", func(t *testing.T) {
+		routes := CalcEscapeRoutes(origin, ships, resources, []model.Planet{destPlanet}, nil, research)
+		if len(routes) == 0 {
+			t.Fatal("expected routes")
+		}
+		// The best route (first) should be at speed 10 if fuel allows
+		// This tests that higher speeds are preferred in generation
+		hasSpeed10 := false
+		for _, r := range routes {
+			if r.Speed == 10 {
+				hasSpeed10 = true
+				break
+			}
+		}
+		if !hasSpeed10 {
+			t.Error("expected at least one route at speed 10 when fuel is sufficient")
+		}
+	})
+
+	t.Run("moon origin planet produces routes with correct destination types", func(t *testing.T) {
+		moonOrigin := model.Planet{
+			ID:   10,
+			Name: "My Moon",
+			Coordinate: model.Coordinate{
+				Galaxy:   1,
+				System:   100,
+				Position: 3,
+				Type:     "moon",
+			},
+			IsMoon: true,
+		}
+		routes := CalcEscapeRoutes(moonOrigin, ships, resources, []model.Planet{destPlanet}, nil, research)
+		if len(routes) == 0 {
+			t.Fatal("expected routes from moon origin")
+		}
+		// Destination should use its actual coordinate type
+		for _, r := range routes {
+			if r.DestPlanetID == destPlanet.ID {
+				if r.Dest.Type != "planet" {
+					t.Errorf("moon-to-planet route dest type = %q, want %q", r.Dest.Type, "planet")
+				}
+			}
+		}
+	})
+
+	t.Run("origin skipped as destination", func(t *testing.T) {
+		// Include origin in ownPlanets — should be skipped
+		routes := CalcEscapeRoutes(origin, ships, resources, []model.Planet{origin, destPlanet}, nil, research)
+		for _, r := range routes {
+			if r.DestPlanetID == origin.ID {
+				t.Error("routes should not include origin as destination")
+			}
+		}
+	})
+
+	t.Run("moon destination has lower safety score than planet", func(t *testing.T) {
+		routes := CalcEscapeRoutes(origin, ships, resources, []model.Planet{destPlanet, destMoon}, nil, research)
+		if len(routes) == 0 {
+			t.Fatal("expected routes")
+		}
+
+		var planetScore, moonScore int
+		var foundPlanet, foundMoon bool
+		for _, r := range routes {
+			if r.DestPlanetID == destPlanet.ID && r.Speed == 10 {
+				planetScore = r.SafetyScore
+				foundPlanet = true
+			}
+			if r.DestPlanetID == destMoon.ID && r.Speed == 10 {
+				moonScore = r.SafetyScore
+				foundMoon = true
+			}
+		}
+
+		if !foundPlanet || !foundMoon {
+			t.Skip("could not find both planet and moon routes at speed 10")
+		}
+
+		if moonScore >= planetScore {
+			t.Errorf("moon destination score %d should be < planet destination score %d", moonScore, planetScore)
+		}
+	})
+}
