@@ -82,28 +82,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| INFRA-04 | — | Pending |
-| INFRA-05 | — | Pending |
-| SAFE-01 | — | Pending |
-| SAFE-02 | — | Pending |
-| SAFE-03 | — | Pending |
-| GROW-01 | — | Pending |
-| GROW-02 | — | Pending |
-| GROW-03 | — | Pending |
-| COMB-01 | — | Pending |
-| COMB-02 | — | Pending |
-| COMB-03 | — | Pending |
-| MON-01 | — | Pending |
-| MON-02 | — | Pending |
-| MON-03 | — | Pending |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Pending |
+| INFRA-03 | Phase 1 | Pending |
+| INFRA-04 | Phase 1 | Pending |
+| INFRA-05 | Phase 1 | Pending |
+| SAFE-01 | Phase 2 | Pending |
+| SAFE-02 | Phase 2 | Pending |
+| SAFE-03 | Phase 2 | Pending |
+| GROW-01 | Phase 3 | Pending |
+| GROW-02 | Phase 3 | Pending |
+| GROW-03 | Phase 3 | Pending |
+| COMB-01 | Phase 4 | Pending |
+| COMB-02 | Phase 4 | Pending |
+| COMB-03 | Phase 4 | Pending |
+| MON-01 | Phase 5 | Pending |
+| MON-02 | Phase 5 | Pending |
+| MON-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17 ⚠️
+- Mapped to phases: 17
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-25*
