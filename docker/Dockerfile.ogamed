@@ -1,0 +1,8 @@
+FROM golang:1.26-alpine AS builder
+RUN go install github.com/alaingilbert/ogame/cmd/ogamed@latest
+
+FROM alpine:3.21
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /go/bin/ogamed /app/ogamed
+WORKDIR /app
+CMD ["./ogamed"]

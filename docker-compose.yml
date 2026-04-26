@@ -1,0 +1,33 @@
+services:
+  ogamed:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.ogamed
+    container_name: ogame-ogamed
+    environment:
+      OGAMED_UNIVERSE: ${OGAMED_UNIVERSE}
+      OGAMED_USERNAME: ${OGAMED_USERNAME}
+      OGAMED_PASSWORD: ${OGAMED_PASSWORD}
+      OGAMED_LANGUAGE: ${OGAMED_LANGUAGE:-en}
+      OGAMED_HOST: "0.0.0.0"
+      OGAMED_PORT: "8080"
+      OGAMED_AUTO_LOGIN: "true"
+      OGAMED_PROXY: ${OGAMED_PROXY:-}
+      OGAMED_PROXY_TYPE: ${OGAMED_PROXY_TYPE:-socks5}
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+  bot:
+    build: .
+    container_name: ogame-bot
+    depends_on:
+      - ogamed
+    env_file: .env
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - bot-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  bot-data:
