@@ -55,62 +55,63 @@ func main() {
 	}
 	defer db.Close()
 
-	// 6. Create ogamed client with rate limiter per D-14, D-11
-	rateLimiter := ogamed.NewRateLimiter(cfg.RateLimit)
-	client := ogamed.NewClient(cfg.Ogamed.URL, rateLimiter, log)
-
-	// 6b. Create OGameX client (new target)
-	{
-		_ = cfg.OGameX
-		if cfg.OGameX.URL != "" {
-			ogamexCl := ogamex.NewClient(cfg.OGameX.URL, cfg.OGameX.Email, cfg.OGameX.Password, log)
-			log.Info("OGameX client created", "url", cfg.OGameX.URL)
-			_ = ogamexCl
-		}
-	}
-
-	// 7. Login to ogamed per INFRA-01
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := client.Login(ctx); err != nil {
-		log.Warn("Login failed, attempting captcha solve", "error", err)
-		const maxRetries = 5
-		loggedIn := false
-		for attempt := 1; attempt <= maxRetries; attempt++ {
-			time.Sleep(2 * time.Second)
-			challenge, cerr := client.GetCaptchaChallenge(ctx)
-			if cerr != nil {
-				log.Warn("Failed to get captcha challenge, retrying", "attempt", attempt, "error", cerr)
-				if lerr := client.Login(ctx); lerr != nil {
-					log.Warn("Login attempt failed", "attempt", attempt, "error", lerr)
-				} else {
-					loggedIn = true
-					break
-				}
-				continue
-			}
-			answer := ogamed.SolveCaptcha(challenge.Icons, challenge.Question)
-			log.Info("Captcha solved", "attempt", attempt, "answer", answer, "challengeID", challenge.ID)
-			if serr := client.SolveCaptchaChallenge(ctx, challenge.ID, answer); serr != nil {
-				log.Error("Failed to submit captcha answer", "attempt", attempt, "error", serr)
-				continue
-			}
-			log.Info("Captcha answer submitted, retrying login")
-			time.Sleep(2 * time.Second)
-			if lerr := client.Login(ctx); lerr != nil {
-				log.Warn("Login still failing after captcha", "attempt", attempt, "error", lerr)
-				continue
-			}
-			loggedIn = true
-			break
-		}
-		if !loggedIn {
-			log.Error("Failed to login after captcha attempts")
+	var client ogamed.ClientInterface
+	if cfg.OGameX.URL != "" {
+		ogamexCl := ogamex.NewClient(cfg.OGameX.URL, cfg.OGameX.Email, cfg.OGameX.Password, log)
+		log.Info("Using OGameX client", "url", cfg.OGameX.URL)
+		if err := ogamexCl.Login(ctx); err != nil {
+			log.Error("OGameX login failed", "error", err)
 			os.Exit(1)
 		}
+		log.Info("Connected to OGameX")
+		client = ogamexCl
+	} else {
+		rateLimiter := ogamed.NewRateLimiter(cfg.RateLimit)
+		ogamedCl := ogamed.NewClient(cfg.Ogamed.URL, rateLimiter, log)
+		log.Info("Using ogamed client", "url", cfg.Ogamed.URL)
+		if err := ogamedCl.Login(ctx); err != nil {
+			log.Warn("Login failed, attempting captcha solve", "error", err)
+			const maxRetries = 5
+			loggedIn := false
+			for attempt := 1; attempt <= maxRetries; attempt++ {
+				time.Sleep(2 * time.Second)
+				challenge, cerr := ogamedCl.GetCaptchaChallenge(ctx)
+				if cerr != nil {
+					log.Warn("Failed to get captcha challenge, retrying", "attempt", attempt, "error", cerr)
+					if lerr := ogamedCl.Login(ctx); lerr != nil {
+						log.Warn("Login attempt failed", "attempt", attempt, "error", lerr)
+					} else {
+						loggedIn = true
+						break
+					}
+					continue
+				}
+				answer := ogamed.SolveCaptcha(challenge.Icons, challenge.Question)
+				log.Info("Captcha solved", "attempt", attempt, "answer", answer, "challengeID", challenge.ID)
+				if serr := ogamedCl.SolveCaptchaChallenge(ctx, challenge.ID, answer); serr != nil {
+					log.Error("Failed to submit captcha answer", "attempt", attempt, "error", serr)
+					continue
+				}
+				log.Info("Captcha answer submitted, retrying login")
+				time.Sleep(2 * time.Second)
+				if lerr := ogamedCl.Login(ctx); lerr != nil {
+					log.Warn("Login still failing after captcha", "attempt", attempt, "error", lerr)
+					continue
+				}
+				loggedIn = true
+				break
+			}
+			if !loggedIn {
+				log.Error("Failed to login after captcha attempts")
+				os.Exit(1)
+			}
+		}
+		log.Info("Connected to ogamed")
+		client = ogamedCl
 	}
-	log.Info("Connected to ogamed")
 
 	// 8. Start game state manager per D-09
 	stateMgr := state.NewManager(db, client, log)

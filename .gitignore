@@ -6,6 +6,7 @@ data/
 *.db
 *.db-journal
 *.db-wal
+cookies.json
 .DS_Store
 
 # Go build output

@@ -1,41 +1,43 @@
 # Project State: OGameX Bot
 
 **Updated:** 2026-05-03
-**Current Phase:** 1 — Core Infrastructure
-**Status:** Ready to begin
+**Current Phase:** 6 — Web Dashboard + Cleanup
+**Status:** Wiring complete, final validation needed
 
 ## Phase Status
 
 | Phase | Name | Status | Plans | Requirements |
 |-------|------|--------|-------|-------------|
-| 1 | Core Infrastructure | **Current** | 2 | INFRA-01..04 |
-| 2 | Game State | Not started | 2 | STATE-01..07 |
-| 3 | Fleet Safety | Not started | 2 | SAFE-01..04 |
-| 4 | Auto-Build | Not started | 2 | BUILD-01..04 |
-| 5 | Auto-Farm | Not started | 1 | FARM-01..03 |
-| 6 | Web Dashboard | Not started | 2 | DASH-01..03 |
+| 1 | Core Infrastructure | **Complete** | 2 | INFRA-01..04 |
+| 2 | Game State | **Complete** | 2 | STATE-01..07 |
+| 3 | Fleet Safety | **Complete** | 2 | SAFE-01..04 |
+| 4 | Auto-Build | **Complete** | 2 | BUILD-01..04 |
+| 5 | Auto-Farm | **Complete** | 1 | FARM-01..03 |
+| 6 | Web Dashboard | **In Progress** | 2 | DASH-01..03 |
 
 ## Current Work
 
-**Phase 1 — Core Infrastructure**
-- **Next plan:** 1.1 — Config + OGameX client skeleton
-- **Blockers:** None
-- **Notes:** Brownfield pivot — existing workers, state manager, and dashboard are reused
+**Phase 6 — Web Dashboard + Cleanup**
+- Main.go wiring complete: ogamex client used when configured, ogamed fallback preserved
+- Config validation updated: ogamex mode doesn't require ogamed fields
+- Remaining: dashboard verification, ogamed cleanup, README update
 
 ## Milestones
 
 | Milestone | Phase | Status | Description |
 |-----------|-------|--------|-------------|
-| M1: Login works | Phase 1 | Pending | Bot authenticates with OGameX, CSRF token rotates correctly |
-| M2: State cached | Phase 2 | Pending | SQLite populated with live planet/resource/fleet data |
-| M3: Fleet protected | Phase 3 | Pending | Defender detects attacks and fleet-saves autonomously |
-| M4: Empire grows | Phase 4 | Pending | Builder upgrades buildings by ROI across all planets |
-| M5: Farming active | Phase 5 | Pending | Farmer scans, spies, and attacks profitable inactives |
+| M1: Login works | Phase 1 | **Done** | Bot authenticates with OGameX, CSRF token rotates correctly |
+| M2: State cached | Phase 2 | **Done** | All read-only ClientInterface methods implemented |
+| M3: Fleet protected | Phase 3 | **Done** | SendFleet + CancelFleet implemented, defender wired |
+| M4: Empire grows | Phase 4 | **Done** | BuildBuilding implemented, builder wired |
+| M5: Farming active | Phase 5 | **Done** | Galaxy scan + espionage + farming methods implemented |
 | M6: Fully operational | Phase 6 | Pending | Dashboard + all features working, single Go binary |
 
 ## Completed Plans
 
-(none yet)
+- Phase 1: client skeleton + login/session/CSRF
+- Phase 2: parser infrastructure + read-only state methods
+- Phase 3-5: SendFleet, CancelFleet, BuildBuilding, GetGalaxyInfos, espionage methods
 
 ## Risk Log
 

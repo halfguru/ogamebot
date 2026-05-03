@@ -224,24 +224,26 @@ func envOrDefault(key, fallback string) string {
 
 // Validate checks that all required config fields are present and valid.
 func (c *Config) Validate() error {
-	if c.Account.Universe == "" {
-		return fmt.Errorf("account.universe is required")
-	}
-	if c.Account.Username == "" {
-		return fmt.Errorf("account.username is required")
-	}
-	if c.Account.Password == "" {
-		return fmt.Errorf("account.password is required")
-	}
-	if c.Ogamed.URL == "" {
-		return fmt.Errorf("ogamed.url is required")
-	}
-	if c.OGameX.URL != "" {
+	usingOGameX := c.OGameX.URL != ""
+	if usingOGameX {
 		if c.OGameX.Email == "" {
 			return fmt.Errorf("ogamex.email is required when ogamex is configured")
 		}
 		if c.OGameX.Password == "" {
 			return fmt.Errorf("ogamex.password is required when ogamex is configured")
+		}
+	} else {
+		if c.Account.Universe == "" {
+			return fmt.Errorf("account.universe is required")
+		}
+		if c.Account.Username == "" {
+			return fmt.Errorf("account.username is required")
+		}
+		if c.Account.Password == "" {
+			return fmt.Errorf("account.password is required")
+		}
+		if c.Ogamed.URL == "" {
+			return fmt.Errorf("ogamed.url is required")
 		}
 	}
 	if c.RateLimit.DefaultMinDelayMs < 500 {
