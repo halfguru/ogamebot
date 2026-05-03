@@ -12,3 +12,4 @@ cookies.json
 # Go build output
 /bot
 *.exe
+*.exe~
