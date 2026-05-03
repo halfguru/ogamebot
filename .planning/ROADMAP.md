@@ -24,39 +24,18 @@ Phase 6: Web Dashboard        ████████████████�
 **Dependencies:** None (first phase)
 **Requirements:** INFRA-01, INFRA-02, INFRA-03, INFRA-04
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Config + OGameX client skeleton (INFRA-03, INFRA-04)
+- [ ] 01-02-PLAN.md — Login + session + CSRF management (INFRA-01, INFRA-02)
+
 **Success Criteria:**
-1. `go build ./...` succeeds with new `internal/ogamex/` package and no `internal/ogamed/` imports
+1. `go build ./...` succeeds with new `internal/ogamex/` package alongside `internal/ogamed/`
 2. Bot logs into `main.ogamex.dev` with email/password and receives session cookie
 3. CSRF token is extracted from login response HTML and sent with subsequent AJAX requests
 4. Bot auto-refreshes CSRF token from `newAjaxToken` in JSON responses (thread-safe)
 5. Bot re-authenticates on 401/session expiry without crashing
-
-### Plan 1.1 — Config + OGameX client skeleton (INFRA-03, INFRA-04)
-
-**Scope:**
-- Rename `OgamedConfig` → `OGameXConfig` in `internal/config/config.go` (fields: `url`, `email`, `password`)
-- Update `config.example.yaml` with `ogamex:` section replacing `ogamed:`
-- Update config validation (remove ogamed.URL, add ogamex.url + ogamex.email + ogamex.password)
-- Create `internal/ogamex/client.go` with `Client` struct implementing `ClientInterface`
-- Stub all `ClientInterface` methods returning `fmt.Errorf("not implemented")` initially
-- Update `cmd/bot/main.go` to wire `ogamex.Client` instead of `ogamed.Client`
-- Remove `internal/ogamed/` package (keep for reference until Phase 2 replaces all methods)
-- `go build ./...` compiles cleanly
-
-### Plan 1.2 — Login + session + CSRF management (INFRA-01, INFRA-02)
-
-**Scope:**
-- Implement `Login()`: POST `/login` with email/password, extract `laravel_session` cookie and CSRF token from response
-- Implement CSRF token extraction from HTML (`<meta name="csrf-token">` or hidden form fields) using `goquery`
-- Implement thread-safe CSRF token store (`sync.Mutex`-protected field on `Client`)
-- Implement `doRequest()` wrapper that:
-  - Attaches `X-CSRF-TOKEN` header to all non-GET requests
-  - Extracts `newAjaxToken` from JSON responses and updates stored token
-  - Detects 401/redirect and triggers re-login
-  - Sets `?cp=<planetID>` query parameter when planet context is needed
-- Implement `Logout()`: POST `/logout`
-- Add CSRF token rotation logging at debug level
-- Test: login → make authenticated request → verify CSRF in request header
 
 ---
 
