@@ -12,6 +12,7 @@ import (
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/constants"
 	"github.com/user/ogame-bot/internal/model"
+	"github.com/user/ogame-bot/internal/ogamed"
 
 	_ "github.com/user/ogame-bot/internal/state" // registers sqlite driver
 )
@@ -93,6 +94,12 @@ func (m *mockBuilderClient) GetEspionageReport(_ context.Context, _ int64) (mode
 	return model.EspionageReport{}, nil
 }
 func (m *mockBuilderClient) DeleteAllEspionageReports(_ context.Context) error {
+	return nil
+}
+func (m *mockBuilderClient) GetCaptchaChallenge(_ context.Context) (ogamed.CaptchaChallenge, error) {
+	return ogamed.CaptchaChallenge{}, nil
+}
+func (m *mockBuilderClient) SolveCaptchaChallenge(_ context.Context, _ string, _ int) error {
 	return nil
 }
 

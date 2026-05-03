@@ -11,7 +11,7 @@ services:
       OGAMED_LANGUAGE: ${OGAMED_LANGUAGE:-en}
       OGAMED_HOST: "0.0.0.0"
       OGAMED_PORT: "8080"
-      OGAMED_AUTO_LOGIN: "true"
+      OGAMED_AUTO_LOGIN: "false"
       OGAMED_PROXY: ${OGAMED_PROXY:-}
       OGAMED_PROXY_TYPE: ${OGAMED_PROXY_TYPE:-socks5}
     ports:

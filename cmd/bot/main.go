@@ -63,8 +63,41 @@ func main() {
 	defer cancel()
 
 	if err := client.Login(ctx); err != nil {
-		log.Error("Failed to login to ogamed", "error", err)
-		os.Exit(1)
+		log.Warn("Login failed, attempting captcha solve", "error", err)
+		const maxRetries = 5
+		loggedIn := false
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			time.Sleep(2 * time.Second)
+			challenge, cerr := client.GetCaptchaChallenge(ctx)
+			if cerr != nil {
+				log.Warn("Failed to get captcha challenge, retrying", "attempt", attempt, "error", cerr)
+				if lerr := client.Login(ctx); lerr != nil {
+					log.Warn("Login attempt failed", "attempt", attempt, "error", lerr)
+				} else {
+					loggedIn = true
+					break
+				}
+				continue
+			}
+			answer := ogamed.SolveCaptcha(challenge.Icons, challenge.Question)
+			log.Info("Captcha solved", "attempt", attempt, "answer", answer, "challengeID", challenge.ID)
+			if serr := client.SolveCaptchaChallenge(ctx, challenge.ID, answer); serr != nil {
+				log.Error("Failed to submit captcha answer", "attempt", attempt, "error", serr)
+				continue
+			}
+			log.Info("Captcha answer submitted, retrying login")
+			time.Sleep(2 * time.Second)
+			if lerr := client.Login(ctx); lerr != nil {
+				log.Warn("Login still failing after captcha", "attempt", attempt, "error", lerr)
+				continue
+			}
+			loggedIn = true
+			break
+		}
+		if !loggedIn {
+			log.Error("Failed to login after captcha attempts")
+			os.Exit(1)
+		}
 	}
 	log.Info("Connected to ogamed")
 

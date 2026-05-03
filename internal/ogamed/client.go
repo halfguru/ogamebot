@@ -17,6 +17,12 @@ import (
 
 const defaultHTTPTimeout = 30 * time.Second
 
+type CaptchaChallenge struct {
+	ID       string `json:"ID"`
+	Icons    string `json:"Icons"`
+	Question string `json:"Question"`
+}
+
 // ClientInterface defines all ogamed API methods.
 // State manager depends on this interface, not the concrete Client.
 type ClientInterface interface {
@@ -44,6 +50,8 @@ type ClientInterface interface {
 	GetEspionageReportMessages(ctx context.Context) ([]model.EspionageReportSummary, error)
 	GetEspionageReport(ctx context.Context, messageID int64) (model.EspionageReport, error)
 	DeleteAllEspionageReports(ctx context.Context) error
+	GetCaptchaChallenge(ctx context.Context) (CaptchaChallenge, error)
+	SolveCaptchaChallenge(ctx context.Context, challengeID string, answer int) error
 }
 
 // Client implements ClientInterface with rate limiting and retry.
@@ -376,5 +384,17 @@ func (c *Client) GetEspionageReport(ctx context.Context, messageID int64) (model
 // DeleteAllEspionageReports deletes all espionage report messages.
 func (c *Client) DeleteAllEspionageReports(ctx context.Context) error {
 	_, err := postTyped[any](c, ctx, "/bot/delete-all-espionage-reports", url.Values{})
+	return err
+}
+
+func (c *Client) GetCaptchaChallenge(ctx context.Context) (CaptchaChallenge, error) {
+	return getTyped[CaptchaChallenge](c, ctx, "/bot/captcha/challenge")
+}
+
+func (c *Client) SolveCaptchaChallenge(ctx context.Context, challengeID string, answer int) error {
+	data := url.Values{}
+	data.Set("id", challengeID)
+	data.Set("answer", strconv.Itoa(answer))
+	_, err := postTyped[any](c, ctx, "/bot/captcha/solve", data)
 	return err
 }

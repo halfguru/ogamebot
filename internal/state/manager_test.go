@@ -172,6 +172,12 @@ func (m *mockClient) GetEspionageReport(_ context.Context, _ int64) (model.Espio
 func (m *mockClient) DeleteAllEspionageReports(_ context.Context) error {
 	return nil
 }
+func (m *mockClient) GetCaptchaChallenge(_ context.Context) (ogamed.CaptchaChallenge, error) {
+	return ogamed.CaptchaChallenge{}, nil
+}
+func (m *mockClient) SolveCaptchaChallenge(_ context.Context, _ string, _ int) error {
+	return nil
+}
 
 // setupTestDB creates a fresh SQLite database for testing.
 func setupTestDB(t *testing.T) *sql.DB {

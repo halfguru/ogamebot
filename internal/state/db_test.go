@@ -66,6 +66,12 @@ func TestOpenDB_CreatesTables(t *testing.T) {
 	}
 }
 
+func closeDBForCleanup(db *sql.DB) {
+	db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	db.Exec("PRAGMA journal_mode=DELETE")
+	db.Close()
+}
+
 func TestOpenDB_Idempotent(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
@@ -76,18 +82,18 @@ func TestOpenDB_Idempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first OpenDB() error = %v", err)
 	}
-	db1.Close()
+	closeDBForCleanup(db1)
 
 	// Second open — migrations should be no-op
 	db2, err := OpenDB(dbPath, log)
 	if err != nil {
 		t.Fatalf("second OpenDB() error = %v", err)
 	}
-	defer db2.Close()
+	defer closeDBForCleanup(db2)
 
 	// Verify tables still exist
 	var count int
-	err = db2.QueryRow("SELECT COUNT(*) FROM planets").Err()
+	err = db2.QueryRow("SELECT COUNT(*) FROM planets").Scan(&count)
 	if err != nil {
 		t.Errorf("querying planets after second open: %v", err)
 	}

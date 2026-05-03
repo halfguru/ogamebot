@@ -10,6 +10,7 @@ import (
 
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/model"
+	"github.com/user/ogame-bot/internal/ogamed"
 	"github.com/user/ogame-bot/internal/state"
 )
 
@@ -95,6 +96,12 @@ func (m *mockClient) GetEspionageReport(_ context.Context, _ int64) (model.Espio
 	return model.EspionageReport{}, nil
 }
 func (m *mockClient) DeleteAllEspionageReports(_ context.Context) error {
+	return nil
+}
+func (m *mockClient) GetCaptchaChallenge(_ context.Context) (ogamed.CaptchaChallenge, error) {
+	return ogamed.CaptchaChallenge{}, nil
+}
+func (m *mockClient) SolveCaptchaChallenge(_ context.Context, _ string, _ int) error {
 	return nil
 }
 
