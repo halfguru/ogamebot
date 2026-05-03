@@ -51,72 +51,12 @@ func (c *Client) setCSRFToken(token string) {
 	c.csrfToken = token
 }
 
-func (c *Client) GetServerTime(ctx context.Context) (string, error) {
-	return "", fmt.Errorf("ogamex: GetServerTime not implemented")
-}
-
-func (c *Client) IsUnderAttack(ctx context.Context) (bool, error) {
-	return false, fmt.Errorf("ogamex: IsUnderAttack not implemented")
-}
-
-func (c *Client) GetPlanets(ctx context.Context) ([]model.Planet, error) {
-	return nil, fmt.Errorf("ogamex: GetPlanets not implemented")
-}
-
-func (c *Client) GetResources(ctx context.Context, planetID int) (model.Resources, error) {
-	return model.Resources{}, fmt.Errorf("ogamex: GetResources not implemented")
-}
-
-func (c *Client) GetResourceBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error) {
-	return model.ResourceBuildings{}, fmt.Errorf("ogamex: GetResourceBuildings not implemented")
-}
-
-func (c *Client) GetFacilities(ctx context.Context, planetID int) (model.Facilities, error) {
-	return model.Facilities{}, fmt.Errorf("ogamex: GetFacilities not implemented")
-}
-
-func (c *Client) GetShips(ctx context.Context, planetID int) (model.Ships, error) {
-	return model.Ships{}, fmt.Errorf("ogamex: GetShips not implemented")
-}
-
-func (c *Client) GetDefence(ctx context.Context, planetID int) (model.Defence, error) {
-	return model.Defence{}, fmt.Errorf("ogamex: GetDefence not implemented")
-}
-
-func (c *Client) GetFleets(ctx context.Context) ([]model.Fleet, error) {
-	return nil, fmt.Errorf("ogamex: GetFleets not implemented")
-}
-
-func (c *Client) GetResearch(ctx context.Context) (model.Research, error) {
-	return model.Research{}, fmt.Errorf("ogamex: GetResearch not implemented")
-}
-
-func (c *Client) GetServerSpeed(ctx context.Context) (int, error) {
-	return 0, fmt.Errorf("ogamex: GetServerSpeed not implemented")
-}
-
-func (c *Client) GetServerVersion(ctx context.Context) (string, error) {
-	return "", fmt.Errorf("ogamex: GetServerVersion not implemented")
-}
-
-func (c *Client) GetAttacks(ctx context.Context) ([]model.AttackEvent, error) {
-	return nil, fmt.Errorf("ogamex: GetAttacks not implemented")
-}
-
-func (c *Client) GetSlots(ctx context.Context) (model.Slots, error) {
-	return model.Slots{}, fmt.Errorf("ogamex: GetSlots not implemented")
-}
-
 func (c *Client) SendFleet(ctx context.Context, req model.SendFleetRequest) (int64, error) {
 	return 0, fmt.Errorf("ogamex: SendFleet not implemented")
 }
 
 func (c *Client) CancelFleet(ctx context.Context, fleetID int64) error {
 	return fmt.Errorf("ogamex: CancelFleet not implemented")
-}
-
-func (c *Client) GetConstructions(ctx context.Context, planetID int) (model.Constructions, error) {
-	return model.Constructions{}, fmt.Errorf("ogamex: GetConstructions not implemented")
 }
 
 func (c *Client) BuildBuilding(ctx context.Context, planetID, buildingID int) error {

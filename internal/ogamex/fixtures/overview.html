@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="csrf-token" content="test-token"></head>
+<body>
+<div id="planetList">
+  <div class="smallplanet">
+    <a href="?cp=12345" class="planetlink">
+      <img class="planetPic" src="/img/planets/1.jpg" alt="Homeworld">
+      <span class="planet-name">Homeworld</span>
+      <span class="planet-koords">[1:2:3]</span>
+    </a>
+  </div>
+  <div class="smallplanet">
+    <a href="?cp=67890&amp;type=moon" class="moonlink">
+      <img class="moonPic" src="/img/moons/1.jpg" alt="Moonbase">
+      <span class="planet-name">Moonbase</span>
+      <span class="planet-koords">[1:2:3]</span>
+    </a>
+  </div>
+</div>
+<div id="resources">
+  <span id="resources_metal" data-raw="12345">12.345</span>
+  <span id="resources_crystal" data-raw="6789">6.789</span>
+  <span id="resources_deuterium" data-raw="2345">2.345</span>
+  <span id="resources_energy" data-raw="500">500</span>
+  <span id="resources_darkmatter" data-raw="0">0</span>
+</div>
+<div id="planetDetails">
+  <span id="planet-diameter">12.800</span>
+  <span id="planet-fields-used">42</span>
+  <span id="planet-fields-total">163</span>
+  <span id="planet-temp-min">-10</span>
+  <span id="planet-temp-max">50</span>
+</div>
+<div id="footer">
+  <span>OGameX. All rights reserved. 0.13.0</span>
+</div>
+<div id="overviewBottom">
+  <div class="factor" data-value="7">Speed 7x</div>
+</div>
+</body>
+</html>

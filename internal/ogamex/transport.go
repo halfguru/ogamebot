@@ -1,6 +1,7 @@
 package ogamex
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -166,4 +167,12 @@ func readBody(resp *http.Response) ([]byte, error) {
 		return nil, fmt.Errorf("reading response body: %w", err)
 	}
 	return body, nil
+}
+
+func toReader(body []byte) io.Reader {
+	return bytes.NewReader(body)
+}
+
+func jsonUnmarshal(data []byte, v interface{}) error {
+	return json.Unmarshal(data, v)
 }
