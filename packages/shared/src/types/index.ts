@@ -10,6 +10,7 @@ export type { Research } from './research.js';
 export type {
   APIResources,
   APIBuildings,
+  APIFacilities,
   APIPlanet,
   APIFleet,
   APIResearch,

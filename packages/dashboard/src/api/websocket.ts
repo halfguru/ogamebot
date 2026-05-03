@@ -12,23 +12,37 @@ export function createWSClient(
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let shouldReconnect = true;
+  let attempt = 0;
+  const maxDelay = 30000;
+  const baseDelay = 1000;
 
   const wsBase = typeof location !== 'undefined'
     ? `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`
     : 'ws://localhost:3000';
 
+  function getBackoffDelay(): number {
+    const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+    attempt++;
+    return delay;
+  }
+
+  function resetBackoff() {
+    attempt = 0;
+  }
+
   function scheduleReconnect() {
     if (!shouldReconnect) return;
     if (reconnectTimer) clearTimeout(reconnectTimer);
+    const delay = getBackoffDelay();
+    console.log(`[WS] Reconnecting in ${delay}ms (attempt ${attempt})`);
     reconnectTimer = setTimeout(() => {
       connect();
-    }, 3000);
+    }, delay);
   }
 
   function connect() {
-    if (ws) {
-      ws.close();
-      ws = null;
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      return;
     }
 
     shouldReconnect = true;
@@ -37,7 +51,7 @@ export function createWSClient(
       ws = new WebSocket(`${wsBase}/ws`);
 
       ws.onopen = () => {
-        console.log('[WS] Connected');
+        resetBackoff();
         onStatusChange?.(true);
       };
 
@@ -51,15 +65,13 @@ export function createWSClient(
       };
 
       ws.onclose = () => {
-        console.log('[WS] Disconnected');
         onStatusChange?.(false);
+        ws = null;
         scheduleReconnect();
       };
 
-      ws.onerror = (err) => {
-        console.error('[WS] Error:', err);
+      ws.onerror = () => {
         onStatusChange?.(false);
-        // onclose will fire after onerror, which schedules reconnect
       };
     } catch (err) {
       console.error('[WS] Failed to create WebSocket:', err);

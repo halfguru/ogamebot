@@ -20,7 +20,13 @@ export const apiBuildingsSchema = z.object({
   deuteriumStorage: z.number(),
 });
 
-/** Zod schema for APIPlanet. */
+export const apiFacilitiesSchema = z.object({
+  roboticsFactory: z.number(),
+  shipyard: z.number(),
+  researchLab: z.number(),
+  naniteFactory: z.number(),
+});
+
 export const apiPlanetSchema = z.object({
   id: z.number(),
   name: z.string(),
@@ -35,6 +41,7 @@ export const apiPlanetSchema = z.object({
   temperatureMax: z.number(),
   resources: apiResourcesSchema,
   buildings: apiBuildingsSchema,
+  facilities: apiFacilitiesSchema,
 });
 
 /** Zod schema for APIPlanet array. */

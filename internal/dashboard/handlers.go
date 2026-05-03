@@ -19,6 +19,7 @@ type StateReader interface {
 	GetFleets(ctx context.Context) ([]model.Fleet, error)
 	GetResearch(ctx context.Context) (model.Research, error)
 	GetBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error)
+	GetFacilities(ctx context.Context, planetID int) (model.Facilities, error)
 }
 
 // Handlers holds dependencies for REST API endpoint handlers.
@@ -92,6 +93,18 @@ func (h *Handlers) handlePlanets(w http.ResponseWriter, r *http.Request) {
 				MetalStorage:         bld.MetalStorage,
 				CrystalStorage:       bld.CrystalStorage,
 				DeuteriumStorage:     bld.DeuteriumStorage,
+			}
+		}
+
+		fac, err := h.stateMgr.GetFacilities(ctx, p.ID)
+		if err != nil {
+			h.log.Warn("handlePlanets: GetFacilities failed", "planetID", p.ID, "error", err)
+		} else {
+			apiPlanet.Facilities = APIFacilities{
+				RoboticsFactory: fac.RoboticsFactory,
+				Shipyard:        fac.Shipyard,
+				ResearchLab:     fac.ResearchLab,
+				NaniteFactory:   fac.NaniteFactory,
 			}
 		}
 

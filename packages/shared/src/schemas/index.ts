@@ -15,6 +15,7 @@ export { researchSchema } from './research.js';
 export {
   apiResourcesSchema,
   apiBuildingsSchema,
+  apiFacilitiesSchema,
   apiPlanetSchema,
   apiPlanetArraySchema,
   apiFleetSchema,

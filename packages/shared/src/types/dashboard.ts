@@ -20,7 +20,13 @@ export interface APIBuildings {
   deuteriumStorage: number;
 }
 
-/** A planet with nested resources and buildings for the dashboard API. */
+export interface APIFacilities {
+  roboticsFactory: number;
+  shipyard: number;
+  researchLab: number;
+  naniteFactory: number;
+}
+
 export interface APIPlanet {
   id: number;
   name: string;
@@ -35,6 +41,7 @@ export interface APIPlanet {
   temperatureMax: number;
   resources: APIResources;
   buildings: APIBuildings;
+  facilities: APIFacilities;
 }
 
 /** A fleet movement for the dashboard API. */

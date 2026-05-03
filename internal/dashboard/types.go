@@ -7,19 +7,20 @@ import "time"
 
 // APIPlanet is a planet with nested resources and buildings for the dashboard API.
 type APIPlanet struct {
-	ID             int        `json:"id"`
-	Name           string     `json:"name"`
-	Galaxy         int        `json:"galaxy"`
-	System         int        `json:"system"`
-	Position       int        `json:"position"`
-	IsMoon         bool       `json:"isMoon"`
-	Diameter       int        `json:"diameter"`
-	FieldsUsed     int        `json:"fieldsUsed"`
-	FieldsTotal    int        `json:"fieldsTotal"`
-	TemperatureMin int        `json:"temperatureMin"`
-	TemperatureMax int        `json:"temperatureMax"`
-	Resources      APIResources `json:"resources"`
-	Buildings      APIBuildings `json:"buildings"`
+	ID             int           `json:"id"`
+	Name           string        `json:"name"`
+	Galaxy         int           `json:"galaxy"`
+	System         int           `json:"system"`
+	Position       int           `json:"position"`
+	IsMoon         bool          `json:"isMoon"`
+	Diameter       int           `json:"diameter"`
+	FieldsUsed     int           `json:"fieldsUsed"`
+	FieldsTotal    int           `json:"fieldsTotal"`
+	TemperatureMin int           `json:"temperatureMin"`
+	TemperatureMax int           `json:"temperatureMax"`
+	Resources      APIResources  `json:"resources"`
+	Buildings      APIBuildings  `json:"buildings"`
+	Facilities     APIFacilities `json:"facilities"`
 }
 
 // APIResources represents resource amounts for the dashboard API.
@@ -40,6 +41,14 @@ type APIBuildings struct {
 	MetalStorage         int `json:"metalStorage"`
 	CrystalStorage       int `json:"crystalStorage"`
 	DeuteriumStorage     int `json:"deuteriumStorage"`
+}
+
+// APIFacilities represents facility building levels for the dashboard API.
+type APIFacilities struct {
+	RoboticsFactory int `json:"roboticsFactory"`
+	Shipyard        int `json:"shipyard"`
+	ResearchLab     int `json:"researchLab"`
+	NaniteFactory   int `json:"naniteFactory"`
 }
 
 // APIFleet represents a fleet movement for the dashboard API.

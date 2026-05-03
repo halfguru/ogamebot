@@ -5,6 +5,7 @@ import type { APIPlanet, APIFleet, APIResearch, APIBuildEvent, APIFleetSaveEvent
 import Header from './components/Header';
 import EmpireOverview from './components/EmpireOverview';
 import FleetMovements from './components/FleetMovements';
+import ResearchPanel from './components/ResearchPanel';
 import ActivityFeed from './components/ActivityFeed';
 
 export default function App() {
@@ -18,7 +19,6 @@ export default function App() {
   const [lastUpdate, setLastUpdate] = createSignal<Date | null>(null);
 
   onMount(async () => {
-    // Load initial state via REST
     try {
       const [state, builds, saves, attacks] = await Promise.all([
         fetchAllState(),
@@ -37,7 +37,6 @@ export default function App() {
       console.error('Failed to load initial state:', err);
     }
 
-    // Connect WebSocket for real-time updates
     const ws = createWSClient(
       (msg) => {
         switch (msg.type) {
@@ -68,7 +67,8 @@ export default function App() {
     <div class="dashboard">
       <Header connected={connected()} lastUpdate={lastUpdate()} />
       <main>
-        <EmpireOverview planets={planets()} />
+        <EmpireOverview planets={planets()} buildEvents={buildEvents()} />
+        <ResearchPanel research={research()} />
         <FleetMovements fleets={fleets()} />
         <ActivityFeed buildEvents={buildEvents()} fleetSaveEvents={fleetSaveEvents()} farmAttacks={farmAttacks()} />
       </main>

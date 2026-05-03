@@ -313,6 +313,123 @@ section h2 {
   border-radius: 3px;
 }
 
+/* Resource totals bar */
+.resource-totals {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-primary);
+}
+
+/* Planet facilities */
+.planet-facilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--accent-purple);
+  margin-top: 0.5rem;
+}
+
+/* Build queue indicator */
+.build-queue {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  background-color: rgba(88, 166, 255, 0.1);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--accent-blue);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+/* Research panel */
+.research-panel .research-categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.research-category {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.research-category h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.research-techs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.research-tech {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  min-width: 80px;
+}
+
+.research-tech .tech-name {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.research-tech .tech-level {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.research-low .tech-level {
+  color: var(--text-muted);
+}
+
+.research-mid .tech-level {
+  color: var(--accent-blue);
+}
+
+.research-high .tech-level {
+  color: var(--accent-green);
+}
+
+/* Countdown colors */
+.countdown-green {
+  color: var(--accent-green);
+}
+
+.countdown-yellow {
+  color: var(--accent-yellow);
+}
+
+.countdown-red {
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+.countdown-arrived {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   header {
@@ -326,6 +443,10 @@ section h2 {
   }
 
   .planet-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .research-panel .research-categories {
     grid-template-columns: 1fr;
   }
 
