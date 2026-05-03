@@ -1,337 +1,385 @@
-# Pitfalls Research
+# Pitfalls Research: OGameX Bot
 
-**Domain:** OGame automation bot (anti-detection, fleet-save, API wrapper fragility)
-**Researched:** 2026-04-25
-**Confidence:** HIGH (cross-referenced TBot issues, ogamed issues, Cruiser source, community warnings)
-
-## Critical Pitfalls
-
-### Pitfall 1: Fleet-Save Fallback to Invalid Missions
-
-**What goes wrong:**
-When the primary fleet-save mission (Deploy) fails, the bot falls through to fallback missions without validating destination. TBot issue #178 shows the bot trying to "Colonize" at an already-inhabited position after Deploy failed — which errors with "Planet is already inhabited!" and the fleet stays home un-saved. The entire main fleet was left exposed.
-
-**Why it happens:**
-Developers write mission selection as a priority list (Deploy → Harvest → Colonize) but don't validate that the fallback destination is valid for that mission type. Deploy requires a friendly planet/moon. Colonize requires an empty slot. Harvest requires a debris field. The destinations that work for each mission are completely different.
-
-**How to avoid:**
-- Validate destination per-mission, not once globally
-- When a fleet-save mission fails, recalculate the destination for the next mission type
-- Always have a guaranteed-safe fallback: deploy to own planet with recall capability
-- Never use "Colonize" as a fleet-save fallback unless you've verified the slot is empty via galaxy scan
-- Log the full fallback chain with reasons so failures are diagnosable
-
-**Warning signs:**
-- Fleet-save logs show "checking Colonize destination..." after Deploy fails
-- Error messages about "Planet is already inhabited" in fleet-save context
-- Fleet scheduler stack traces around `ManageResponse` / `SendFleet`
-
-**Phase to address:**
-Phase 1 (Fleet-Save) — This is the single most important feature. If fleet-save fails, months of progress can be destroyed in seconds. Build fleet-save first, test it exhaustively with every mission type and edge case before adding any other feature.
+Research based on analysis of OGameX source code (github.com/lanedirt/OGameX, Laravel 12.x), existing ogamed client (`internal/ogamed/client.go`), and common OGame bot failure modes.
 
 ---
 
-### Pitfall 2: OGame Game Updates Breaking the API Wrapper
+## Laravel Session/CSRF Pitfalls
 
-**What goes wrong:**
-OGame updates (v11.13, v11.15) changed HTML structure and API responses, breaking ogamed's parsers. `GetEspionageReport` stopped working (ogamed issue #150), `ExtractConstructions` broke (issue #148). The bot silently gets wrong data or crashes.
+### 1. CSRF Token Rotation After Every AJAX Call
 
-**Why it happens:**
-ogamed works by scraping OGame's HTML responses and parsing page content. When Gameforge changes the page structure, the extractors break. This has happened repeatedly across ogamed's history (268 releases, major migration guides for v48 and v53). The bot layer has no way to know the data is wrong — it just gets stale or garbage data.
+OGameX rotates CSRF tokens on nearly every AJAX response. Every JSON response includes `newAjaxToken` — the old token is immediately invalidated. If your client doesn't capture the new token from each response, the next POST will fail with HTTP 419 (CSRF token mismatch).
 
-**How to avoid:**
-- Pin ogamed to a specific version and test after every OGame update
-- Implement data validation: if `GetResources` returns all zeros, if timestamps parse to year 0001 (TBot issue #200), or if planet counts suddenly change, alert and pause
-- Monitor the ogamed GitHub releases and issues for breakage reports
-- Build a health-check system that periodically verifies API responses look reasonable
-- Structure the bot so ogamed is the ONLY thing touching OGame — making updates a single-point fix
-- Have a "maintenance mode" that pauses all actions when API responses look corrupted
+**Evidence**: FleetController `dispatchSendFleet` returns `'newAjaxToken' => csrf_token()`. GalaxyController `ajax` returns `'newAjaxToken' => csrf_token()`. FleetEventsController `fetchEventBox` returns `'newAjaxToken' => csrf_token()`. Every. Single. Response.
 
-**Warning signs:**
-- Date fields returning "1/01/0001" or similar defaults
-- Resource counts showing as zero when you know they shouldn't be
-- ogamed returning errors or empty results for previously-working endpoints
-- OGame announces a version update on their forums
+**Warning signs**: HTTP 419 errors that only appear after the first successful request. Errors disappear on restart (fresh login = fresh token) then recur.
 
-**Phase to address:**
-Phase 1 (Core) — Build resilience from day one. Every API call should have error handling that treats unexpected responses as "bot goes blind, alert user, stop autonomous actions."
+**Prevention**: The client must extract and store the `newAjaxToken` field from every response, not just login. Design the HTTP layer to parse this from all responses automatically. Token storage must be thread-safe if goroutines make concurrent requests.
 
----
+**Phase**: Phase 1 (client layer) — build token rotation into the base HTTP transport, not individual endpoint methods.
 
-### Pitfall 3: Captcha Kills the Bot Dead
+### 2. Session Cookie Lifecycle and Expiry
 
-**What goes wrong:**
-Captcha is the #1 reported issue across ALL OGame bot projects. TBot has 6+ open captcha-related issues (#170, #165, #158, #184, #189, #203). When Gameforge triggers a captcha, ogamed pauses and waits for solving. Without automated solving, the bot is completely frozen until a human intervenes. A frozen bot can't fleet-save.
+Laravel sessions expire after a configurable lifetime (default 120 minutes of inactivity in `config/session.php`). The `laravel_session` cookie must be preserved across all requests. Unlike ogamed's bearer token (which was stateless), Laravel sessions are stateful — the server tracks last activity.
 
-**Why it happens:**
-Gameforge uses captcha as a primary anti-bot measure. Captcha can be triggered by: too many requests, suspicious IP patterns, login from new location, or random checks. ogamed supports manual solving (via web UI at `host:port/bot/captcha`) and automated solving (Ninja Captcha solver, $0.10/solve). But if you don't set up automated solving, every captcha = bot downtime.
+**Warning signs**: After a quiet period (no API calls for 2+ hours), all requests return redirect to `/login` or 401. The bot appears to be running but is actually getting auth errors silently.
 
-**How to avoid:**
-- Implement automated captcha solving from day one (Ninja Solver API or Telegram-based solver)
-- The bot MUST detect when it's captcha-blocked and immediately alert via Telegram
-- When captcha-blocked, the bot should enter a "safe state" — don't queue new actions, but flag that manual intervention is needed
-- Track captcha frequency — if it spikes, the bot is being too aggressive and should throttle back
-- Never let captcha block fleet-save monitoring — that must be the last thing to stop
+**Prevention**:
+- Implement a heartbeat that makes a lightweight request (e.g., `GET /ajax/fleet/eventbox/fetch`) every 30-60 minutes even when idle.
+- Detect session expiry by checking for redirect responses or missing `laravel_session` cookie changes.
+- Auto-re-login on session expiry (re-POST `/login` with credentials + new CSRF token).
 
-**Warning signs:**
-- ogamed logs show captcha prompts
-- Bot actions stop happening but process is still running
-- "Problem captcha?" or "where to put my captcha" in your own notes
+**Phase**: Phase 1 — session keeper goroutine in the client.
 
-**Phase to address:**
-Phase 1 (Core) — Captcha handling must be part of the initial ogamed integration, not an afterthought. Design the alert system to notify on captcha from the start.
+### 3. Login is Multi-Step (Not a Single Call)
 
----
+ogamed login was one GET to `/bot/login`. OGameX login via Laravel Fortify is:
+1. `GET /login` → extract CSRF token from HTML `<meta name="csrf-token">` or hidden `_token` field
+2. `POST /login` with `email`, `password`, `_token` → receives `laravel_session` cookie + redirect to `/overview`
+3. Extract the new CSRF token from the redirect page (it won't be in the login POST response)
 
-### Pitfall 4: Datacenter IP Blocking
+**Warning signs**: Login POST succeeds (302 redirect) but subsequent AJAX calls fail with 419 — you captured the session cookie but not the post-login CSRF token.
 
-**What goes wrong:**
-OGame actively blocks IP addresses from known datacenter ranges (AWS, DigitalOcean, Hetzner, etc.). TBot's README explicitly warns: "Ogame is positively blocking IPs from datacenters. You will probably need a residential proxy." The bot gets "Forbidden" errors on login (ogamed issue #145) and can never connect.
+**Prevention**: After login, make one GET request (e.g., `/overview`) to establish the working CSRF token. Parse the token from the HTML meta tag or a lightweight AJAX response.
 
-**Why it happens:**
-Gameforge maintains blocklists of datacenter IP ranges. Since no legitimate player would be accessing OGame from an AWS instance, this is a trivial detection signal. This isn't rate-limiting — it's a hard block.
+**Phase**: Phase 1 — the `Login()` method must handle all three steps.
 
-**How to avoid:**
-- Plan for residential proxy support from the start
-- ogamed has built-in proxy support: `SetProxy(proxyAddress, username, password, proxyType, loginOnly, config)`
-- Test with a residential proxy before deploying — don't discover this after setup
-- Document proxy configuration as a setup prerequisite, not an optional step
-- Support proxy rotation for multi-account setups (each account through a different residential IP)
-- The `loginOnly` proxy parameter lets you proxy only the login request through a residential IP while routing game traffic through the datacenter — this may be sufficient and cheaper
+### 4. Cookie Jar Must Be Shared Across All Requests
 
-**Warning signs:**
-- "Forbidden" errors on login despite correct credentials
-- Login works from your home computer but not from the VPS
-- ogamed logs show connection refused at the login stage
+Go's `http.Client` has a built-in cookie jar, but it must be explicitly configured. If you create new clients or forget to set the jar, session cookies won't persist between requests.
 
-**Phase to address:**
-Phase 1 (Core) — Proxy configuration must be documented and tested as part of initial deployment setup. This is a prerequisite, not a nice-to-have.
+**Warning signs**: Every request appears to work in isolation but the server doesn't recognize the session. Login works but immediate subsequent calls fail.
+
+**Prevention**: Use a single `http.Client` instance with `cookiejar.Jar` for the entire session lifecycle. Never create per-request clients.
+
+**Phase**: Phase 1 — single client construction.
 
 ---
 
-### Pitfall 5: Phalanx-Unsafe Fleet-Save Patterns
+## OGameX API-Specific Pitfalls
 
-**What goes wrong:**
-Sensor Phalanx (moon building) lets players scan a planet to see all fleet movements. If fleet-save uses a mission that shows arrival times (like Harvest), an attacker can time their fleet to arrive seconds after yours returns — destroying everything. This is the #1 way experienced players destroy bot users' fleets.
+### 5. Mixed Response Formats (HTML + JSON + HTML-inside-JSON)
 
-**Why it happens:**
-Only certain mission types are "phalanx-safe":
-- **Deploy mission**: Shows on scan BUT can be recalled, making the return invisible to phalanx. This is the gold standard.
-- **Harvest mission**: Completely invisible to phalanx. Safe, but requires a debris field.
-- **Attack/Transport/Colonize/Expedition**: All visible to phalanx with exact return times. Dangerously unsafe.
+This is the single biggest difference from ogamed. The old client had a clean JSON envelope `{Status, Code, Result}` for everything. OGameX mixes three response types:
 
-Developers pick the wrong mission type or don't implement recall for deploy missions.
+| Endpoint | Response Type | Notes |
+|----------|--------------|-------|
+| `/ajax/fleet/eventbox/fetch` | JSON | Fleet summary counts |
+| `/ajax/fleet/eventlist/fetch` | **HTML** (Blade view) | Full fleet movement list — NOT JSON |
+| `/ajax/resources?technology=1` | JSON with HTML string | `content.technologydetails` contains rendered HTML |
+| `/ajax/fleet/dispatch/send-fleet` | JSON | `{success, message, newAjaxToken}` |
+| `/ajax/galaxy` | JSON | Galaxy scan results |
+| `/resources/add-buildrequest` | JSON | `{status, message}` |
+| `/overview` | Full HTML page | Planet data embedded in page |
+| `/fleet` | Full HTML page | Ship counts, fleet slots in page |
 
-**How to avoid:**
-- Default to Deploy mission with recall for fleet-save (Cruiser's approach)
-- If using Harvest, ensure there's actually a debris field at the destination (send a probe to crash first if needed)
-- Never use Transport, Attack, or Espionage as fleet-save missions — they're all phalanx-visible
-- Implement deploy-with-recall: send fleet on deploy to a friendly planet, then recall before it arrives. The recalled fleet is invisible to phalanx.
-- Time the recall so the fleet returns after the attack window has passed
-- Support moon-to-moon deploy as an option (moons can't be phalanxed unless attacker has a moon in same system)
+**Warning signs**: JSON unmarshal errors on endpoints that return HTML. Golang code trying to parse Blade templates as JSON. Silent failures when response format doesn't match expectations.
 
-**Warning signs:**
-- Fleet-save uses Transport or Harvest without debris field verification
-- No recall mechanism for Deploy missions
-- Fleet-save destination is the player's own planet but mission type is Transport (visible to phalanx)
+**Prevention**: Classify every endpoint by response type during Phase 1. Create separate parsing methods:
+- `getJSON()` — for pure JSON endpoints (most `/ajax/` endpoints)
+- `getHTML()` — for page endpoints that return Blade views
+- The fleet event list (`/ajax/fleet/eventlist/fetch`) needs HTML parsing or you need to find an alternative way to get fleet data
 
-**Phase to address:**
-Phase 1 (Fleet-Save) — Phalanx safety must be a core design requirement, not a feature you add later. The fleet-save algorithm must choose phalanx-safe missions by default.
+**Phase**: Phase 1 — endpoint classification + per-type parsers.
+
+### 6. No Single "Get Full Game State" Endpoint
+
+ogamed had dedicated endpoints for everything: `/bot/planets`, `/bot/planets/{id}/resources`, `/bot/fleets`. OGameX has NO equivalent. State is scattered:
+
+- **Planet list**: Embedded in the overview HTML page as a planet menu widget
+- **Current planet resources**: Available via the resource bar (rendered in every page's header)
+- **Buildings on a planet**: Must load the resources/facilities page and parse HTML, OR use the AJAX endpoint per-building
+- **Active fleets**: `/ajax/fleet/eventbox/fetch` gives counts only; `/ajax/fleet/eventlist/fetch` gives an HTML fragment
+- **Research levels**: Embedded in research page HTML
+
+**Warning signs**: You build a `GetPlanets()` method but there's no `/ajax/planets` endpoint. You try to get resources but the AJAX endpoint requires a `technology` parameter for individual building details, not bulk state.
+
+**Prevention**: Plan to parse HTML for initial state discovery. The resource bar (present on every page) contains current planet resources, planet list, and current planet ID. Build an HTML parser for the overview page early.
+
+**Phase**: Phase 1 — HTML parsing infrastructure. This is the most underestimated work item.
+
+### 7. Fleet Dispatch is a Two-Step Process
+
+ogamed's `SendFleet` was one POST. OGameX requires:
+
+1. **Step 1**: `POST /ajax/fleet/dispatch/check-target` with `{galaxy, system, position, type, am202: 1, ...}` → returns `orders` (available missions), `shipsData`, and target info
+2. **Step 2**: `POST /ajax/fleet/dispatch/send-fleet` with `{galaxy, system, position, type, mission, speed, am202: count, metal, crystal, deuterium, token}` → returns `{success, newAjaxToken}`
+
+The `token` field in step 2 must be the `newAjaxToken` from step 1. Speed is sent as a float 0.5–10.0 (not percentage), where 10 = 100%. General class gets 0.5 increments; others get 1.0 increments.
+
+**Warning signs**: Fleet dispatch fails silently (returns `success: false`) because you skipped `check-target` or used a stale token. Or speed validation fails because you sent `100` instead of `10`.
+
+**Prevention**: Always call `check-target` before `send-fleet`. Pass the token from check-target to send-fleet. Map speed from the bot's internal representation (1-100%) to OGameX format (0.5-10).
+
+**Phase**: Phase 2 (fleet safety) — implement in the `SendFleet` method.
+
+### 8. Ship Quantities Sent as Individual Form Fields, Not Arrays
+
+ogamed used `ships=202,5&ships=203,10` (repeated parameter with comma-separated values). OGameX uses individual fields: `am202=5&am203=10` where the field name is `am` + the ship ID.
+
+**Evidence**: FleetController `dispatchSendFleet` extracts ships via `$this->getUnitsFromRequest()` which loops all input fields prefixed with "am".
+
+**Warning signs**: Fleet dispatch returns "no ships selected" error. The ships you sent aren't recognized.
+
+**Prevention**: Convert the `[]ShipQty` array to `am{shipID}={count}` form fields. Remember to include ships with count 0 if you need to indicate "no ships of this type" (or just omit them).
+
+**Phase**: Phase 1 — in the SendFleet request builder.
+
+### 9. Planet Switching via Query Parameter
+
+OGameX determines the "current planet" from the `?cp=<planet_id>` query parameter. Without it, the server uses the player's default/current planet. This means:
+
+- Every request must include `?cp=<planet_id>` if you're querying a specific planet
+- After switching planets, all subsequent requests use the new planet until you switch again
+- This is stateful on the server side — the session remembers the last planet
+
+**Warning signs**: GetResources returns data for the wrong planet. Build requests go to the wrong planet. Intermittent failures that depend on which planet was last accessed.
+
+**Prevention**: Always include `?cp=<planet_id>` on every request. Never rely on server-side "current planet" state. Build this into the base request method.
+
+**Phase**: Phase 1 — base request method parameter.
+
+### 10. Event List Returns HTML, Not Structured Fleet Data
+
+The fleet event list endpoint (`/ajax/fleet/eventlist/fetch`) returns a rendered Blade template, not JSON. The event box endpoint (`/ajax/fleet/eventbox/fetch`) returns JSON but only has summary counts (friendly/hostile/neutral counts and next event time).
+
+For the defender worker, you need to know about specific incoming hostile fleets (origin, arrival time, mission type). The event list HTML contains this data but requires parsing.
+
+**Warning signs**: You try to JSON-unmarshal the event list response and get parse errors. Or you only use eventbox data and can't determine which attacks are incoming vs. outgoing.
+
+**Prevention**: Either:
+- (a) Build an HTML parser for the event list Blade template
+- (b) Use the fleet movement page (`/fleet/movement`) which also has fleet data in HTML
+- (c) Find or request a JSON endpoint for fleet data (OGameX is open-source — you could contribute one)
+
+**Phase**: Phase 1 (investigation) / Phase 2 (implementation for defender).
+
+### 11. Building Construction Uses `technologyId`, Not Building Machine Name
+
+The build endpoint (`/resources/add-buildrequest`) accepts `technologyId` (numeric ID like `1` for metal mine) and `_token` (CSRF token). The response format varies:
+- Success: `{status: "success", message: "..."}`
+- Error: `{success: false, message: "..."}` or `{success: false, errors: [{message: "..."}]}`
+
+Note the inconsistency: success uses `status`, error uses `success`. And the CSRF token is explicitly checked via `hash_equals()` in `AbstractBuildingsController`.
+
+**Warning signs**: Build requests fail with "Invalid token" even though you're sending a CSRF token. You're sending the header token but the controller reads `_token` from form body.
+
+**Prevention**: Send `_token` as a form field (not header). The controller checks `$request->input('_token')`, not headers. Use the standard OGame building IDs (1=metal mine, 2=crystal mine, etc.).
+
+**Phase**: Phase 1 (client) / Phase 3 (builder worker).
+
+### 12. OGameX May Diverge from Official OGame IDs
+
+OGameX uses standard OGame object IDs (202=Small Cargo, 1=Metal Mine) but is an independent implementation. There may be edge cases where IDs differ, especially for newer features or OGameX-specific additions.
+
+The OGameX `ObjectService::getObjectById()` maps IDs to internal objects, and the response format uses these IDs. But OGameX doesn't implement all OGame features (e.g., Lifeforms), so some IDs may not exist.
+
+**Warning signs**: Building/ship IDs that work on official OGame return "object not found" errors on OGameX. Or OGameX has additional objects with IDs the bot doesn't know about.
+
+**Prevention**: During Phase 1, enumerate all valid object IDs by querying the techtree or AJAX endpoints. Don't assume the full official OGame ID space is available. Make the constants table configurable/overridable.
+
+**Phase**: Phase 1 — validate ID mapping against live OGameX instance.
+
+---
+
+## Migration Pitfalls (ogamed → OGameX)
+
+### 13. Response Envelope Change Breaks Generic Unmarshaling
+
+The old client uses `getTyped[T]` with a generic envelope:
+```go
+type OgamedResponse[T any] struct {
+    Status  string `json:"Status"`
+    Code    int    `json:"Code"`
+    Message string `json:"Message"`
+    Result  T      `json:"Result"`
+}
+```
+
+OGameX has no universal envelope. Responses use different structures:
+- `{success: bool, message: string, newAjaxToken: string}`
+- `{status: string, message: string}`
+- `{success: bool, errors: [{message: string, error: int}]}`
+- `{components: [], newAjaxToken: string, hostile: int, ...}` (eventbox)
+
+**Warning signs**: You try to reuse `getTyped[T]` and every endpoint fails with "unexpected JSON structure". Generic unmarshaling returns zero values.
+
+**Prevention**: Create per-endpoint response types. Don't try to force a single envelope pattern. Accept that OGameX response structure is endpoint-specific.
+
+**Phase**: Phase 1 — new response types for each endpoint.
+
+### 14. Case Sensitivity in JSON Field Names
+
+ogamed responses used PascalCase (`Status`, `Code`, `Result`). OGameX uses camelCase (`newAjaxToken`, `targetPlayerId`, `fleet_unit_count` — actually a mix of camelCase and snake_case).
+
+**Warning signs**: Struct fields are always zero/empty after unmarshaling. You copy ogamed PascalCase tags to OGameX structs.
+
+**Prevention**: Use the actual field names from OGameX responses. Create new structs — don't try to adapt the ogamed ones. Use `json:` tags matching OGameX's actual output.
+
+**Phase**: Phase 1 — all response structs.
+
+### 15. Error Handling Is Fundamentally Different
+
+ogamed errors: `{Status: "error", Code: 500, Message: "..."}` — always in the envelope.
+OGameX errors: HTTP 419 (CSRF), HTTP 500 (server error), JSON `{success: false, errors: [...]}`, or a redirect to `/login` (expired session).
+
+**Warning signs**: Error checking code looks for `envelope.Status != "ok"` but OGameX never returns that format. HTTP redirects are followed silently, returning the login page HTML as if it were a successful response.
+
+**Prevention**: 
+- Don't follow redirects automatically (check for 302 to `/login`).
+- Check HTTP status codes first (419, 500, 302).
+- Parse response body for `success: false` or `status: "failure"`.
+- Handle multiple error formats.
+
+**Phase**: Phase 1 — error detection layer.
+
+### 16. ClientInterface Methods Don't Map 1:1 to OGameX
+
+The existing `ClientInterface` has methods like `GetAttacks()`, `GetSlots()`, `IsUnderAttack()` that map to clean ogamed endpoints. OGameX has no direct equivalents:
+
+| Method | ogamed Endpoint | OGameX Equivalent |
+|--------|----------------|-------------------|
+| `IsUnderAttack()` | `/bot/is-under-attack` | Parse eventbox `hostile > 0` |
+| `GetAttacks()` | `/bot/attacks` | Parse event list HTML for hostile missions |
+| `GetSlots()` | `/bot/slots` | Parse fleet page HTML for slot counts |
+| `GetPlanets()` | `/bot/planets` | Parse overview HTML planet menu |
+| `GetResources()` | `/bot/planets/{id}/resources` | Parse overview page resource bar |
+| `GetServerTime()` | `/bot/server/time` | Parse any AJAX response `serverTime` field |
+
+**Warning signs**: You implement the interface but each method requires complex HTML parsing instead of a simple API call. Methods return partial or incorrect data.
+
+**Prevention**: Accept that `ClientInterface` will need modification. Some methods may return aggregated data from multiple endpoints. Consider expanding the interface or adding helper methods that combine multiple OGameX calls.
+
+**Phase**: Phase 1 — redesign ClientInterface to match OGameX reality.
+
+### 17. Rate Limiting Has Different Constraints
+
+ogamed had its own rate limiter. OGameX has no explicit rate limiting, but Laravel has built-in throttling on login (default 5 attempts/minute). More importantly, OGameX is a full web app — each request does more work (DB queries, session handling, view rendering) than ogamed's lightweight API.
+
+**Warning signs**: After running the bot for a while, responses become slow. The OGameX demo server (main.ogamex.dev) may throttle or IP-ban aggressive clients.
+
+**Prevention**: Keep the rate limiter from the ogamed client. Add longer delays between heavy operations (galaxy scans, fleet dispatches). Be respectful of the shared demo server.
+
+**Phase**: Phase 1 — carry over rate limiter, add OGameX-specific delays.
 
 ---
 
-### Pitfall 6: Request Rate Limiting → IP/Account Ban
+## Architecture Pitfalls
 
-**What goes wrong:**
-OGame servers enforce requests-per-second limits. Exceeding them triggers IP bans or account bans. TBot warns: "Ogame's servers have a limit on the number of requests per second. If you run too many instances, you may get IP banned." Multi-account setups compound this dramatically.
+### 18. HTML Parsing Fragility
 
-**Why it happens:**
-Bot loops poll aggressively: check attacks, check fleets, check builds, check resources. Each is a request. With multiple features running and multiple accounts, you quickly exceed limits. Developers don't account for the compounding effect of all features running simultaneously.
+OGameX renders HTML via Laravel Blade templates. Any OGameX update can change the HTML structure, breaking parsers. The main.ogamex.dev demo runs the latest `main` branch and can update at any time.
 
-**How to avoid:**
-- Implement a global request throttle/queue — all ogamed API calls go through a single rate limiter
-- Target ~1 request per 2-3 seconds minimum (conservative; real players are much slower)
-- Track total requests per minute across ALL features, not per-feature
-- Add random jitter to all polling intervals (±20-40%)
-- Priority queue: fleet-save and attack detection are high priority; auto-build and galaxy scans are low priority
-- When running multi-account, stagger the polling loops — don't have all accounts checking at the same second
-- Monitor for rate-limit responses from OGame and back off exponentially if detected
+**Warning signs**: Bot works one day, breaks the next with no code changes. Parse errors on HTML that "looks fine" but has a subtle whitespace or attribute change.
 
-**Warning signs:**
-- ogamed returns error responses after periods of heavy activity
-- Account gets temporary bans that escalate
-- Multiple features all have 30-second polling intervals firing simultaneously
+**Prevention**:
+- Use CSS selectors (goquery) rather than regex or string matching for HTML parsing.
+- Build a "health check" that validates parsed data looks reasonable (e.g., resource count > 0, planet count > 0).
+- Log raw HTML responses at debug level so you can diagnose breakage.
+- Consider contributing a proper JSON API to OGameX upstream.
 
-**Phase to address:**
-Phase 1 (Core) — The rate limiter is infrastructure that every feature depends on. Build it before any feature logic.
+**Phase**: Phase 1 — HTML parsing infrastructure with health checks.
 
----
+### 19. Concurrent Request Token Conflicts
 
-### Pitfall 7: Bot Behavior Patterns That Scream "I'm a Bot"
+The bot has multiple goroutines (defender, builder, farmer, state manager) all making requests through the same client. If goroutine A's response rotates the CSRF token while goroutine B is constructing a POST with the old token, B's request fails.
 
-**What goes wrong:**
-Even with ogamed handling device fingerprinting, the bot's behavioral patterns can trigger detection. Perfect 30-second polling intervals, instant reactions to attacks, building exactly the ROI-optimal building every time with no variation — these are patterns no human exhibits.
+**Warning signs**: Intermittent 419 errors that increase with bot activity. Errors that don't reproduce in single-threaded tests.
 
-**Why it happens:**
-Developers focus on the technical anti-detection (user-agent, fingerprinting) but neglect behavioral anti-detection. Gameforge employs behavioral analysis. Key detection vectors:
-- Exact-interval polling (every 30.0s on the dot)
-- Instant reaction to incoming attacks (humans take minutes to respond)
-- 24/7 activity with no sleep periods
-- Perfect optimization (always building the mathematically optimal thing)
-- Galaxy scanning in perfectly sequential order
+**Prevention**: Serialize CSRF token updates. Use a mutex around the token read/write. Consider a request queue that processes one request at a time, ensuring token rotation is sequential. Or use a per-goroutine token that's refreshed after each response.
 
-**How to avoid:**
-- **Randomize all intervals**: If the base interval is 30s, use `30s + random(0, 30s)` — not `30s ± 1s`
-- **Implement sleep mode** (TBot and Cruiser both have this): reduce or stop activity during configurable hours
-- **Add reaction delay**: Don't react to attacks instantly. Wait a random 30-120 seconds before fleet-saving
-- **Vary build decisions**: Occasionally (5-10% of the time) pick the second-best ROI building instead of the optimal one
-- **Don't scan galaxies sequentially**: Randomize the scan pattern within the configured range
-- **Add "away time" simulation**: Periods of reduced activity that look like a human stepping away
-- **TBot's approach**: configurable sleep mode with automatic fleet-save before sleep and resume on wake
+**Phase**: Phase 1 — thread-safe token management.
 
-**Warning signs:**
-- Polling logs show requests at exactly :00, :30, :00, :30 timestamps
-- Attack responses always fire within 1 second of detection
-- The bot never has any idle time in its action logs
+### 20. Don't Over-Engineer the HTML Parser
 
-**Phase to address:**
-Phase 2 (Anti-Detection + Auto-Build) — The rate limiter from Phase 1 should include jitter from the start, but full behavioral anti-detection (sleep mode, varied decisions) comes when building the automation features.
+Resist the urge to build a generic "OGameX page parser" that handles every page. You only need data for specific bot functions:
+
+- Overview page: planet list, current resources, current planet ID
+- Fleet event list: incoming attacks, active fleets, slot counts
+- Research page: research levels
+
+Building a general parser is a bottomless time sink.
+
+**Warning signs**: You're spending more time on HTML parsing than on bot logic. The parser handles edge cases that don't affect the bot.
+
+**Prevention**: Parse only what you need. Start with the minimum viable data extraction for each function. Add parsing incrementally as needed.
+
+**Phase**: All phases — keep parser scope tight.
+
+### 21. No Docker Means No Container Networking
+
+The old setup used Docker Compose with ogamed and bot containers. The new setup is a single Go binary. This is simpler but means:
+- No container DNS (ogamed was reachable at `http://ogamed:8080`)
+- No container restart policies
+- No built-in log aggregation
+
+**Warning signs**: Config files still reference Docker hostnames. Network errors trying to reach `ogamed:8080`.
+
+**Prevention**: Update all configuration to use direct URLs (`https://main.ogamex.dev`). Remove Docker-specific networking code. The bot is now a native binary — treat it as such.
+
+**Phase**: Phase 1 — config cleanup.
 
 ---
 
-### Pitfall 8: Not Checking Fuel Before Fleet-Save
+## Prevention Strategies per Phase
 
-**What goes wrong:**
-Fleet-save calculates it needs X deuterium for fuel, but the planet only has X-100. The send fails. Fleet stays home. TBot's fleet-save failure shows fuel calculation (229,543 deuterium) was done but the send still failed — likely because available fuel was insufficient after accounting for what was being loaded onto transports.
+### Phase 1: OGameX Client Layer
 
-**Why it happens:**
-Fuel calculation happens independently from resource loading calculation. The bot calculates fuel cost, calculates how many resources to load onto ships, but doesn't verify that fuel + loaded resources ≤ available resources. Or the bot sends resources to the fleet-save destination that leaves insufficient fuel for the trip.
+This is the highest-risk phase. Pitfalls are concentrated here.
 
-**How to avoid:**
-- Always verify `availableDeuterium >= fuelCost + deuteriumToLoad`
-- If insufficient fuel, reduce loaded resources to prioritize fuel
-- As a last resort, send fleet at slower speed (saves fuel) with reduced cargo
-- Never leave fleet-save to chance — if the primary attempt fails, immediately try the backup plan at slower speed or different destination
-- Test edge cases: planet with 0 deuterium, planet with just enough fuel but not for cargo
+| Pitfall | Prevention | Priority |
+|---------|-----------|----------|
+| CSRF token rotation (#1) | Auto-extract from every response, mutex-protected storage | **Critical** |
+| Session cookie lifecycle (#2) | Heartbeat goroutine, auto-re-login | **Critical** |
+| Multi-step login (#3) | Login = GET token + POST credentials + GET overview | **Critical** |
+| Mixed response formats (#5) | Per-endpoint response type classification | **Critical** |
+| No get-state endpoint (#6) | HTML parser for overview page | **Critical** |
+| HTML fleet events (#10) | HTML parser for event list OR use eventbox + movement page | High |
+| Planet switching (#9) | Always send `?cp=` parameter | High |
+| Concurrent token conflicts (#19) | Mutex or sequential request queue | High |
+| Envelope change (#13) | New per-endpoint response types | High |
+| Case sensitivity (#14) | New structs with correct json tags | Medium |
+| Error handling (#15) | Multi-format error detection | High |
+| ClientInterface mismatch (#16) | Redesign interface for OGameX reality | High |
+| HTML parsing fragility (#18) | CSS selectors + health checks | Medium |
 
-**Warning signs:**
-- Fleet-save log shows fuel calculation but then "Unable to send fleet" error
-- Resource amounts in fleet-save logs are close to total planet resources
-- Failed fleet-saves happen on low-deuterium planets but not on main planets
+### Phase 2: Fleet Safety (Defender)
 
-**Phase to address:**
-Phase 1 (Fleet-Save) — Fuel verification is a hard requirement for fleet-save. Build it into the initial fleet-save logic, not as a bug fix later.
+| Pitfall | Prevention | Priority |
+|---------|-----------|----------|
+| Fleet dispatch is two-step (#7) | Always check-target before send-fleet | **Critical** |
+| Ship form fields (#8) | Convert to `am{ID}={count}` format | High |
+| Attack detection via HTML (#10) | Parse event list for hostile missions | **Critical** |
+| Token staleness during emergency (#19) | Ensure fresh token before fleet-save | High |
 
----
+### Phase 3: Auto-Build
 
-## Technical Debt Patterns
+| Pitfall | Prevention | Priority |
+|---------|-----------|----------|
+| Build uses `technologyId` (#11) | Send `_token` as form field + numeric building ID | High |
+| Inconsistent success/error format (#11) | Check both `status` and `success` fields | Medium |
+| Wrong planet builds (#9) | Always include `?cp=` | High |
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Polling ogamed on fixed intervals | Simple to implement, predictable | Detection signature, rate limit hits | Never in production; OK during initial development |
-| Skipping fleet slot availability checks | Faster feature development | Fleet send failures when slots full | Only during early testing with 1-2 planets |
-| Hardcoded mission types for fleet-save | Simpler fleet-save logic | Misses edge cases (no friendly planet available) | Never — fleet-save must be robust from day one |
-| No ogamed health monitoring | Less infrastructure code | Bot runs blind when ogamed crashes or loses connection | Acceptable in MVP if Telegram alerts are implemented |
-| Single-threaded bot logic | Simpler state management | Can't fleet-save while galaxy scanning; one slow operation blocks everything | Acceptable initially, but event loop must be non-blocking |
-| Storing credentials in plain config files | Easy setup | Security risk, accidental commits | Development only — use env vars or secrets manager for production |
+### Phase 4: Auto-Farm
 
-## Integration Gotchas
+| Pitfall | Prevention | Priority |
+|---------|-----------|----------|
+| Galaxy scan is expensive (#17) | Longer delays between scans | Medium |
+| Mini-fleet espionage (#7) | Use `dispatchSendMiniFleet` for galaxy-page espionage | Medium |
+| ID divergence (#12) | Validate object IDs against live server | Low |
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| ogamed REST API | Assuming responses are always valid JSON | Wrap every ogamed call in try/catch with validation; treat any unexpected response as "API broken" |
-| ogamed sessions | Assuming login persists indefinitely | Implement reconnection logic with exponential backoff; monitor for session expiry signals |
-| ogamed captcha | Ignoring captcha until it happens | Set up automated captcha solving (Ninja Solver) from day one; implement captcha-state detection |
-| ogamed fleet operations | Not checking fleet slots before sending | Always call `GET /bot/fleets` to check available slots before attempting fleet operations |
-| ogamed server time | Using local clock for timing | Always use `GET /bot/server/time` for any time-sensitive operations; local clock can drift |
-| Telegram notifications | Sending every log event | Only send actionable alerts (attacks, errors, fleet-save events); too many notifications = ignored notifications |
-| OGame public API (api.xml) | Not using it for read-only data | Use the public XML API for player rankings, universe data, server info — reduces authenticated requests |
+### Phase 5: Web Dashboard
 
-## Performance Traps
-
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Full empire state refresh every tick | Response time grows with planet count; rate limit hits | Cache state; only refresh what changed; use event-driven updates where possible | 3+ planets |
-| Galaxy scanning entire range every cycle | Hundreds of API calls; rate limit bans; detection flag | Scan in chunks across multiple cycles; randomize scan order; cache inactive player lists | Any active auto-farm |
-| Synchronous ogamed calls blocking the event loop | Bot becomes unresponsive during slow operations | All ogamed calls should be async with timeouts; don't await indefinitely | First deployment |
-| Building ROI calculation for all planets every cycle | CPU spikes; unnecessary recalculations | Recalculate only when build completes or resources change significantly | 5+ planets |
-
-## Security Mistakes
-
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Storing OGame credentials in config.json | Accidental commit to GitHub; credential theft | Use environment variables or encrypted config; `.gitignore` config files with credentials |
-| Exposing ogamed port to the internet | Anyone can control your account via ogamed REST API | Bind ogamed to localhost only; use firewall rules; never expose port 8080 publicly |
-| Exposing web dashboard without auth | Anyone can see your empire state and control the bot | Add authentication to web dashboard; use HTTPS; consider VPN-only access |
-| Logging sensitive data (credentials, session tokens) | Log files become attack vectors | Sanitize logs; never log passwords or session tokens; rotate log files |
-| Sharing cookies file between different lobby accounts | Cross-account contamination; easier to detect as bot network | One cookies file per lobby account (TBot explicitly warns about this) |
-
-## UX Pitfalls
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Silent failures in fleet-save | User thinks fleet is saved, logs in to find fleet destroyed | Fleet-save failure must be a red-alert Telegram notification with siren emoji |
-| Too many Telegram notifications | Notification fatigue → user ignores important alerts | Three tiers: 🔴 Critical (attack, fleet-save fail), 🟡 Warning (build errors), ⚪ Info (build complete). Configurable per tier. |
-| No way to see what the bot is doing right now | User anxiety → disabling the bot | Web dashboard with live activity feed; "last action" timestamp visible everywhere |
-| Config requires restart to take effect | User must choose between "stop bot (lose protection)" or "live with wrong config" | Hot-reload config (TBot supports this); apply changes without restart |
-| No "pause" button | User must choose between "kill the bot entirely" or "let it keep doing things" | Granular pause: pause auto-build but keep fleet-save active, or pause everything |
-
-## "Looks Done But Isn't" Checklist
-
-- [ ] **Fleet-Save:** Verify it works when no friendly planet is available for deploy mission — often only tested with multiple colonies
-- [ ] **Fleet-Save:** Verify it works when fleet is already in-flight (returning deploy, returning harvest) — must handle in-flight fleets gracefully
-- [ ] **Fleet-Save:** Verify fuel calculation accounts for speed modifier — slower speeds save fuel but may not cover attack window
-- [ ] **Fleet-Save:** Verify deploy-with-recall timing — recalled fleet must return after attack window
-- [ ] **Attack Detection:** Verify it detects ACS (Alliance Combat System) attacks, not just single-player attacks
-- [ ] **Attack Detection:** Verify it doesn't false-positive on own returning fleets — TBot has had issues with self-detection
-- [ ] **Auto-Build:** Verify ROI calculation accounts for universe speed — a x7 universe has very different ROI timelines than x1
-- [ ] **Auto-Build:** Verify it handles "planet full" scenario gracefully — no infinite retry loops
-- [ ] **Auto-Farm:** Verify cargo capacity calculation accounts for deuterium cost of the return trip — TBot issue #169
-- [ ] **Auto-Farm:** Verify it skips alliance members if configured — TBot issue #185
-- [ ] **Expeditions:** Verify expedition slot counting accounts for already-in-flight expeditions — don't over-send
-- [ ] **Expeditions:** Verify fleet composition optimization for character class (Discoverer gets different bonuses)
-- [ ] **ogamed Integration:** Verify reconnection works after ogamed process restart — not just after session expiry
-- [ ] **Telegram:** Verify bot can send messages (not just to bots) — TBot issue #197 about bots-can't-message-bots
-- [ ] **Multi-Account:** Verify different ports per instance — TBot explicitly requires this
-- [ ] **Multi-Account:** Verify cookie file separation between different lobby accounts
-
-## Recovery Strategies
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Fleet destroyed due to fleet-save failure | HIGH (months of progress lost) | No recovery possible. Prevention is the only strategy. Alert user immediately on failure. |
-| Account banned for botting | HIGH (account permanently lost) | No recovery possible. Appeal rarely works. Prevention via anti-detection is critical. |
-| ogamed broken by game update | MEDIUM (bot offline for hours-days) | Wait for ogamed update; pin to last working version; implement maintenance mode |
-| IP banned for rate limiting | MEDIUM (hours to days offline) | Switch proxy/VPN; reduce request frequency; wait for ban to expire |
-| Bot process crashes | LOW (minutes of downtime) | Process manager (systemd, PM2) auto-restart; save state to disk for resume |
-| Captcha freeze | LOW (minutes if auto-solving; hours if manual) | Implement Ninja Solver; Telegram alert on captcha; manual web UI fallback |
-| Config corruption | LOW (minutes) | Git-track config templates; validate config on load; auto-backup working configs |
-
-## Pitfall-to-Phase Mapping
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Fleet-save mission fallback failure | Phase 1: Fleet-Save | Test with: no friendly planets available, occupied destination, empty fleet slots |
-| OGame updates breaking API | Phase 1: Core | Test with: mock ogamed returning broken responses; verify health-check triggers |
-| Captcha killing bot | Phase 1: Core | Test with: Ninja Solver integration; verify Telegram alert on captcha state |
-| Datacenter IP blocking | Phase 1: Core (setup) | Test by: deploying to VPS with residential proxy; verify login succeeds |
-| Phalanx-unsafe fleet-save | Phase 1: Fleet-Save | Test with: simulate phalanx-visible missions; verify only deploy+recall and harvest are used |
-| Request rate limiting | Phase 1: Core | Test with: all features running simultaneously; verify total requests/minute stays under limit |
-| Bot behavior patterns | Phase 2: Anti-Detection | Test with: review polling interval variance in logs; verify sleep mode activates |
-| Fuel check before fleet-save | Phase 1: Fleet-Save | Test with: planet at 0 deuterium; planet with barely enough fuel |
-| Auto-farm cargo miscalculation | Phase 3: Auto-Farm | Test with: various cargo-to-loot ratios; verify round-trip deuterium included |
-| Cookie/session management | Phase 1: Core | Test with: kill ogamed mid-session; verify clean reconnection |
-| Multi-account resource contention | Phase 4: Multi-Account | Test with: multiple accounts on same IP; verify rate limiting across accounts |
-
-## Sources
-
-- TBot GitHub issues (open + closed): #178 (failed fleet-save), #169 (cargo calc), #198 (sleep mode errors), #200 (date parsing), #185 (alliance farm), #197 (Telegram bot message issue), multiple captcha issues (#170, #165, #158, #184, #189, #203) — https://github.com/ogame-tbot/TBot/issues
-- ogamed GitHub issues: #150 (espionage report broken by v11.15), #148 (constructions broken by v11.13), #145 (Forbidden on startup) — https://github.com/alaingilbert/ogame/issues
-- ogamed wiki: auto-captcha using ninja solver, full REST API documentation — https://github.com/alaingilbert/ogame/wiki
-- TBot README: explicit warnings about datacenter IP blocking, rate limiting, proxy requirements — https://github.com/ogame-tbot/TBot
-- Cruiser source code (bot.py): phalanx-safe fleet-save implementation, deploy-with-recall pattern — https://github.com/kweimann/cruiser
-- OGame community knowledge: phalanx mechanics, mission visibility rules, fleet-save best practices — domain expertise from reference projects
+| Pitfall | Prevention | Priority |
+|---------|-----------|----------|
+| No Docker (#21) | Update config, remove container references | Low |
 
 ---
-*Pitfalls research for: OGame automation bot*
-*Researched: 2026-04-25*
+
+## Summary of Top-5 Risks
+
+1. **CSRF token rotation** (#1) — Will silently break all POST operations if not handled. Must be automatic and thread-safe.
+2. **No structured state endpoints** (#6) — The bot must parse HTML to get basic game state. This is fragile and underestimated.
+3. **Mixed response formats** (#5) — Endpoints return HTML, JSON, or JSON-with-HTML. Treating everything as JSON will cause pervasive parse failures.
+4. **Multi-step fleet dispatch** (#7) — Fleet-save (the core value) requires two sequential requests with token handoff. A bug here means the bot can't save your fleet.
+5. **Concurrent token conflicts** (#19) — Multiple goroutines sharing a rotating token is a race condition that only manifests under load.

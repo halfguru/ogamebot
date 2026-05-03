@@ -1,110 +1,121 @@
-# Requirements: OGame Bot
+# Requirements: OGameX Bot
 
-**Defined:** 2026-04-25
+**Defined:** 2026-05-03
 **Core Value:** The bot must reliably protect your fleet and grow your empire while you're away — if fleet-save fails, everything else is pointless.
 
 ## v1 Requirements
 
-Requirements for initial release. Each maps to roadmap phases.
-
 ### Infrastructure
 
-- [x] **INFRA-01**: Bot connects to ogamed REST API and maintains session across restarts — *Go ogamed client in Plan 02 ✓ 2026-04-26*
-- [x] **INFRA-02**: Bot retrieves and caches game state (planets, resources, fleets, buildings, research) — *SQLite state manager in Plan 03 ✓ 2026-04-26*
-- [x] **INFRA-03**: Bot loads configuration from YAML/JSON file with feature toggles and per-feature parameters — *Go config loader in Plan 01 ✓ 2026-04-26*
-- [x] **INFRA-04**: Bot implements request throttling with random intervals between actions — *Go rate limiter in Plan 02 ✓ 2026-04-26*
-- [x] **INFRA-05**: Bot runs as a Docker Compose stack (ogamed + bot) with environment-based config — *Docker setup in Plan 03 ✓ 2026-04-26*
+- [ ] **INFRA-01**: Bot authenticates with OGameX via email/password, maintains session cookies and CSRF tokens across requests
+- [ ] **INFRA-02**: Bot automatically refreshes expired CSRF tokens (from `newAjaxToken` in responses) and re-authenticates on session expiry (401/redirect)
+- [ ] **INFRA-03**: Bot loads all configuration from YAML file including OGameX URL, credentials, feature toggles, and per-feature parameters
+- [ ] **INFRA-04**: Bot runs as a single Go binary on Windows with no external dependencies
 
-### Safety
+### Game State
 
-- [x] **SAFE-01**: Bot monitors for incoming attacks by polling hostile fleet events at randomized intervals — *Defender worker in Plan 02-03 ✓ 2026-04-26*
-- [x] **SAFE-02**: Bot auto-saves fleet and resources when attack is detected using phalanx-safe deploy + recall — *Escape route calculator in Plan 02 ✓ 2026-04-26*
-- [x] **SAFE-03**: Bot handles fleet-save for moons separately with appropriate escape destinations — *Moon handling + safety scoring in Plan 02 ✓ 2026-04-26*
+- [ ] **STATE-01**: Bot retrieves and caches current planet list (coordinates, names, planet vs moon) from OGameX
+- [ ] **STATE-02**: Bot retrieves current resources (metal, crystal, deuterium, energy) per planet via AJAX endpoints
+- [ ] **STATE-03**: Bot retrieves building levels per planet (mines, facilities, moon buildings)
+- [ ] **STATE-04**: Bot retrieves current research levels for the player
+- [ ] **STATE-05**: Bot retrieves fleet movements (own fleets and hostile incoming) via fleet event endpoints
+- [ ] **STATE-06**: Bot retrieves ship counts per planet
+- [ ] **STATE-07**: Bot caches all game state in SQLite with periodic refresh, providing a single source of truth
 
-### Growth
+### Fleet Safety
 
-- [x] **GROW-01**: Bot calculates ROI (production increase / build cost) for every upgradeable building across all planets
-- [x] **GROW-02**: Bot automatically queues the most profitable building upgrade based on ROI calculation — *Builder worker in Plan 03-02 ✓ 2026-04-26*
-- [x] **GROW-03**: Bot respects configurable max-level caps per building type per planet
+- [ ] **SAFE-01**: Bot detects incoming hostile fleets within a configurable polling interval via fleet event endpoints
+- [ ] **SAFE-02**: Bot automatically saves fleet + resources before attack lands using deploy-with-recall mission (phalanx-safe)
+- [ ] **SAFE-03**: Bot handles moon-based fleets with appropriate escape destinations
+- [ ] **SAFE-04**: Bot recalls saved fleet after attack passes
 
-### Combat
+### Auto-Build
 
-- [x] **COMB-01**: Bot scans configurable galaxy/system ranges for inactive players
-- [x] **COMB-02**: Bot sends espionage probes to inactive players and parses spy reports for resources and defense
-- [x] **COMB-03**: Bot attacks targets when estimated loot exceeds configurable profit threshold
+- [ ] **BUILD-01**: Bot calculates ROI (production increase / build cost) for every upgradeable building across all planets
+- [ ] **BUILD-02**: Bot automatically queues the highest-ROI building upgrade when a build slot is free
+- [ ] **BUILD-03**: Bot respects configured max-level caps per building type
+- [ ] **BUILD-04**: Bot can start research when research lab is idle and no building needs the slot
 
-### Monitoring
+### Auto-Farm
 
-- [x] **MON-01**: Web dashboard shows real-time empire overview (planets, resources, fleet movements)
-- [x] **MON-02**: Web dashboard shows build queues, recent bot actions, and event logs
-- [x] **MON-03**: Web dashboard updates in real-time via WebSocket connection
+- [ ] **FARM-01**: Bot scans configured galaxy/system ranges and identifies inactive players
+- [ ] **FARM-02**: Bot sends espionage probes to inactives and parses spy reports for resources and defense
+- [ ] **FARM-03**: Bot dispatches attacks when estimated loot exceeds configurable profit threshold
+
+### Dashboard
+
+- [ ] **DASH-01**: Dashboard displays real-time empire overview with planets, resources, and fleet movements
+- [ ] **DASH-02**: Dashboard shows build queues, recent bot actions, and event logs
+- [ ] **DASH-03**: Dashboard updates in real-time via WebSocket without manual page refresh
 
 ## v2 Requirements
 
-Deferred to future release. Tracked but not in current roadmap.
+### Expeditions
+
+- **EXPD-01**: Bot manages expedition slots and auto-sends expeditions with optimal fleet composition
+- **EXPD-02**: Bot auto-resends expeditions when they return
 
 ### Notifications
 
-- **NOTF-01**: Bot sends Telegram notifications on attack detection
-- **NOTF-02**: Bot sends Telegram notifications on fleet-save execution
-- **NOTF-03**: Bot sends Telegram notifications on errors and warnings
-- **NOTF-04**: Bot supports Telegram commands for remote control (/ghost, /deploy, /build, /sleep, /getinfo)
+- **NOTF-01**: Bot sends Telegram notifications for attack alerts and build completions
+- **NOTF-02**: Bot sends daily status summary via Telegram
 
-### Growth Enhancements
+### Advanced
 
-- **GROW-04**: Bot manages expedition slots, optimizes fleet composition, and auto-resends expeditions
-- **GROW-05**: Bot automates technology research with configurable target levels per tech
-- **GROW-06**: Bot consolidates resources to a configurable hub planet (auto-repatriate)
-- **GROW-07**: Bot automatically builds transport ships when cargo capacity is insufficient
-
-### Operational
-
-- **OPER-01**: Bot supports multiple accounts with isolated state and config
-- **OPER-02**: Bot applies config changes without restart (hot-reload)
-- **OPER-03**: Bot enters sleep mode during configurable hours with pre-sleep fleet-save
+- **ADVN-01**: Multi-account support (multiple OGameX users)
+- **ADVN-02**: Auto-shipyard and auto-defense building
+- **ADVN-03**: Auto-colonize new planets
+- **ADVN-04**: Config hot-reload without bot restart
+- **ADVN-05**: Sleep mode (reduce activity during specific hours)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Browser proxy (play through bot) | Bot unaware of manual actions → conflicts; massive game-state sync complexity |
-| Marketplace automation | Niche, rules change frequently, high ban risk from monitoring |
-| Combat simulator | Excellent external tools exist (speedsim, trashsim); building one is a separate project |
-| Auction automation | Extremely niche, unpredictable timing, bid wars create suspicious patterns |
-| Message attacker | Alerts attackers that you're a bot user; draws attention |
-| Lifeform automation | New feature with frequent balance changes, massive config surface |
-| SMS notifications | Telegram is free, more capable (rich messages, commands), industry standard |
-| Mobile app | Web dashboard is mobile-responsive; native app is a separate project |
+| Official OGame support | Gameforge anti-bot is insurmountable |
+| Browser-based UI proxy | Complexity without core value |
+| Combat simulator | Use existing tools |
+| Marketplace automation | Niche feature, OGameX may not have it |
+| Lifeform-specific logic | OGameX targets pre-Lifeform OGame |
+| Mobile app | Web dashboard is mobile-responsive |
+| Adding REST API to OGameX | Bot works with existing AJAX endpoints |
+| Alliance management | Not core bot functionality |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 | Complete (01-02) |
-| INFRA-02 | Phase 1 | Complete (01-03) |
-| INFRA-03 | Phase 1 | Complete (01-01) |
-| INFRA-04 | Phase 1 | Complete (01-02) |
-| INFRA-05 | Phase 1 | Complete (01-03) |
-| SAFE-01 | Phase 2 | Complete (02-03) |
-| SAFE-02 | Phase 2 | Complete (02-02) |
-| SAFE-03 | Phase 2 | Complete (02-02) |
-| GROW-01 | Phase 3 | ✓ Complete (03-01) |
-| GROW-02 | Phase 3 | Complete (03-02) |
-| GROW-03 | Phase 3 | ✓ Complete (03-01) |
-| COMB-01 | Phase 4 | ✓ Complete (04-01) |
-| COMB-02 | Phase 4 | ✓ Complete (04-01) |
-| COMB-03 | Phase 4 | ✓ Complete (04-02) |
-| MON-01 | Phase 5 | ✓ Complete | 2026-04-26 |
-| MON-02 | Phase 5 | ✓ Complete | 2026-04-26 |
-| MON-03 | Phase 5 | ✓ Complete | 2026-04-26 |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Pending |
+| INFRA-03 | Phase 1 | Pending |
+| INFRA-04 | Phase 1 | Pending |
+| STATE-01 | Phase 2 | Pending |
+| STATE-02 | Phase 2 | Pending |
+| STATE-03 | Phase 2 | Pending |
+| STATE-04 | Phase 2 | Pending |
+| STATE-05 | Phase 2 | Pending |
+| STATE-06 | Phase 2 | Pending |
+| STATE-07 | Phase 2 | Pending |
+| SAFE-01 | Phase 3 | Pending |
+| SAFE-02 | Phase 3 | Pending |
+| SAFE-03 | Phase 3 | Pending |
+| SAFE-04 | Phase 3 | Pending |
+| BUILD-01 | Phase 4 | Pending |
+| BUILD-02 | Phase 4 | Pending |
+| BUILD-03 | Phase 4 | Pending |
+| BUILD-04 | Phase 4 | Pending |
+| FARM-01 | Phase 5 | Pending |
+| FARM-02 | Phase 5 | Pending |
+| FARM-03 | Phase 5 | Pending |
+| DASH-01 | Phase 6 | Pending |
+| DASH-02 | Phase 6 | Pending |
+| DASH-03 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 17 total
-- Mapped to phases: 17
+- v1 requirements: 25 total
+- Mapped to phases: 25
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-04-25*
-*Last updated: 2026-04-26 after 04-02 completion*
+*Requirements defined: 2026-05-03*
+*Last updated: 2026-05-03 after initial definition*

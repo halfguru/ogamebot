@@ -1,230 +1,309 @@
-# Feature Research
+# Features Research: OGameX Bot
 
-**Domain:** OGame automation bot
-**Researched:** 2026-04-25
-**Confidence:** HIGH (based on detailed analysis of 3 reference projects + TBot wiki)
+**Date:** 2026-05-03
+**Context:** Brownfield pivot from ogamed (official OGame) to OGameX (open-source clone). Existing Go bot has defender, builder, farmer, and dashboard workers behind a `ClientInterface` abstraction.
 
-## Feature Landscape
+---
 
-### Table Stakes (Users Expect These)
+## Table Stakes Features
 
-Features every OGame bot user assumes exist. Missing any = instant dealbreaker.
+Features every OGame bot must have. Without these, users will leave for TBot or manual play.
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| **Attack detection** | THE reason people use bots — protecting fleet while away | LOW | Poll ogamed for hostile fleet events; every bot does this. Cruiser polls on configurable interval. TBot checks every 1-22 min (randomized). |
-| **Fleet-save** | If your fleet dies, weeks/months of progress are gone | HIGH | Must save fleet + resources before attack lands. Requires: destination selection, fleet composition, mission type, timing. Phalanx-safe (deploy with recall) is the gold standard — Cruiser built its identity on this. |
-| **Telegram notifications** | Every successful bot has this. Users run bots on remote servers and need mobile alerts. | LOW | Send alerts on attack, fleet-save actions, errors. TBot and Cruiser both implement. Simple HTTP API. |
-| **Auto-build (AutoMine)** | Growing your empire is the core OGame loop. A bot that doesn't build is just an alarm clock. | MEDIUM | ROI-based algorithm is the standard (TBot). Must calculate production increase per cost across all planets, pick the best investment. Also needs max-level caps per building type. |
-| **Auto-expeditions** | Expeditions are the highest-value passive income in modern OGame. Not automating them wastes enormous potential. | MEDIUM | Manage expedition slots, send fleets, auto-resend on return. Must handle fleet composition (auto-optimize based on account size). TBot auto-calculates optimal fleet including lifeform bonuses. |
-| **Auto-farm** | Attacking inactive players for resources is tedious but essential. Without it, bot users fall behind manual players who farm. | MEDIUM | Scan galaxy ranges, spy inactives, analyze spy reports, attack if profitable. TBot: scan ranges, spy inactives, attack with specified ship type above profit threshold. |
-| **Configuration system** | Users need to control what the bot does — which features are active, parameters per feature. | LOW | JSON or YAML config file per account. All three bots implement this. |
-| **Multi-account support** | Many OGame players run multiple accounts. Single-account bots are a non-starter for power users. | MEDIUM | TBot: instances array in settings, each with own config file. Different ports per instance. Must handle cookie isolation between lobby accounts. |
+### 1. Session Management (Complexity: Low)
+- Login to OGameX via Laravel Fortify (email/password → session cookie + CSRF token)
+- Session keepalive (periodic requests to prevent expiry)
+- CSRF token extraction and rotation
+- Session recovery after network errors or server restarts
+- **Depends on:** Nothing (foundation)
+- **Existing:** ogamed client handles session; needs rewrite for OGameX AJAX auth
 
-### Differentiators (Competitive Advantage)
+### 2. Game State Retrieval (Complexity: Medium)
+- Fetch planets, resources, fleets, buildings, facilities, ships, defense, research
+- Fetch fleet movements (own + hostile via event list)
+- Fetch galaxy/system data
+- Fetch messages (espionage reports)
+- Cache in SQLite for offline access and dashboard queries
+- **Depends on:** Session management
+- **Existing:** Full state manager + SQLite cache. Client methods need OGameX endpoint mapping
 
-Features that set a bot apart. Not required for v1, but they're what make users choose one bot over another.
+### 3. Fleet-Save / Defender (Complexity: High)
+- Poll for incoming attacks at randomized intervals
+- Detect hostile fleets targeting own planets/moons
+- Calculate escape route (deploy mission to safe destination)
+- Dispatch fleet + resources before attack lands
+- Recall fleet after danger passes (phalanx-safe deploy+recall)
+- Handle moon-based fleets separately
+- **Depends on:** Game state, fleet dispatch
+- **Existing:** Complete defender worker with escape route calculator. Port to OGameX endpoints only
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| **ROI-based auto-build** | TBot's gold standard. Calculates production increase / cost ratio across ALL planets to find the single most profitable upgrade. Far superior to naive "build whatever is cheapest" or fixed-priority approaches. | HIGH | Requires: production formulas, building costs (exponential), current production rates, energy balance. TBot adds MaxDaysOfInvestmentReturn to cap ROI. This IS the differentiator for auto-build — without ROI calculation, auto-build is trivial and unimpressive. |
-| **Phalanx-safe fleet-save with recall** | Cruiser's signature feature. Sends fleet on deploy mission, then recalls so it returns after the attack. Invisible to sensor phalanx. Shows deep game knowledge. | HIGH | Deploy mission → recall at calculated time. Must account for: returning fleets, deployment fleets already in flight, fuel constraints, timing precision. Cruiser also considers min fuel consumption. |
-| **Telegram remote control** | Not just notifications — full command interface. TBot has 30+ commands: `/ghost`, `/deploy`, `/build`, `/recall`, `/sleep`, `/getinfo`, etc. This turns Telegram into a mobile command center. | MEDIUM | Bot command parser + action dispatch. TBot lets you control every feature, build ships, deploy fleets, edit settings remotely. High user engagement. |
-| **Web dashboard** | Real-time empire overview: resources, fleet movements, build queues, logs. TBot proves this is expected for modern bots. Also enables mobile monitoring. | HIGH | Full web app with real-time updates. TBot's WebUI: settings editor, filterable logs, manual game interaction, multi-account view. Significant frontend investment. |
-| **Settings hot-reload** | For a 24/7 service, restarting to change config is painful. TBot watches config files and applies changes without restart. | MEDIUM | File watcher + config merge + feature toggle on/off. TBot supports this for instance settings (partial for adding/removing instances). |
-| **Sleep mode** | Reduce activity during specific hours to avoid detection. TBot stops all game interaction during sleep hours, with optional auto-fleet-save before sleeping. | MEDIUM | Timer-based. Fleet-save all assets before sleep, recall on wake. Prevents "this account is active 24/7" detection pattern. |
-| **Auto-repatriate (resource consolidation)** | Automatically moves all resources to a central planet/moon. Essential for feeding auto-build and auto-research from a single hub. | MEDIUM | TBot: configurable target, cargo type, exclusion list, deuterium-to-leave on moons. Low complexity but high operational value. |
-| **Auto-cargo** | Automatically builds transport ships when planets lack cargo capacity. Prevents the "resources stuck on planet" problem. | LOW | TBot: detect insufficient cargo → build ships. Configurable: cargo type, max to build, max to keep, exclude moons. |
-| **Auto-research** | Automates technology research. TBot: set target levels per tech, prioritizes Astrophysics/Plasma/Energy/IRN in early game. | MEDIUM | Requires research tree knowledge, lab requirements, resource transport to research planet. |
-| **Auto-harvest (debris field)** | Automatically sends recyclers/pathfinders to harvest expedition debris and own debris fields. Free resources left on the table otherwise. | LOW | TBot: harvest expedition DF in celestial systems + own DFs. Cruiser: harvest expo debris (discoverer class only). |
-| **Auto-colonize** | Automates new colony creation. TBot: target coordinates, abandon bad planets (temperature filter), intensive research mode. | MEDIUM | Colony ship management, temperature-based planet quality assessment, abandon/retry logic. |
-| **Anti-detection measures** | Random intervals between actions, request throttling, device fingerprinting. Not a visible feature but critical for user trust. | MEDIUM | ogamed handles device fingerprinting and captcha. Bot must add: random delays between actions, sleep mode, activity pattern variation. |
+### 4. Auto-Build / Builder (Complexity: Medium)
+- ROI calculation for every upgradeable building across all planets
+- Queue highest-ROI upgrade when build slot is free
+- Respect configurable max-level caps per building per planet
+- Handle insufficient resources (skip, check again later)
+- **Depends on:** Game state, building construction API
+- **Existing:** Complete builder worker with ROI calculator. Port to OGameX endpoints only
 
-### Anti-Features (Deliberately Do NOT Build)
+### 5. Auto-Farm / Farmer (Complexity: Medium-High)
+- Scan configurable galaxy/system ranges for targets
+- Identify inactive players via galaxy data
+- Send espionage probes and parse reports
+- Calculate loot estimate vs fleet cost
+- Attack when profit exceeds configurable threshold
+- Track previous targets to avoid re-spying too frequently
+- **Depends on:** Game state, fleet dispatch, espionage API
+- **Existing:** Complete farmer worker. Port to OGameX endpoints only
 
-Features that seem appealing but create problems. Documented to prevent scope creep.
+### 6. Configuration (Complexity: Low)
+- YAML config with feature toggles and per-feature parameters
+- Environment variable interpolation for secrets
+- Validation with sensible defaults
+- **Depends on:** Nothing (loaded at startup)
+- **Existing:** Complete config system with validation
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| **Browser proxy (play through bot)** | "Play from the same IP as the bot" — avoids dual-IP detection | Bot is unaware of manual actions. Player builds something while bot tries to build → conflicts. TBot explicitly warns "TBot is not aware of what you do in the browser." Massive complexity for game-state synchronization. | Don't mix bot and manual play. If user needs manual access, they should pause the bot first. |
-| **Marketplace automation** | Automate trading on the in-game marketplace | Niche feature. Marketplace rules change frequently. High ban risk (marketplace manipulation is heavily monitored). Adds significant complexity for low value. | User can handle marketplace manually. Marketplace is not time-critical like fleet-save. |
-| **Combat simulator** | "I want to know if I'll win before attacking" | Multiple excellent external tools exist (speedsim, trashsim, o Gotcha). Building one is a significant project unto itself. r4fek's bot had one but it's a distraction. | Link to existing combat simulators in the UI. Provide spy report data export for external tools. |
-| **Auction automation** | "Auto-bid on auctions for items" | TBot implements this but it's extremely niche. Auction timing is unpredictable, bid wars with other bots create suspicious activity patterns. High request rate during auctions increases ban risk. | Not worth the complexity. Users can manually check auctions. |
-| **Message attacker** | "Send a message to anyone attacking me" | Seems clever but escalates situations. Alerts attackers that you're a bot user (no human responds in seconds at 3 AM). TBot implements it but it's a known risk factor. | Just fleet-save silently. Don't draw attention. |
-| **Lifeform-specific automation** | "Automate lifeform buildings and research" | TBot recently added this (LifeformAutoMine, LifeformAutoResearch, AutoDiscovery). Lifeforms are a relatively new OGame feature with frequent balance changes. Massive config surface (6 buildings × 3 tiers per planet). Not core value. | Add as v2 feature once core is stable. Lifeform data is more volatile than core game data. |
-| **SMS notifications** | "I don't use Telegram" | r4fek's bot used SMS but it's 2018-era. SMS costs money, requires third-party gateway, less capable than Telegram (no commands, no rich messages). Telegram is free and supports bot commands. | Telegram only. It's the industry standard for bot notifications + control. |
-| **Mobile app** | "Native app for my phone" | Web dashboard is mobile-responsive. Building a native app is a massive separate project. TBot doesn't have one. No OGame bot does. | Mobile-responsive web dashboard. Telegram for push notifications. |
+### 7. Basic Logging & Status (Complexity: Low)
+- Structured logging (slog) for all bot actions
+- Fleet-save events, build actions, farm results, errors
+- Status endpoint for health checks
+- **Depends on:** Nothing
+- **Existing:** Logging throughout all workers
+
+---
+
+## Differentiating Features
+
+Features that set this bot apart from TBot (the dominant competitor). Ordered by impact.
+
+### 8. Web Dashboard with Real-Time Updates (Complexity: High)
+- SolidJS SPA with real-time empire overview
+- Planet resources, fleet movements, build queues
+- Activity feed with bot action logs
+- WebSocket push (no polling from browser)
+- Mobile-responsive (works on phone without native app)
+- **Depends on:** Game state, logging
+- **Existing:** Complete dashboard with Go REST+WebSocket server and SolidJS frontend
+- **Why differentiating:** TBot has a WebUI but it's server-rendered Blazor; ours is purpose-built with real-time updates
+
+### 9. Auto-Expeditions (Complexity: Medium-High)
+- Manage expedition fleet slots (max slots = research level)
+- Optimize fleet composition for max find chance
+- Auto-resend when expedition returns
+- Track expedition results (finds, losses, delays)
+- **Depends on:** Fleet dispatch, fleet recall, game state
+- **Existing:** Not yet built
+- **Why differentiating:** Critical for mid/late-game growth; TBot has this but many bots don't
+
+### 10. Auto-Research (Complexity: Medium)
+- Automate technology research with configurable target levels per tech
+- Research is account-wide (one lab at a time) — queue management
+- Priority ordering (e.g., combustion before impulse)
+- **Depends on:** Game state, research API (`POST /research/add-buildrequest`)
+- **Existing:** Not yet built
+- **Why differentiating:** Natural extension of auto-build; ROI logic can be shared
+
+### 11. Resource Consolidation / Auto-Repatriate (Complexity: Medium)
+- Periodically move all resources to a hub planet
+- Build transport ships automatically when cargo capacity insufficient
+- Leave configurable deuterium reserve on source planets
+- **Depends on:** Fleet dispatch, shipyard API, game state
+- **Existing:** Not yet built
+- **Why differentiating:** Enables concentrated building/research; pairs with auto-build and auto-research
+
+### 12. Telegram Notifications + Remote Control (Complexity: Medium)
+- Push alerts on: attack detection, fleet-save execution, errors
+- Commands: /status, /ghost, /deploy, /build, /sleep, /stop, /start
+- Configurable per-feature notification preferences
+- **Depends on:** Fleet-save, auto-build, auto-farm (for events to notify about)
+- **Existing:** Not yet built
+- **Why differentiating:** TBot has this; table stakes for power users
+
+### 13. Multi-Account Support (Complexity: Medium)
+- Run multiple OGameX accounts from one bot instance
+- Isolated state (SQLite per account) and config
+- Shared rate limiter to avoid overwhelming server
+- **Depends on:** Configuration, session management (multiple sessions)
+- **Existing:** Config structure supports it; state manager is per-account
+- **Why differentiating:** TBot has this; essential for multi-universe players
+
+### 14. Sleep Mode with Fleet-Save (Complexity: Medium)
+- Bot goes inactive during configurable hours
+- Pre-sleep fleet-save (deploy+recall all fleets)
+- Wake up and resume normal operations
+- **Depends on:** Fleet-save, configuration
+- **Existing:** Not yet built
+- **Why differentiating:** Mimics human play patterns; reduces server load during off-hours
+
+### 15. Auto-Shipyard / Defense Building (Complexity: Low-Medium)
+- Auto-build ships (transports, combat ships) based on configurable targets
+- Auto-build defense (plasma turrets, shields) based on defense ratios
+- Queue management within shipyard constraints
+- **Depends on:** Game state, shipyard API (`POST /shipyard/add-buildrequest`, `POST /defense/add-buildrequest`)
+- **Existing:** Not yet built
+- **Why differentiating:** Completes the "auto-grow" story alongside buildings and research
+
+### 16. Config Hot-Reload (Complexity: Low)
+- Watch config file for changes; apply without restart
+- Enable/disable features dynamically
+- Update parameters (galaxy ranges, thresholds) on the fly
+- **Depends on:** Configuration
+- **Existing:** Not yet built
+- **Why differentiating:** TBot has this; important for remote management
+
+### 17. Auto-Colonize (Complexity: Low-Medium)
+- Send colony ships to configured coordinates
+- Manage colony ship production
+- Abandon colonies below configurable size threshold, retry
+- **Depends on:** Fleet dispatch, shipyard API
+- **Existing:** Not yet built
+- **Why differentiating:** TBot has this; useful for early-game expansion
+
+---
+
+## OGameX-Specific Opportunities
+
+Things possible with OGameX that are impossible or impractical with official OGame. This is the most interesting category — it's where the bot can do things no official-OGame bot can.
+
+### 18. Zero Anti-Bot Evasion (Complexity: Eliminated)
+- No captcha, no fingerprinting, no behavioral analysis
+- No residential proxy requirement
+- No request-pattern obfuscation needed
+- Rate limiting is basic (login throttle only)
+- **Impact:** Massive simplification. Eliminates entire subsystem (ogamed had captcha.go). Faster development, fewer failure modes, more reliable operation.
+
+### 19. Direct API Access (No Middleware) (Complexity: Medium rewrite)
+- OGameX exposes JSON AJAX endpoints directly — no need for ogamed daemon
+- Bot talks HTTP to OGameX directly (session + CSRF)
+- Eliminates Docker dependency on ogamed container
+- Single Go binary deployment
+- **Impact:** Simpler deployment, fewer moving parts, full control over API layer
+- **Existing:** Currently depends on ogamed REST API; rewrite to direct OGameX HTTP
+
+### 20. Self-Hosted Server Control (Complexity: Low, if self-hosting)
+- If running own OGameX instance: access to admin panel, database
+- Can query MySQL directly for game state (bypass HTTP entirely)
+- Can modify server settings (speed, debris ratios, fleet speed)
+- Can use Laravel artisan commands for diagnostics
+- **Impact:** Game-changing for self-hosted OGameX servers. Bot becomes admin tool.
+- **Note:** Not applicable to main.ogamex.dev (shared demo server)
+
+### 21. Open-Source Collaboration (Complexity: Varies)
+- Can contribute new API endpoints to OGameX upstream
+- Request bot-friendly endpoints (e.g., structured game state API)
+- Submit PRs for missing features needed by bot
+- **Impact:** Bot and server co-evolve. Can shape the API surface to be bot-friendly.
+
+### 22. No Lifeforms Complexity (Complexity: Eliminated)
+- OGameX explicitly targets pre-Lifeforms OGame (pre-2022)
+- No Lifeform buildings, research, or population mechanics
+- Simpler building/research trees
+- **Impact:** Significant scope reduction. TBot has 4 Lifeform-related features we can ignore entirely.
+
+### 23. Predictable Game Mechanics (Complexity: Reduced)
+- OGameX is open-source — all formulas are auditable in PHP/Rust code
+- No secret Gameforge changes or A/B tests
+- Combat engine is Rust-based and deterministic
+- Can pre-calculate exact outcomes (no need for external combat sim)
+- **Impact:** Can build precise ROI calculators, combat predictors, and fleet optimizers with confidence.
+
+---
+
+## Anti-Features (Deliberately NOT Building)
+
+| Feature | Reason |
+|---------|--------|
+| Browser proxy (play through bot) | Bot unaware of manual actions → state conflicts; massive sync complexity; not core value |
+| Combat simulator | External OGameX combat sim exists (ogamex-combat-simulator on GitHub); separate project |
+| Marketplace automation | OGameX doesn't have marketplace; niche feature even in official OGame |
+| Lifeform automation | OGameX targets pre-Lifeforms OGame; not applicable |
+| Mobile app | Web dashboard is mobile-responsive; native app is a separate project |
+| SMS notifications | Telegram is free, richer (commands, rich messages), industry standard |
+| Message attacker | Alerts attackers; no anti-bot concern on OGameX but still antisocial; draws admin attention |
+| Auction automation | OGameX doesn't have auctions; niche feature |
+| Alliance management | OGameX alliances not yet implemented; defer until available upstream |
+
+---
 
 ## Feature Dependencies
 
 ```
-Game State Layer (ogamed connection)
-    ├──requires──> Account credentials + ogamed REST API
-    │
-    ├──enables──> Attack Detection
-    │                └──requires──> Fleet-save (fleet-save needs attack info)
-    │                    └──requires──> Fleet management (send/recall fleets)
-    │                        └──requires──> Game state (know what ships exist, where)
-    │
-    ├──enables──> Auto-build (ROI)
-    │                └──requires──> Building cost formulas + production rates
-    │                └──enhanced-by──> Auto-repatriate (centralize resources for building)
-    │                └──enhanced-by──> Auto-cargo (ensure transport capacity)
-    │                └──enhanced-by──> Auto-research (unlock better buildings)
-    │
-    ├──enables──> Auto-farm
-    │                └──requires──> Galaxy scanning (ogamed API)
-    │                └──requires──> Spy report parsing
-    │                └──requires──> Profit calculation (loot formula)
-    │                └──requires──> Fleet management (send attack fleets)
-    │
-    ├──enables──> Auto-expeditions
-    │                └──requires──> Fleet management (send expeditions)
-    │                └──requires──> Slot management (track active expeditions)
-    │                └──enhanced-by──> Auto-harvest (collect expedition debris)
-    │
-    └──enables──> Notifications (Telegram)
-                     └──enhanced-by──> Telegram remote control (commands)
-
-Sleep Mode
-    └──requires──> Fleet-save (save all fleets before sleeping)
-    └──requires──> Timer/scheduler system
-
-Web Dashboard
-    └──requires──> Game state layer (data to display)
-    └──enhanced-by──> Settings hot-reload (change config from UI)
-
-Multi-account
-    └──requires──> Account isolation (separate configs, cookies, ports)
-    └──enhanced-by──> Web dashboard (view all accounts)
+Session Management ──────────────────────┐
+  │                                       │
+  ▼                                       │
+Game State Retrieval ────────────────────┤
+  │                                       │
+  ├──► Fleet-Save / Defender ────────────┤
+  │      │                                │
+  │      └──► Sleep Mode                  │
+  │                                       │
+  ├──► Auto-Build / Builder               │
+  │      │                                │
+  │      └──► Auto-Research               │
+  │                                       │
+  ├──► Auto-Farm / Farmer                 │
+  │                                       │
+  ├──► Auto-Expeditions ─────────────────┤
+  │                                       │
+  ├──► Resource Consolidation             │
+  │      │                                │
+  │      └──► Auto-Shipyard               │
+  │                                       │
+  ├──► Auto-Colonize                      │
+  │                                       │
+  └──► Web Dashboard (reads all state)    │
+                                         │
+Configuration ───────────────────────────┤
+  └──► Config Hot-Reload                 │
+                                         │
+Telegram Notifications (needs events ────┘
+  from: Defender, Builder, Farmer, Expos)
 ```
 
-### Dependency Notes
+### Critical Path (v1 for OGameX pivot)
+1. **OGameX Client** (new) — replaces ogamed client; direct HTTP to OGameX
+2. **Session Management** — login, CSRF, keepalive
+3. **Game State** — map OGameX AJAX endpoints to domain types
+4. **Fleet-Save** — highest priority (core value: protect the fleet)
+5. **Auto-Build** — second priority (grow the empire)
+6. **Auto-Farm** — third priority (resource income)
 
-- **Fleet-save requires attack detection:** Fleet-save is triggered BY incoming attacks. Without detection, fleet-save has nothing to react to. This is the most critical dependency — attack detection → fleet-save must work flawlessly.
-- **Auto-build requires game state + formulas:** ROI calculation needs current building levels, production rates, and cost formulas for every building. These are deterministic from OGame wiki data + current planet state.
-- **Auto-farm requires galaxy scanning + spy reports:** Must scan galaxy for inactive players (i-icon), send espionage probes, parse the resulting spy report for resources/defense, then calculate profitability. This is a multi-step pipeline.
-- **Auto-expeditions requires slot management:** Must track how many expedition slots are available (based on Astrophysics level), which expeditions are active, when they return. Cannot oversend.
-- **Sleep mode requires fleet-save:** Before sleeping, ALL fleet-bearing planets/moons must be saved. Otherwise sleeping = certain death if attacked. This creates a circular dependency (fleet-save during sleep), which TBot handles with AutoFleetSave within SleepMode.
-- **Web dashboard requires game state:** Dashboard is useless without data. Must have the game state polling layer working first.
-- **Telegram remote control enhances notifications:** Commands are built ON TOP of the notification system. Build notifications first, then add command parsing.
+### Natural Extensions (v2)
+7. Auto-Expeditions
+8. Auto-Research
+9. Resource Consolidation
+10. Telegram Notifications
+11. Auto-Shipyard/Defense
 
-## MVP Definition
+### Nice-to-Have (v3)
+12. Multi-Account
+13. Sleep Mode
+14. Auto-Colonize
+15. Config Hot-Reload
 
-### Launch With (v1)
-
-Minimum viable product — what's needed for users to trust the bot with their account.
-
-- [ ] **ogamed connection + game state polling** — foundation everything else builds on. Must reliably connect, maintain session, poll game state.
-- [ ] **Attack detection + fleet-save** — THE core value. If this doesn't work, nothing else matters. Must be phalanx-safe (deploy with recall). Must handle moons separately.
-- [ ] **Telegram notifications** — attack alerts, fleet-save confirmations, error alerts. Users need to know the bot is working without checking.
-- [ ] **Auto-build (ROI-based)** — empire growth while away. ROI algorithm makes this genuinely useful vs trivial. Include max-level caps.
-- [ ] **Auto-expeditions** — high-value passive income. Must handle slot management and auto-resend.
-- [ ] **Configuration system** — JSON/YAML config per account. Feature toggles, parameters.
-- [ ] **Anti-detection basics** — random intervals between actions, request throttling, sleep mode.
-
-### Add After Validation (v1.x)
-
-Features to add once core is proven reliable.
-
-- [ ] **Auto-farm** — scan galaxy, spy inactives, attack if profitable. Trigger: once fleet-save and auto-build are stable. Adds significant resource income.
-- [ ] **Web dashboard** — real-time empire overview, fleet movements, build queues. Trigger: once bot is running reliably 24/7 and users want monitoring.
-- [ ] **Auto-repatriate** — centralize resources. Trigger: once auto-build + auto-research need centralized resources to function well.
-- [ ] **Auto-research** — automate tech research. Trigger: once auto-build is stable and users want full automation.
-- [ ] **Auto-cargo** — build transport ships automatically. Trigger: once resource management features need it.
-- [ ] **Multi-account support** — run multiple accounts. Trigger: once single-account is rock-solid.
-- [ ] **Settings hot-reload** — change config without restart. Trigger: once users are running 24/7 and config changes are painful.
-- [ ] **Telegram commands** — remote control via Telegram. Trigger: once notifications are stable, add command interface.
-
-### Future Consideration (v2+)
-
-Features to defer until core product is mature.
-
-- [ ] **Auto-colonize** — automate new colonies. Defer: complex (temperature evaluation, abandon/retry) and most players already have their planets.
-- [ ] **Auto-harvest** — collect debris fields. Defer: nice-to-have, doesn't affect core safety or growth significantly.
-- [ ] **Lifeform automation** — lifeform buildings/research. Defer: new feature, frequently changing balance, massive config surface.
-- [ ] **Auto-discovery** — send lifeform discovery missions. Defer: depends on lifeform support.
-- [ ] **Buy offer of the day** — automate trader purchases. Defer: extremely niche.
-
-## Feature Prioritization Matrix
-
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Attack detection | CRITICAL | LOW | P1 |
-| Fleet-save (phalanx-safe + recall) | CRITICAL | HIGH | P1 |
-| Telegram notifications | HIGH | LOW | P1 |
-| Auto-build (ROI-based) | HIGH | MEDIUM | P1 |
-| Auto-expeditions | HIGH | MEDIUM | P1 |
-| Configuration system | HIGH | LOW | P1 |
-| Anti-detection (random delays, throttling) | HIGH | LOW | P1 |
-| Sleep mode | MEDIUM | MEDIUM | P1 |
-| Auto-farm | HIGH | MEDIUM | P2 |
-| Web dashboard | MEDIUM | HIGH | P2 |
-| Auto-repatriate | MEDIUM | MEDIUM | P2 |
-| Auto-research | MEDIUM | MEDIUM | P2 |
-| Multi-account | MEDIUM | MEDIUM | P2 |
-| Telegram commands | MEDIUM | MEDIUM | P2 |
-| Settings hot-reload | MEDIUM | MEDIUM | P2 |
-| Auto-cargo | LOW | LOW | P2 |
-| Auto-harvest | LOW | LOW | P3 |
-| Auto-colonize | LOW | MEDIUM | P3 |
-| Lifeform automation | LOW | HIGH | P3 |
-
-**Priority key:**
-- P1: Must have for launch — the bot is useless/dangerous without these
-- P2: Should have, add when possible — bot works but users will request these
-- P3: Nice to have, future consideration — specialized use cases
-
-## Competitor Feature Analysis
-
-| Feature | TBot (94★) | Cruiser (30★) | r4fek/ogame-bot (45★, archived) | Our Approach |
-|---------|-------------|----------------|----------------------------------|--------------|
-| **Fleet-save** | Defender + AutoFleetSave (sleep mode). Deploy with recall. | Phalanx-safe, auto-recall, min fuel. Core identity. | Basic fleet save. | Phalanx-safe deploy+recall (from Cruiser). Also during sleep mode (from TBot). Must be rock-solid. |
-| **Auto-build** | ROI-based AutoMine. Max levels per building. MaxDaysOfInvestmentReturn. | Not implemented. | Basic building. | ROI-based (from TBot). This is non-negotiable — any other approach is inferior. |
-| **Auto-farm** | Scan ranges, spy inactives, attack if profitable. Ship type config. | Not implemented. | Farming (basic). | TBot-style: configurable galaxy ranges, profit threshold, ship type. |
-| **Expeditions** | Auto-optimize fleet, multi-origin, military expos, lifeform bonus calc. | Simple per-expedition config, auto-resend. | Basic expeditions. | TBot-style auto-optimize. Must handle slot management + auto-resend. |
-| **Telegram** | 30+ commands, full remote control, auto-ping. | Notifications only (attack alerts, actions taken). | SMS only (no Telegram). | Start with notifications (like Cruiser), expand to commands (like TBot). |
-| **Web UI** | Full WebUI: settings editor, filterable logs, manual game play. | None. | None. | Build after core features are stable. Focus on monitoring first, control later. |
-| **Multi-account** | Instances array, per-instance config, shared/different cookies. | Single account. | Single account. | P2. Follow TBot's pattern: instances array with separate config files. |
-| **Sleep mode** | Full sleep with AutoFleetSave. Wake timer. Telegram notification. | Configurable sleep intervals between checks. | Not implemented. | TBot-style: scheduled sleep + fleet-save before sleeping. Critical for anti-detection. |
-| **Language** | C#/.NET 6 | Python 3.7+ | Python 2/3 | TypeScript/Node.js + ogamed REST. Modern stack, shared language for bot + web dashboard. |
-| **Anti-detection** | ogamed fingerprinting, random intervals, sleep mode, proxy support. | Random sleep intervals, delay between requests. | Minimal. | ogamed handles fingerprinting/captcha. Bot adds random intervals, sleep mode, activity variation. |
-
-## Key Insights from Competitor Analysis
-
-### What TBot Gets Right (model this)
-1. **ROI-based auto-build** — genuinely intelligent, not just "build cheapest thing." This is the #1 reason users choose TBot.
-2. **Telegram as command center** — 30+ commands means users can fully manage their account from their phone.
-3. **Config hot-reload** — a 24/7 service MUST NOT require restarts for config changes.
-4. **Sleep mode + AutoFleetSave** — anti-detection AND fleet protection during low-activity hours.
-5. **Extensive configurability** — almost every feature has 5-10 tuning parameters. Power users love this.
-
-### What Cruiser Gets Right (learn from this)
-1. **Phalanx-safe fleet-save as identity** — one feature done perfectly > many features done poorly.
-2. **Clean architecture** — separate OGame client, game engine (calculations), bot logic. Easy to test and extend.
-3. **Auto-adjusts to account state** — "Cruiser automatically adjusts to the current state of your account. Can be restarted at any time." This is critical — the bot must be stateless-safe.
-4. **Minimal viable config** — account info + that's it for basic protection. Progressive complexity.
-
-### What r4fek Gets Wrong (avoid this)
-1. **SMS notifications** — dead end. Telegram is the standard.
-2. **Combat simulator built-in** — scope creep. External tools exist.
-3. **Archived since 2018** — Python ogame library unmaintained. Shows the risk of depending on unmaintained dependencies.
-
-### Critical Gap We Can Fill
-No existing bot combines:
-- **TypeScript/modern stack** (TBot is C#, Cruiser is Python, r4fek is archived Python)
-- **Safety-first fleet-save** (Cruiser-level)
-- **Full automation** (TBot-level features)
-- **Web dashboard** (TBot's is basic, we can do better with modern TS ecosystem)
-- **Stateless-safe design** (Cruiser's restart-anywhere philosophy)
-
-## Sources
-
-- **TBot**: github.com/ogame-tbot/TBot — README + Wiki Configuration Guide analyzed in full. 1,173 commits, 83 releases, actively maintained (last release May 2024, v0.3.4). [HIGH confidence]
-- **Cruiser**: github.com/kweimann/cruiser — README + config.yaml analyzed in full. 48 commits, no releases, Docker-first. [HIGH confidence]
-- **r4fek/ogame-bot**: github.com/r4fek/ogame-bot — README analyzed. 6 commits, archived March 2018. [HIGH confidence]
-- **ogamed**: github.com/alaingilbert/ogame — referenced for API capabilities (device fingerprinting, captcha, REST endpoints). [HIGH confidence]
+### OGameX-Specific (when applicable)
+16. Self-hosted server integration (if running own OGameX)
+17. Upstream API contributions (ongoing)
 
 ---
-*Feature research for: OGame automation bot*
-*Researched: 2026-04-25*
+
+## Competitive Comparison
+
+| Feature | This Bot | TBot | Cruiser |
+|---------|----------|------|---------|
+| Target | OGameX | Official OGame | Official OGame |
+| Language | Go | C#/.NET | Node.js |
+| Fleet-Save | Smart (deploy+recall) | Smart (deploy+recall) | Smart (phalanx-safe) |
+| Auto-Build | ROI-based | ROI-based | Basic |
+| Auto-Farm | Yes | Yes | No |
+| Auto-Expeditions | Planned | Yes | No |
+| Dashboard | SolidJS + WebSocket | Blazor WebUI | None |
+| Telegram | Planned | Yes | No |
+| Anti-Bot Evasion | None needed | Captcha solver, proxy | Captcha solver |
+| Deployment | Single binary | ogamed + .NET | ogamed + Node |
+| Self-Host Server Control | Possible | No | No |
+| Open Source | Yes | Yes | Yes |
+
+**Key advantage over TBot:** No anti-bot cat-and-mouse game. Simpler deployment (single binary vs ogamed + .NET). Can evolve with OGameX upstream.
+
+---
+
+*Research completed: 2026-05-03*
