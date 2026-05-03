@@ -18,6 +18,7 @@ import (
 	"github.com/user/ogame-bot/internal/defender"
 	"github.com/user/ogame-bot/internal/farmer"
 	"github.com/user/ogame-bot/internal/ogamed"
+	"github.com/user/ogame-bot/internal/ogamex"
 	"github.com/user/ogame-bot/internal/state"
 )
 
@@ -57,6 +58,16 @@ func main() {
 	// 6. Create ogamed client with rate limiter per D-14, D-11
 	rateLimiter := ogamed.NewRateLimiter(cfg.RateLimit)
 	client := ogamed.NewClient(cfg.Ogamed.URL, rateLimiter, log)
+
+	// 6b. Create OGameX client (new target)
+	{
+		_ = cfg.OGameX
+		if cfg.OGameX.URL != "" {
+			ogamexCl := ogamex.NewClient(cfg.OGameX.URL, cfg.OGameX.Email, cfg.OGameX.Password, log)
+			log.Info("OGameX client created", "url", cfg.OGameX.URL)
+			_ = ogamexCl
+		}
+	}
 
 	// 7. Login to ogamed per INFRA-01
 	ctx, cancel := context.WithCancel(context.Background())

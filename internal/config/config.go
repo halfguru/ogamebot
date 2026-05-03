@@ -17,6 +17,7 @@ import (
 type Config struct {
 	Account   AccountConfig   `yaml:"account"`
 	Ogamed    OgamedConfig    `yaml:"ogamed"`
+	OGameX    OGameXConfig    `yaml:"ogamex"`
 	Features  FeaturesConfig  `yaml:"features"`
 	RateLimit RateLimitConfig `yaml:"rateLimit"`
 	Dashboard DashboardConfig `yaml:"dashboard"`
@@ -33,6 +34,13 @@ type AccountConfig struct {
 // OgamedConfig holds the ogamed REST API connection settings.
 type OgamedConfig struct {
 	URL string `yaml:"url"`
+}
+
+// OGameXConfig holds the OGameX server connection and auth settings.
+type OGameXConfig struct {
+	URL      string `yaml:"url"`
+	Email    string `yaml:"email"`
+	Password string `yaml:"password"`
 }
 
 // FeatureConfig holds the enabled state and poll interval for a bot feature.
@@ -156,6 +164,11 @@ func Load(path string, log *slog.Logger) (*Config, error) {
 		Ogamed: OgamedConfig{
 			URL: envOrDefault("OGAMED_URL", "http://ogamed:8080"),
 		},
+		OGameX: OGameXConfig{
+			URL:      os.Getenv("OGAMEX_URL"),
+			Email:    os.Getenv("OGAMEX_EMAIL"),
+			Password: os.Getenv("OGAMEX_PASSWORD"),
+		},
 		Account: AccountConfig{
 			Universe: os.Getenv("OGAMED_UNIVERSE"),
 			Username: os.Getenv("OGAMED_USERNAME"),
@@ -222,6 +235,14 @@ func (c *Config) Validate() error {
 	}
 	if c.Ogamed.URL == "" {
 		return fmt.Errorf("ogamed.url is required")
+	}
+	if c.OGameX.URL != "" {
+		if c.OGameX.Email == "" {
+			return fmt.Errorf("ogamex.email is required when ogamex is configured")
+		}
+		if c.OGameX.Password == "" {
+			return fmt.Errorf("ogamex.password is required when ogamex is configured")
+		}
 	}
 	if c.RateLimit.DefaultMinDelayMs < 500 {
 		return fmt.Errorf("rateLimit.defaultMinDelayMs must be >= 500ms, got %d", c.RateLimit.DefaultMinDelayMs)
