@@ -1,83 +1,90 @@
-# Project State
+# Project State: OGameX Bot
 
-## Project Reference
+**Updated:** 2026-05-03
+**Current Phase:** 1 — Core Infrastructure
+**Status:** Ready to begin
 
-See: .planning/PROJECT.md (updated 2026-04-25)
+## Phase Status
 
-**Core value:** The bot must reliably protect your fleet and grow your empire while you're away — if fleet-save fails, everything else is pointless.
-**Current focus:** Phase 5 — Web Dashboard (COMPLETE)
+| Phase | Name | Status | Plans | Requirements |
+|-------|------|--------|-------|-------------|
+| 1 | Core Infrastructure | **Current** | 2 | INFRA-01..04 |
+| 2 | Game State | Not started | 2 | STATE-01..07 |
+| 3 | Fleet Safety | Not started | 2 | SAFE-01..04 |
+| 4 | Auto-Build | Not started | 2 | BUILD-01..04 |
+| 5 | Auto-Farm | Not started | 1 | FARM-01..03 |
+| 6 | Web Dashboard | Not started | 2 | DASH-01..03 |
 
-## Current Position
+## Current Work
 
-Phase: COMPLETE (all 5 phases done)
-Status: v1 MILESTONE COMPLETE
-Last activity: 2026-04-26 — All 5 phases verified, WebSocket gap fixed
+**Phase 1 — Core Infrastructure**
+- **Next plan:** 1.1 — Config + OGameX client skeleton
+- **Blockers:** None
+- **Notes:** Brownfield pivot — existing workers, state manager, and dashboard are reused
 
-Progress: [██████████] 100% — v1 COMPLETE
+## Milestones
 
-## Performance Metrics
+| Milestone | Phase | Status | Description |
+|-----------|-------|--------|-------------|
+| M1: Login works | Phase 1 | Pending | Bot authenticates with OGameX, CSRF token rotates correctly |
+| M2: State cached | Phase 2 | Pending | SQLite populated with live planet/resource/fleet data |
+| M3: Fleet protected | Phase 3 | Pending | Defender detects attacks and fleet-saves autonomously |
+| M4: Empire grows | Phase 4 | Pending | Builder upgrades buildings by ROI across all planets |
+| M5: Farming active | Phase 5 | Pending | Farmer scans, spies, and attacks profitable inactives |
+| M6: Fully operational | Phase 6 | Pending | Dashboard + all features working, single Go binary |
 
-**Velocity:**
-- Total plans completed: 14
-- Average duration: 8.4 min
-- Total execution time: 118 min
+## Completed Plans
 
-**By Phase:**
+(none yet)
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 1. Core Infrastructure | 5 | 33 min | 6.6 min |
-| 2. Fleet Safety | 3 | 36 min | 12.0 min |
-| 3. Auto-Build | 2 | 21 min | 10.5 min |
-| 4. Auto-Farm | 2 | 14 min | 7.0 min |
-| 5. Web Dashboard | 2 | 14 min | 7.0 min |
+## Risk Log
 
-**Recent Trend:**
-- Last 5 plans: 04-01 (7 min), 04-02 (7 min), 05-01 (6 min), 05-02 (8 min)
-- Trend: Stable
+| Risk | Impact | Mitigation | Phase |
+|------|--------|------------|-------|
+| CSRF token race conditions | Fleet-save fails mid-request | Mutex-protected token store, re-auth on 419 | 1 |
+| OGameX HTML structure changes | All parsers break | Pin to specific OGameX version, add parser tests | 2 |
+| Building/ship IDs differ from ogamed | Wrong actions executed | Validate IDs against OGameX DOM early in Phase 2 | 2 |
+| Fleet dispatch two-step fails | Fleet-save cannot execute | Test check-target + send-fleet thoroughly | 3 |
+| Rate limiting on galaxy scan | Farmer too slow | Space out requests, cache galaxy data | 5 |
 
-*Updated after each plan completion*
+## Architecture Notes
 
-## Accumulated Context
+### What Changes (this roadmap)
+- `internal/ogamed/` → `internal/ogamex/` (new client package)
+- `config.OgamedConfig` → `config.OGameXConfig` (new config fields)
+- `cmd/bot/main.go` wiring (ogamex client instead of ogamed)
+- Docker Compose (remove ogamed service)
 
-### Decisions
+### What Stays (reuse as-is)
+- `internal/model/` — domain types (may need JSON tag adjustments)
+- `internal/constants/` — ship/building/mission IDs (verify against OGameX)
+- `internal/defender/` — attack detection, escape routes, fleet-save logic
+- `internal/builder/` — ROI calculator, build queue logic
+- `internal/farmer/` — galaxy scan, espionage, profit evaluation
+- `internal/state/` — SQLite cache, state manager, read methods
+- `internal/dashboard/` — HTTP handlers, WebSocket hub
+- `internal/config/` — YAML loading, validation (extend, don't rewrite)
+- `packages/dashboard/` — SolidJS frontend (read-only from API)
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+### Key Interface
+```go
+// ogamed.ClientInterface — 26 methods, unchanged
+// ogamex.Client must satisfy this same interface
+// Workers never import ogamed directly — they use the interface
+```
 
-- Roadmap: 5 phases derived from 17 v1 requirements; safety-first ordering (fleet-save before growth features)
-- Phase 1 context: pnpm monorepo, YAML config, SQLite + modernc.org/sqlite, Docker Compose
-- 01-01 (Go): Missing env vars return immediate error with variable name; all 11 domain structs in single model package; constants use untyped int
-- 01-02 (Go): rateLimiterInterface for testability, HTTP errors mapped to OgamedError for retry, two-pass generic unmarshal for getTyped[T]
-- 01-03 (Go): Replaced golang-migrate with custom migration runner to avoid CGo dep and m.Close() bug; fleet full-replace per cycle; Dockerfile.ogamed for source builds
-- 02-01 (Go): RecallEnabled uses *bool pointer for YAML default handling; ships encoded as repeated params; MissionHold=5 replaces incorrect MissionACSTransport
-- 02-02 (Go): Planet↔moon at distance=0 is valid escape route (10s min flight, 0 fuel); safety scoring uses weighted sum (+1000 attacked, +500 planet, -100 moon, +distance/50, +fuel/10k)
-- 02-03 (Go): Active fleet-save check in savePlanet for defense-in-depth; reaction delay = minDelay + rand(0, timeUntilAttack - safetyMargin - minDelay); test fastDefenderConfig() pattern for timing-dependent tests
-- 03-01 (Go): ROI uses metal-equivalent scoring (metal=1, crystal=1.5, deuterium=2.0); energy-producing buildings valued at 0.5 per unit; AutoBuildConfig defaults {MetalMine:30, CrystalMine:28, DeutSynth:26, SolarPlant:26, FusionReactor:20}; server speed cached in state manager
-- 03-02 (Go): Builder poll loop evaluates ROI across all planets each tick; anti-detection via configurable antiDetectPct (7% default, 0 in tests); per-planet max-level overrides take precedence over global defaults; builder skips planet on GetConstructions error (conservative)
-- 04-01 (Go): GalaxyRange type alias in config to avoid circular import; AutoFarmConfig embeds FeatureConfig inline; AutoFarm poll minimum 60s (galaxy scans are expensive); mock clients updated in all 3 test packages when ClientInterface expanded
-- 04-02 (Go): Inlined estimateFuelCost in farmer instead of exporting from defender; farmer reserves 2 fleet slots for defender; max 10 probes per cycle to avoid API spam; simplified fuel formula (baseFuel only, no drive tech variation)
-- 05-01 (Go): StateReader interface decouples dashboard from state.Manager; gorilla/chat hub pattern with max 10 WS clients; Go 1.22+ method routing for REST endpoints; CORS middleware supports wildcard or whitelist
-- 05-02 (TS): Vite builds dashboard to internal/dashboard/static/ for Go embed.FS; tsconfig uses bundler moduleResolution for SolidJS; all components created together since App.tsx imports them; SPA fallback reads embedded index.html at init
+## Dependencies
 
-### Pending Todos
+### Runtime
+- Go stdlib (`net/http`, `encoding/json`, `database/sql`)
+- `modernc.org/sqlite` — embedded SQLite
+- `github.com/PuerkitoBio/goquery` — HTML parsing (NEW)
+- `gopkg.in/yaml.v3` — config
+- `github.com/gorilla/websocket` — dashboard
 
-None.
+### Removed
+- ogamed Docker container
+- All ogamed REST API calls
 
-### Blockers/Concerns
-
-None. All phases complete.
-
-## Deferred Items
-
-Items acknowledged and carried forward from previous milestone close:
-
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| *(none)* | | | |
-
-## Session Continuity
-
-Last session: 2026-04-26
-Stopped at: Completed 05-02 (SolidJS dashboard frontend). All phases complete — v1 finished.
-Resume file: .planning/phases/05-web-dashboard/05-02-SUMMARY.md
+---
+*State initialized: 2026-05-03*
