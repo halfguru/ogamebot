@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/ogame-bot/internal/model"
 	"github.com/user/ogame-bot/internal/ogamed"
 )
 
@@ -49,34 +48,6 @@ func (c *Client) setCSRFToken(token string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.csrfToken = token
-}
-
-func (c *Client) SendFleet(ctx context.Context, req model.SendFleetRequest) (int64, error) {
-	return 0, fmt.Errorf("ogamex: SendFleet not implemented")
-}
-
-func (c *Client) CancelFleet(ctx context.Context, fleetID int64) error {
-	return fmt.Errorf("ogamex: CancelFleet not implemented")
-}
-
-func (c *Client) BuildBuilding(ctx context.Context, planetID, buildingID int) error {
-	return fmt.Errorf("ogamex: BuildBuilding not implemented")
-}
-
-func (c *Client) GetGalaxyInfos(ctx context.Context, galaxy, system int) (model.SystemInfos, error) {
-	return model.SystemInfos{}, fmt.Errorf("ogamex: GetGalaxyInfos not implemented")
-}
-
-func (c *Client) GetEspionageReportMessages(ctx context.Context) ([]model.EspionageReportSummary, error) {
-	return nil, fmt.Errorf("ogamex: GetEspionageReportMessages not implemented")
-}
-
-func (c *Client) GetEspionageReport(ctx context.Context, messageID int64) (model.EspionageReport, error) {
-	return model.EspionageReport{}, fmt.Errorf("ogamex: GetEspionageReport not implemented")
-}
-
-func (c *Client) DeleteAllEspionageReports(ctx context.Context) error {
-	return fmt.Errorf("ogamex: DeleteAllEspionageReports not implemented")
 }
 
 func (c *Client) GetCaptchaChallenge(ctx context.Context) (ogamed.CaptchaChallenge, error) {
