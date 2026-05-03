@@ -46,37 +46,18 @@ Plans:
 **Dependencies:** Phase 1 (authenticated client)
 **Requirements:** STATE-01, STATE-02, STATE-03, STATE-04, STATE-05, STATE-06, STATE-07
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Parser infrastructure + per-planet state methods (STATE-01, STATE-02, STATE-03, STATE-06)
+- [ ] 02-02-PLAN.md — Fleet events + research + constructions + server info (STATE-04, STATE-05, STATE-07)
+
 **Success Criteria:**
 1. `GetPlanets()` returns correct planet list with coordinates, names, and moon status
 2. `GetResources()` returns live metal/crystal/deuterium/energy per planet
 3. `GetFleets()` returns all fleet movements (own + visible hostile) with correct mission types and arrival times
 4. `GetResearch()` returns all technology levels
 5. State manager runs one full refresh cycle without errors and SQLite contains valid data
-
-### Plan 2.1 — Planet list + resources + buildings (STATE-01, STATE-02, STATE-03, STATE-06)
-
-**Scope:**
-- Implement `GetPlanets()`: fetch overview page HTML, parse planet list from DOM (planet names, coordinates, IDs, isMoon)
-- Implement `GetResources()`: GET `/ajax/resources?cp=<planetID>`, parse JSON response
-- Implement `GetResourceBuildings()`: fetch resources page HTML, parse building levels from DOM
-- Implement `GetFacilities()`: fetch facilities page HTML, parse facility levels from DOM
-- Implement `GetShips()`: fetch shipyard page HTML or AJAX, parse ship counts
-- Implement `GetDefence()`: fetch defense page HTML, parse defense counts
-- Adapt `model.ResourceBuildings` / `model.Facilities` JSON tags if OGameX format differs (keep PascalCase for internal, parse OGameX format in client)
-- Test each method against live OGameX demo
-
-### Plan 2.2 — Fleets + research + constructions + misc (STATE-04, STATE-05, STATE-07)
-
-**Scope:**
-- Implement `GetFleets()`: GET `/ajax/fleet/eventlist/fetch`, parse fleet event JSON (origin, destination, mission, arrival, ships, resources)
-- Implement `GetAttacks()`: parse hostile fleets from fleet events (mission types 1, 2, 9)
-- Implement `GetResearch()`: fetch research page HTML, parse technology levels from DOM
-- Implement `GetConstructions()`: fetch overview/buildings page, parse active build queue countdown
-- Implement `GetSlots()`: parse fleet slot info from fleet page or overview
-- Implement `GetServerTime()`: extract server timestamp from page or AJAX
-- Implement `GetServerSpeed()`: extract from server info page or config
-- Implement `GetServerVersion()`: extract from footer or about page
-- Run state manager refresh loop for 5 minutes, verify SQLite data matches OGameX web UI
 
 ---
 
