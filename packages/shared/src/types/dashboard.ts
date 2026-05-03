@@ -121,6 +121,35 @@ export interface APIFarmAttack {
   sentAt: string;
 }
 
+export interface PlanetBuildPlan {
+  planetId: number;
+  planetName: string;
+  buildingId: number;
+  buildingName: string;
+  currentLevel: number;
+  targetLevel: number;
+  costMetal: number;
+  costCrystal: number;
+  costDeuterium: number;
+  roiScore: number;
+  tier: string;
+}
+
+export interface ResearchPlan {
+  researchId: number;
+  researchName: string;
+  currentLevel: number;
+  targetLevel: number;
+  costMetal: number;
+  costCrystal: number;
+  costDeuterium: number;
+}
+
+export interface BuildPlan {
+  planets: PlanetBuildPlan[];
+  research: ResearchPlan | null;
+}
+
 /** WebSocket message types from the server. */
 export type WSMessage =
   | { type: 'state_update'; data: { planets: APIPlanet[]; fleets: APIFleet[]; research: APIResearch } }

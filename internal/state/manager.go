@@ -5,27 +5,32 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/user/ogame-bot/internal/model"
-	"github.com/user/ogame-bot/internal/ogamed"
+	"github.com/user/ogame-bot/internal/ogamex"
 )
 
 const defaultRefreshInterval = 60 * time.Second
 
-// Manager polls ogamed periodically and caches game state in SQLite.
+// Manager polls the OGameX client periodically and caches game state in SQLite.
 // Per D-09 (game state cached): the manager is the ONLY component that
-// refreshes from ogamed — workers read from cached SQLite state.
+// refreshes from OGameX — workers read from cached SQLite state.
 type Manager struct {
 	db          *sql.DB
-	client      ogamed.ClientInterface
+	client      ogamex.ClientInterface
 	log         *slog.Logger
 	interval    time.Duration
-	serverSpeed int // cached from ogamed, never changes for a given universe
+	serverSpeed int
+
+	mu             sync.Mutex
+	lastRefresh    time.Time
+	planetsOnRefresh int
 }
 
 // NewManager creates a game state manager with the default refresh interval.
-func NewManager(db *sql.DB, client ogamed.ClientInterface, log *slog.Logger) *Manager {
+func NewManager(db *sql.DB, client ogamex.ClientInterface, log *slog.Logger) *Manager {
 	return &Manager{
 		db:       db,
 		client:   client,
@@ -64,11 +69,11 @@ func (m *Manager) Run(ctx context.Context) {
 	}
 }
 
-// refresh fetches all game state from ogamed and upserts into SQLite.
+// refresh fetches all game state from OGameX and upserts into SQLite.
 // Per CONTEXT.md: "stateless-safe — can be restarted at any time without causing problems"
 // Errors are logged but don't crash — we keep cached data on failure.
 func (m *Manager) refresh(ctx context.Context) error {
-	m.log.Debug("Refreshing game state from ogamed")
+	m.log.Debug("Refreshing game state from OGameX")
 
 	// Fetch global state
 	planets, err := m.client.GetPlanets(ctx)
@@ -134,6 +139,11 @@ func (m *Manager) refresh(ctx context.Context) error {
 
 	// Upsert research (singleton row)
 	m.upsertResearch(ctx, research)
+
+	m.mu.Lock()
+	m.lastRefresh = time.Now()
+	m.planetsOnRefresh = len(planets)
+	m.mu.Unlock()
 
 	m.log.Info("State refresh complete", "planets", len(planets), "fleets", len(fleets))
 	return nil
@@ -342,4 +352,20 @@ func (m *Manager) GetServerSpeed(_ context.Context) (int, error) {
 		return 0, fmt.Errorf("server speed not yet cached — wait for first refresh")
 	}
 	return m.serverSpeed, nil
+}
+
+func (m *Manager) RefreshNow(ctx context.Context) error {
+	return m.refresh(ctx)
+}
+
+func (m *Manager) GetLastRefreshTime() time.Time {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.lastRefresh
+}
+
+func (m *Manager) GetPlanetCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.planetsOnRefresh
 }

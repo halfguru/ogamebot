@@ -1,4 +1,5 @@
-import type { APIPlanet, APIBuildEvent } from '@ogame-bot/shared';
+import type { APIPlanet, APIBuildEvent, BuildPlan } from '@ogame-bot/shared';
+import { Show } from 'solid-js';
 import PlanetCard from './PlanetCard';
 
 function formatNumber(n: number): string {
@@ -10,6 +11,7 @@ function formatNumber(n: number): string {
 export default function EmpireOverview(props: {
   planets: APIPlanet[];
   buildEvents: APIBuildEvent[];
+  buildPlan: BuildPlan;
 }) {
   const totals = () =>
     props.planets.reduce(
@@ -28,6 +30,14 @@ export default function EmpireOverview(props: {
       if (!m.has(e.planetId)) {
         m.set(e.planetId, e);
       }
+    }
+    return m;
+  };
+
+  const buildPlanMap = () => {
+    const m = new Map<number, typeof props.buildPlan.planets[0]>();
+    for (const p of props.buildPlan.planets) {
+      m.set(p.planetId, p);
     }
     return m;
   };
@@ -55,9 +65,15 @@ export default function EmpireOverview(props: {
       </div>
       <div class="planet-grid">
         {props.planets.map((p) => (
-          <PlanetCard planet={p} buildEvent={buildEventMap().get(p.id)} />
+          <PlanetCard planet={p} buildEvent={buildEventMap().get(p.id)} buildPlan={buildPlanMap().get(p.id)} />
         ))}
       </div>
+      <Show when={props.buildPlan.research}>
+        <div class="research-plan">
+          <span class="plan-label">Next Research:</span>
+          <span class="pill research">{props.buildPlan.research!.researchName} {props.buildPlan.research!.currentLevel} → {props.buildPlan.research!.targetLevel}</span>
+        </div>
+      </Show>
     </section>
   );
 }

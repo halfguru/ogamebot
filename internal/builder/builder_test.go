@@ -12,7 +12,7 @@ import (
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/constants"
 	"github.com/user/ogame-bot/internal/model"
-	"github.com/user/ogame-bot/internal/ogamed"
+	"github.com/user/ogame-bot/internal/ogamex"
 
 	_ "github.com/user/ogame-bot/internal/state"
 )
@@ -27,6 +27,7 @@ type mockBuilderClient struct {
 	researchCalled  bool
 	lastResearchID  int
 	researchErr     error
+	liveResources   map[int]model.Resources
 }
 
 func (m *mockBuilderClient) Login(_ context.Context) error                       { return nil }
@@ -34,7 +35,12 @@ func (m *mockBuilderClient) Logout(_ context.Context) error                     
 func (m *mockBuilderClient) GetServerTime(_ context.Context) (string, error)     { return "", nil }
 func (m *mockBuilderClient) IsUnderAttack(_ context.Context) (bool, error)       { return false, nil }
 func (m *mockBuilderClient) GetPlanets(_ context.Context) ([]model.Planet, error) { return nil, nil }
-func (m *mockBuilderClient) GetResources(_ context.Context, _ int) (model.Resources, error) {
+func (m *mockBuilderClient) GetResources(_ context.Context, planetID int) (model.Resources, error) {
+	if m.liveResources != nil {
+		if r, ok := m.liveResources[planetID]; ok {
+			return r, nil
+		}
+	}
 	return model.Resources{}, nil
 }
 func (m *mockBuilderClient) GetResourceBuildings(_ context.Context, _ int) (model.ResourceBuildings, error) {
@@ -102,12 +108,8 @@ func (m *mockBuilderClient) GetEspionageReport(_ context.Context, _ int64) (mode
 func (m *mockBuilderClient) DeleteAllEspionageReports(_ context.Context) error {
 	return nil
 }
-func (m *mockBuilderClient) GetCaptchaChallenge(_ context.Context) (ogamed.CaptchaChallenge, error) {
-	return ogamed.CaptchaChallenge{}, nil
-}
-func (m *mockBuilderClient) SolveCaptchaChallenge(_ context.Context, _ string, _ int) error {
-	return nil
-}
+
+var _ ogamex.ClientInterface = (*mockBuilderClient)(nil)
 
 type mockBuilderStateReader struct {
 	planets     []model.Planet
@@ -166,6 +168,9 @@ func (m *mockBuilderStateReader) GetFacilities(_ context.Context, planetID int) 
 func (m *mockBuilderStateReader) GetServerSpeed(_ context.Context) (int, error) {
 	return m.speed, m.speedErr
 }
+func (m *mockBuilderStateReader) RefreshNow(_ context.Context) error {
+	return nil
+}
 
 func newTestDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -216,6 +221,9 @@ func insertTestPlanet(t *testing.T, db *sql.DB, id int, name string, fieldsUsed,
 }
 
 func testBuilder(mc *mockBuilderClient, ms *mockBuilderStateReader, db *sql.DB, cfg config.AutoBuildConfig) *Builder {
+	if mc.liveResources == nil {
+		mc.liveResources = ms.resources
+	}
 	b := NewBuilder(mc, ms, db, cfg, testLogger())
 	b.antiDetectPct = 0
 	return b

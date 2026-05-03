@@ -17,5 +17,8 @@ export type {
   APIBuildEvent,
   APIFleetSaveEvent,
   APIFarmAttack,
+  PlanetBuildPlan,
+  ResearchPlan,
+  BuildPlan,
   WSMessage,
 } from './dashboard.js';

@@ -10,9 +10,11 @@ import (
 
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/model"
-	"github.com/user/ogame-bot/internal/ogamed"
+	"github.com/user/ogame-bot/internal/ogamex"
 	"github.com/user/ogame-bot/internal/state"
 )
+
+var _ ogamex.ClientInterface = (*mockClient)(nil)
 
 // --- Mock implementations ---
 
@@ -101,12 +103,6 @@ func (m *mockClient) GetEspionageReport(_ context.Context, _ int64) (model.Espio
 func (m *mockClient) DeleteAllEspionageReports(_ context.Context) error {
 	return nil
 }
-func (m *mockClient) GetCaptchaChallenge(_ context.Context) (ogamed.CaptchaChallenge, error) {
-	return ogamed.CaptchaChallenge{}, nil
-}
-func (m *mockClient) SolveCaptchaChallenge(_ context.Context, _ string, _ int) error {
-	return nil
-}
 
 // mockStateReader satisfies StateReader for defender tests.
 type mockStateReader struct {
@@ -131,6 +127,9 @@ func (m *mockStateReader) GetFleets(_ context.Context) ([]model.Fleet, error) {
 }
 func (m *mockStateReader) GetResearch(_ context.Context) (model.Research, error) {
 	return m.research, m.resErr2
+}
+func (m *mockStateReader) RefreshNow(_ context.Context) error {
+	return nil
 }
 
 // --- Test helpers ---

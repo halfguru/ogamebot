@@ -11,7 +11,7 @@ import (
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/constants"
 	"github.com/user/ogame-bot/internal/model"
-	"github.com/user/ogame-bot/internal/ogamed"
+	"github.com/user/ogame-bot/internal/ogamex"
 )
 
 // StateReader provides read access to cached game state.
@@ -21,6 +21,7 @@ type StateReader interface {
 	GetResources(ctx context.Context, planetID int) (model.Resources, error)
 	GetFleets(ctx context.Context) ([]model.Fleet, error)
 	GetResearch(ctx context.Context) (model.Research, error)
+	RefreshNow(ctx context.Context) error
 }
 
 // fleetSaveEvent represents a fleet-save tracking record in the database.
@@ -46,7 +47,7 @@ type endangeredPlanet struct {
 
 // Defender orchestrates fleet-save operations: polls for attacks, saves endangered fleets, recalls after danger passes.
 type Defender struct {
-	client      ogamed.ClientInterface
+	client      ogamex.ClientInterface
 	stateMgr    StateReader
 	db          *sql.DB
 	cfg         config.DefenderConfig
@@ -59,7 +60,7 @@ type Broadcaster interface {
 }
 
 // NewDefender creates a new Defender with all required dependencies.
-func NewDefender(client ogamed.ClientInterface, stateMgr StateReader, db *sql.DB, cfg config.DefenderConfig, log *slog.Logger) *Defender {
+func NewDefender(client ogamex.ClientInterface, stateMgr StateReader, db *sql.DB, cfg config.DefenderConfig, log *slog.Logger) *Defender {
 	return &Defender{
 		client:   client,
 		stateMgr: stateMgr,
@@ -276,6 +277,10 @@ func (d *Defender) Run(ctx context.Context) {
 
 // poll checks for attacks and processes any pending recalls.
 func (d *Defender) poll(ctx context.Context) {
+	if err := d.stateMgr.RefreshNow(ctx); err != nil {
+		d.log.Error("Failed to force-refresh state", "error", err)
+	}
+
 	attacks, err := d.client.GetAttacks(ctx)
 	if err != nil {
 		d.log.Error("Failed to check attacks", "error", err)

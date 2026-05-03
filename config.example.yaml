@@ -1,14 +1,6 @@
 # OGame Bot Configuration
 # Copy to config.yaml and fill in your details
 
-account:
-  universe: "s123-en.ogame.gameforge.com" # Your universe URL
-  username: "your_username"
-  password: "${OGAME_PASSWORD}" # Loaded from .env file
-
-ogamed:
-  url: "http://ogamed:8080" # ogamed container URL
-
 ogamex:
   url: "https://main.ogamex.dev" # OGameX server URL
   email: "${OGAMEX_EMAIL}" # OGameX account email

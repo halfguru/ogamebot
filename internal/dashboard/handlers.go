@@ -7,7 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/user/ogame-bot/internal/builder"
+	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/model"
 )
 
@@ -20,23 +23,34 @@ type StateReader interface {
 	GetResearch(ctx context.Context) (model.Research, error)
 	GetBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error)
 	GetFacilities(ctx context.Context, planetID int) (model.Facilities, error)
+	GetLastRefreshTime() time.Time
+	GetPlanetCount() int
 }
 
 // Handlers holds dependencies for REST API endpoint handlers.
-type Handlers struct {
-	stateMgr StateReader
-	db       *sql.DB
-	hub      *Hub
-	log      *slog.Logger
+type PlanReader interface {
+	GetPlan() builder.BuildPlan
 }
 
-// NewHandlers creates a new Handlers instance.
-func NewHandlers(stateMgr StateReader, db *sql.DB, hub *Hub, log *slog.Logger) *Handlers {
+type Handlers struct {
+	stateMgr  StateReader
+	planMgr   PlanReader
+	db        *sql.DB
+	hub       *Hub
+	log       *slog.Logger
+	features  config.FeaturesConfig
+	startTime time.Time
+}
+
+func NewHandlers(stateMgr StateReader, planMgr PlanReader, db *sql.DB, hub *Hub, log *slog.Logger, features config.FeaturesConfig, startTime time.Time) *Handlers {
 	return &Handlers{
-		stateMgr: stateMgr,
-		db:       db,
-		hub:      hub,
-		log:      log.With("component", "dashboard-handlers"),
+		stateMgr:  stateMgr,
+		planMgr:   planMgr,
+		db:        db,
+		hub:       hub,
+		log:       log.With("component", "dashboard-handlers"),
+		features:  features,
+		startTime: startTime,
 	}
 }
 
@@ -270,6 +284,35 @@ func (h *Handlers) handleFarmAttacks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.writeJSON(w, attacks)
+}
+
+func (h *Handlers) handleStatus(w http.ResponseWriter, r *http.Request) {
+	lastRefresh := h.stateMgr.GetLastRefreshTime()
+	var lastRefreshStr string
+	if !lastRefresh.IsZero() {
+		lastRefreshStr = lastRefresh.UTC().Format(time.RFC3339)
+	}
+
+	response := map[string]interface{}{
+		"status":           "running",
+		"uptime":           time.Since(h.startTime).String(),
+		"lastStateRefresh": lastRefreshStr,
+		"planetsCount":     h.stateMgr.GetPlanetCount(),
+		"features": map[string]bool{
+			"defender":  h.features.Defender.Enabled,
+			"autoBuild": h.features.AutoBuild.Enabled,
+			"autoFarm":  h.features.AutoFarm.Enabled,
+		},
+	}
+	h.writeJSON(w, response)
+}
+
+func (h *Handlers) handleBuilderPlan(w http.ResponseWriter, r *http.Request) {
+	if h.planMgr == nil {
+		h.writeJSON(w, builder.BuildPlan{})
+		return
+	}
+	h.writeJSON(w, h.planMgr.GetPlan())
 }
 
 // writeJSON sets the content type and writes a JSON response.

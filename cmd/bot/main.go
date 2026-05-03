@@ -19,7 +19,6 @@ import (
 	"github.com/user/ogame-bot/internal/dashboard"
 	"github.com/user/ogame-bot/internal/defender"
 	"github.com/user/ogame-bot/internal/farmer"
-	"github.com/user/ogame-bot/internal/ogamed"
 	"github.com/user/ogame-bot/internal/ogamex"
 	"github.com/user/ogame-bot/internal/state"
 )
@@ -41,6 +40,8 @@ func main() {
 
 	log.Info("Starting OGame Bot")
 
+	startTime := time.Now()
+
 	// 4. Create data directory per D-17
 	dataDir := "data"
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
@@ -60,60 +61,15 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var client ogamed.ClientInterface
-	if cfg.OGameX.URL != "" {
-		ogamexCl := ogamex.NewClient(cfg.OGameX.URL, cfg.OGameX.Email, cfg.OGameX.Password, log)
-		log.Info("Using OGameX client", "url", cfg.OGameX.URL)
-		if err := ogamexCl.Login(ctx); err != nil {
-			log.Error("OGameX login failed", "error", err)
-			os.Exit(1)
-		}
-		log.Info("Connected to OGameX")
-		client = ogamexCl
-	} else {
-		rateLimiter := ogamed.NewRateLimiter(cfg.RateLimit)
-		ogamedCl := ogamed.NewClient(cfg.Ogamed.URL, rateLimiter, log)
-		log.Info("Using ogamed client", "url", cfg.Ogamed.URL)
-		if err := ogamedCl.Login(ctx); err != nil {
-			log.Warn("Login failed, attempting captcha solve", "error", err)
-			const maxRetries = 5
-			loggedIn := false
-			for attempt := 1; attempt <= maxRetries; attempt++ {
-				time.Sleep(2 * time.Second)
-				challenge, cerr := ogamedCl.GetCaptchaChallenge(ctx)
-				if cerr != nil {
-					log.Warn("Failed to get captcha challenge, retrying", "attempt", attempt, "error", cerr)
-					if lerr := ogamedCl.Login(ctx); lerr != nil {
-						log.Warn("Login attempt failed", "attempt", attempt, "error", lerr)
-					} else {
-						loggedIn = true
-						break
-					}
-					continue
-				}
-				answer := ogamed.SolveCaptcha(challenge.Icons, challenge.Question)
-				log.Info("Captcha solved", "attempt", attempt, "answer", answer, "challengeID", challenge.ID)
-				if serr := ogamedCl.SolveCaptchaChallenge(ctx, challenge.ID, answer); serr != nil {
-					log.Error("Failed to submit captcha answer", "attempt", attempt, "error", serr)
-					continue
-				}
-				log.Info("Captcha answer submitted, retrying login")
-				time.Sleep(2 * time.Second)
-				if lerr := ogamedCl.Login(ctx); lerr != nil {
-					log.Warn("Login still failing after captcha", "attempt", attempt, "error", lerr)
-					continue
-				}
-				loggedIn = true
-				break
-			}
-			if !loggedIn {
-				log.Error("Failed to login after captcha attempts")
-				os.Exit(1)
-			}
-		}
-		log.Info("Connected to ogamed")
-		client = ogamedCl
+	var client ogamex.ClientInterface
+	ogamexCl := ogamex.NewClient(cfg.OGameX.URL, cfg.OGameX.Email, cfg.OGameX.Password, log)
+	log.Info("Using OGameX client", "url", cfg.OGameX.URL)
+	if err := ogamexCl.Login(ctx); err != nil {
+		log.Error("OGameX login failed", "error", err)
+		os.Exit(1)
 	}
+	log.Info("Connected to OGameX")
+	client = ogamexCl
 
 	// 8. Start game state manager per D-09
 	stateMgr := state.NewManager(db, client, log)
@@ -121,11 +77,25 @@ func main() {
 
 	// 8.4. Create dashboard server early to get broadcaster for workers
 	var broadcaster dashboard.Broadcaster
+	var b *builder.Builder
+	if cfg.Features.AutoBuild.Enabled {
+		b = builder.NewBuilder(client, stateMgr, db, cfg.Features.AutoBuild, log)
+		b.SetBroadcaster(broadcaster)
+	}
 	if cfg.Dashboard.Enabled {
-		dashSrv := dashboard.NewServer(stateMgr, db, cfg.Dashboard, log)
+		var planReader dashboard.PlanReader
+		if b != nil {
+			planReader = b
+		}
+		dashSrv := dashboard.NewServer(stateMgr, planReader, db, cfg.Dashboard, log, cfg.Features, startTime)
 		broadcaster = dashSrv.GetBroadcaster()
 		go dashSrv.Start(ctx)
 		log.Info("Dashboard started", "port", cfg.Dashboard.Port)
+	}
+	if b != nil {
+		b.SetBroadcaster(broadcaster)
+		go b.Run(ctx)
+		log.Info("Builder started", "pollInterval", time.Duration(cfg.Features.AutoBuild.PollIntervalMs)*time.Millisecond)
 	}
 
 	// 8.5. Start defender if enabled
@@ -134,14 +104,6 @@ func main() {
 		def.SetBroadcaster(broadcaster)
 		go def.Run(ctx)
 		log.Info("Defender started", "pollInterval", time.Duration(cfg.Features.Defender.PollIntervalMs)*time.Millisecond)
-	}
-
-	// 8.6. Start builder if enabled
-	if cfg.Features.AutoBuild.Enabled {
-		b := builder.NewBuilder(client, stateMgr, db, cfg.Features.AutoBuild, log)
-		b.SetBroadcaster(broadcaster)
-		go b.Run(ctx)
-		log.Info("Builder started", "pollInterval", time.Duration(cfg.Features.AutoBuild.PollIntervalMs)*time.Millisecond)
 	}
 
 	// 8.7. Start farmer if enabled

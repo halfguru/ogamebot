@@ -10,7 +10,7 @@ import (
 
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/model"
-	"github.com/user/ogame-bot/internal/ogamed"
+	"github.com/user/ogame-bot/internal/ogamex"
 
 	_ "github.com/user/ogame-bot/internal/state" // registers sqlite driver
 )
@@ -116,12 +116,8 @@ func (m *mockFarmerClient) GetEspionageReport(_ context.Context, messageID int64
 func (m *mockFarmerClient) DeleteAllEspionageReports(_ context.Context) error {
 	return m.deleteReportsErr
 }
-func (m *mockFarmerClient) GetCaptchaChallenge(_ context.Context) (ogamed.CaptchaChallenge, error) {
-	return ogamed.CaptchaChallenge{}, nil
-}
-func (m *mockFarmerClient) SolveCaptchaChallenge(_ context.Context, _ string, _ int) error {
-	return nil
-}
+
+var _ ogamex.ClientInterface = (*mockFarmerClient)(nil)
 
 // mockFarmerStateReader satisfies FarmerStateReader for farmer tests.
 type mockFarmerStateReader struct {

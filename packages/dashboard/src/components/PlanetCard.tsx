@@ -1,4 +1,4 @@
-import type { APIPlanet, APIBuildEvent } from '@ogame-bot/shared';
+import type { APIPlanet, APIBuildEvent, PlanetBuildPlan } from '@ogame-bot/shared';
 import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 
 function formatNumber(n: number): string {
@@ -53,7 +53,7 @@ function BuildCountdown(props: { event: APIBuildEvent }) {
   return <div class="build-queue">{text()}</div>;
 }
 
-export default function PlanetCard(props: { planet: APIPlanet; buildEvent?: APIBuildEvent }) {
+export default function PlanetCard(props: { planet: APIPlanet; buildEvent?: APIBuildEvent; buildPlan?: PlanetBuildPlan }) {
   const fieldsPercent = () => (props.planet.fieldsUsed / props.planet.fieldsTotal) * 100;
   const fieldsClass = () =>
     fieldsPercent() >= 90 ? 'fields-critical' : fieldsPercent() >= 70 ? 'fields-warning' : 'fields-ok';
@@ -115,6 +115,19 @@ export default function PlanetCard(props: { planet: APIPlanet; buildEvent?: APIB
             </Show>
             <Show when={fac().naniteFactory > 0}>
               <span class="pill facility">Nanite {fac().naniteFactory}</span>
+            </Show>
+          </div>
+        </Show>
+        <Show when={props.buildPlan}>
+          <div class="planet-section-label">Next Build</div>
+          <div class="planet-next-build">
+            <span class={`pill plan tier-${props.buildPlan!.tier}`}>
+              {props.buildPlan!.buildingName} {props.buildPlan!.currentLevel} → {props.buildPlan!.targetLevel}
+            </span>
+            <Show when={props.buildPlan!.costMetal > 0 || props.buildPlan!.costCrystal > 0 || props.buildPlan!.costDeuterium > 0}>
+              <span class="plan-cost">
+                {formatNumber(props.buildPlan!.costMetal)}M {formatNumber(props.buildPlan!.costCrystal)}C {formatNumber(props.buildPlan!.costDeuterium)}D
+              </span>
             </Show>
           </div>
         </Show>

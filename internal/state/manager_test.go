@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/user/ogame-bot/internal/model"
-	"github.com/user/ogame-bot/internal/ogamed"
+	"github.com/user/ogame-bot/internal/ogamex"
 )
 
 // mockClient implements ogamed.ClientInterface for testing.
@@ -179,12 +179,8 @@ func (m *mockClient) GetEspionageReport(_ context.Context, _ int64) (model.Espio
 func (m *mockClient) DeleteAllEspionageReports(_ context.Context) error {
 	return nil
 }
-func (m *mockClient) GetCaptchaChallenge(_ context.Context) (ogamed.CaptchaChallenge, error) {
-	return ogamed.CaptchaChallenge{}, nil
-}
-func (m *mockClient) SolveCaptchaChallenge(_ context.Context, _ string, _ int) error {
-	return nil
-}
+
+var _ ogamex.ClientInterface = (*mockClient)(nil)
 
 // setupTestDB creates a fresh SQLite database for testing.
 func setupTestDB(t *testing.T) *sql.DB {
@@ -609,6 +605,3 @@ func TestManager_GetFleets(t *testing.T) {
 		t.Errorf("resources: expected metal=100 crystal=50, got metal=%d crystal=%d", f.Metal, f.Crystal)
 	}
 }
-
-// Verify interface compliance
-var _ ogamed.ClientInterface = (*mockClient)(nil)

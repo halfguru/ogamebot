@@ -15,8 +15,6 @@ import (
 
 // Config is the top-level bot configuration.
 type Config struct {
-	Account   AccountConfig   `yaml:"account"`
-	Ogamed    OgamedConfig    `yaml:"ogamed"`
 	OGameX    OGameXConfig    `yaml:"ogamex"`
 	Features  FeaturesConfig  `yaml:"features"`
 	RateLimit RateLimitConfig `yaml:"rateLimit"`
@@ -25,18 +23,6 @@ type Config struct {
 }
 
 // AccountConfig holds OGame account credentials.
-type AccountConfig struct {
-	Universe string `yaml:"universe"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-}
-
-// OgamedConfig holds the ogamed REST API connection settings.
-type OgamedConfig struct {
-	URL string `yaml:"url"`
-}
-
-// OGameXConfig holds the OGameX server connection and auth settings.
 type OGameXConfig struct {
 	URL      string `yaml:"url"`
 	Email    string `yaml:"email"`
@@ -166,7 +152,6 @@ func (a *AutoFarmConfig) AutoFarmDefaults() {
 	}
 }
 
-// RateLimitConfig holds rate limiting configuration for ogamed API calls.
 type RateLimitConfig struct {
 	DefaultMinDelayMs int                            `yaml:"defaultMinDelayMs"`
 	DefaultMaxDelayMs int                            `yaml:"defaultMaxDelayMs"`
@@ -190,18 +175,10 @@ var envVarPattern = regexp.MustCompile(`\$\{(\w+)\}`)
 
 func Load(path string, log *slog.Logger) (*Config, error) {
 	cfg := Config{
-		Ogamed: OgamedConfig{
-			URL: envOrDefault("OGAMED_URL", "http://ogamed:8080"),
-		},
 		OGameX: OGameXConfig{
 			URL:      os.Getenv("OGAMEX_URL"),
 			Email:    os.Getenv("OGAMEX_EMAIL"),
 			Password: os.Getenv("OGAMEX_PASSWORD"),
-		},
-		Account: AccountConfig{
-			Universe: os.Getenv("OGAMED_UNIVERSE"),
-			Username: os.Getenv("OGAMED_USERNAME"),
-			Password: os.Getenv("OGAMED_PASSWORD"),
 		},
 		RateLimit: RateLimitConfig{
 			DefaultMinDelayMs: 2000,
@@ -253,27 +230,14 @@ func envOrDefault(key, fallback string) string {
 
 // Validate checks that all required config fields are present and valid.
 func (c *Config) Validate() error {
-	usingOGameX := c.OGameX.URL != ""
-	if usingOGameX {
-		if c.OGameX.Email == "" {
-			return fmt.Errorf("ogamex.email is required when ogamex is configured")
-		}
-		if c.OGameX.Password == "" {
-			return fmt.Errorf("ogamex.password is required when ogamex is configured")
-		}
-	} else {
-		if c.Account.Universe == "" {
-			return fmt.Errorf("account.universe is required")
-		}
-		if c.Account.Username == "" {
-			return fmt.Errorf("account.username is required")
-		}
-		if c.Account.Password == "" {
-			return fmt.Errorf("account.password is required")
-		}
-		if c.Ogamed.URL == "" {
-			return fmt.Errorf("ogamed.url is required")
-		}
+	if c.OGameX.URL == "" {
+		return fmt.Errorf("ogamex.url is required")
+	}
+	if c.OGameX.Email == "" {
+		return fmt.Errorf("ogamex.email is required")
+	}
+	if c.OGameX.Password == "" {
+		return fmt.Errorf("ogamex.password is required")
 	}
 	if c.RateLimit.DefaultMinDelayMs < 500 {
 		return fmt.Errorf("rateLimit.defaultMinDelayMs must be >= 500ms, got %d", c.RateLimit.DefaultMinDelayMs)

@@ -1,4 +1,4 @@
-import type { APIPlanet, APIFleet, APIResearch, APIBuildEvent, APIFleetSaveEvent, APIFarmAttack } from '@ogame-bot/shared';
+import type { APIPlanet, APIFleet, APIResearch, APIBuildEvent, APIFleetSaveEvent, APIFarmAttack, BuildPlan } from '@ogame-bot/shared';
 
 const API_BASE = ''; // relative — Vite proxy in dev, same-origin in prod
 
@@ -32,6 +32,10 @@ export async function fetchFleetSaveEvents(): Promise<APIFleetSaveEvent[]> {
 
 export async function fetchFarmAttacks(): Promise<APIFarmAttack[]> {
   return fetchJSON<APIFarmAttack[]>('/api/events/farm-attacks');
+}
+
+export async function fetchBuilderPlan(): Promise<BuildPlan> {
+  return fetchJSON<BuildPlan>('/api/builder/plan');
 }
 
 export async function fetchAllState(): Promise<{

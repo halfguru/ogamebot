@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/user/ogame-bot/internal/config"
 )
@@ -30,9 +31,9 @@ func (s *Server) GetBroadcaster() Broadcaster {
 }
 
 // NewServer creates a new dashboard server.
-func NewServer(stateMgr StateReader, db *sql.DB, cfg config.DashboardConfig, log *slog.Logger) *Server {
+func NewServer(stateMgr StateReader, planMgr PlanReader, db *sql.DB, cfg config.DashboardConfig, log *slog.Logger, features config.FeaturesConfig, startTime time.Time) *Server {
 	hub := NewHub(log)
-	handlers := NewHandlers(stateMgr, db, hub, log)
+	handlers := NewHandlers(stateMgr, planMgr, db, hub, log, features, startTime)
 
 	return &Server{
 		handlers: handlers,
@@ -53,6 +54,8 @@ func (s *Server) Start(ctx context.Context) {
 	mux.HandleFunc("GET /api/planets", s.handlers.handlePlanets)
 	mux.HandleFunc("GET /api/fleets", s.handlers.handleFleets)
 	mux.HandleFunc("GET /api/research", s.handlers.handleResearch)
+	mux.HandleFunc("GET /api/status", s.handlers.handleStatus)
+	mux.HandleFunc("GET /api/builder/plan", s.handlers.handleBuilderPlan)
 	mux.HandleFunc("GET /api/events/builds", s.handlers.handleBuildEvents)
 	mux.HandleFunc("GET /api/events/fleet-saves", s.handlers.handleFleetSaveEvents)
 	mux.HandleFunc("GET /api/events/farm-attacks", s.handlers.handleFarmAttacks)

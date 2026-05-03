@@ -3,6 +3,7 @@ package ogamex
 import (
 	"fmt"
 	"io"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,16 +21,68 @@ var planetNameRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*\\\/<span>(\
 func parseAmount(s string) int {
 	s = strings.TrimSpace(s)
 	s = strings.ReplaceAll(s, ",", "")
-	s = strings.ReplaceAll(s, ".", "")
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return 0
+	}
+	if strings.Contains(s, ".") {
+		f, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return 0
+		}
+		return int(math.Round(f))
 	}
 	n, err := strconv.Atoi(s)
 	if err != nil {
 		return 0
 	}
 	return n
+}
+
+func parseResourceValue(doc *goquery.Document, id string) int {
+	sel := doc.Find("#" + id)
+	if raw, exists := sel.Attr("data-raw"); exists && raw != "" {
+		return parseAmount(raw)
+	}
+	return parseFormattedNumber(sel.Text())
+}
+
+func parseFormattedNumber(s string) int {
+	s = strings.TrimSpace(s)
+	s = strings.ReplaceAll(s, ",", "")
+	if s == "" {
+		return 0
+	}
+
+	parts := strings.Split(s, ".")
+	switch len(parts) {
+	case 1:
+		n, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return 0
+		}
+		return n
+	case 2:
+		if len(parts[1]) == 3 {
+			n, err := strconv.Atoi(parts[0] + parts[1])
+			if err != nil {
+				return 0
+			}
+			return n
+		}
+		f, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return 0
+		}
+		return int(math.Round(f))
+	default:
+		cleaned := strings.Join(parts, "")
+		n, err := strconv.Atoi(cleaned)
+		if err != nil {
+			return 0
+		}
+		return n
+	}
 }
 
 func parsePlanetList(body io.Reader) ([]model.Planet, error) {
@@ -134,14 +187,6 @@ func parseResources(body io.Reader) (model.Resources, error) {
 	res.DarkMatter = parseResourceValue(doc, "resources_darkmatter")
 
 	return res, nil
-}
-
-func parseResourceValue(doc *goquery.Document, id string) int {
-	sel := doc.Find("#" + id)
-	if raw, exists := sel.Attr("data-raw"); exists {
-		return parseAmount(raw)
-	}
-	return parseAmount(sel.Text())
 }
 
 func parseBuildings(body io.Reader, idMap map[int]*int) error {

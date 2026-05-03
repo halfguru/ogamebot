@@ -1,5 +1,5 @@
 // Package state manages SQLite database connections, migrations,
-// and game state caching from ogamed.
+// and game state caching from OGameX.
 package state
 
 import (

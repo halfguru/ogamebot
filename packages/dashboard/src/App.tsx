@@ -1,7 +1,7 @@
 import { createSignal, onMount, onCleanup } from 'solid-js';
-import { fetchAllState, fetchBuildEvents, fetchFleetSaveEvents, fetchFarmAttacks } from './api/client';
+import { fetchAllState, fetchBuildEvents, fetchFleetSaveEvents, fetchFarmAttacks, fetchBuilderPlan } from './api/client';
 import { createWSClient } from './api/websocket';
-import type { APIPlanet, APIFleet, APIResearch, APIBuildEvent, APIFleetSaveEvent, APIFarmAttack } from '@ogame-bot/shared';
+import type { APIPlanet, APIFleet, APIResearch, APIBuildEvent, APIFleetSaveEvent, APIFarmAttack, BuildPlan } from '@ogame-bot/shared';
 import Header from './components/Header';
 import EmpireOverview from './components/EmpireOverview';
 import FleetMovements from './components/FleetMovements';
@@ -15,16 +15,18 @@ export default function App() {
   const [buildEvents, setBuildEvents] = createSignal<APIBuildEvent[]>([]);
   const [fleetSaveEvents, setFleetSaveEvents] = createSignal<APIFleetSaveEvent[]>([]);
   const [farmAttacks, setFarmAttacks] = createSignal<APIFarmAttack[]>([]);
+  const [buildPlan, setBuildPlan] = createSignal<BuildPlan>({ planets: [], research: null });
   const [connected, setConnected] = createSignal(false);
   const [lastUpdate, setLastUpdate] = createSignal<Date | null>(null);
 
   onMount(async () => {
     try {
-      const [state, builds, saves, attacks] = await Promise.all([
+      const [state, builds, saves, attacks, plan] = await Promise.all([
         fetchAllState(),
         fetchBuildEvents(),
         fetchFleetSaveEvents(),
         fetchFarmAttacks(),
+        fetchBuilderPlan(),
       ]);
       setPlanets(state.planets);
       setFleets(state.fleets);
@@ -32,6 +34,7 @@ export default function App() {
       setBuildEvents(builds);
       setFleetSaveEvents(saves);
       setFarmAttacks(attacks);
+      setBuildPlan(plan);
       setLastUpdate(new Date());
     } catch (err) {
       console.error('Failed to load initial state:', err);
@@ -67,7 +70,7 @@ export default function App() {
     <div class="dashboard">
       <Header connected={connected()} lastUpdate={lastUpdate()} />
       <main>
-        <EmpireOverview planets={planets()} buildEvents={buildEvents()} />
+        <EmpireOverview planets={planets()} buildEvents={buildEvents()} buildPlan={buildPlan()} />
         <ResearchPanel research={research()} />
         <FleetMovements fleets={fleets()} />
         <ActivityFeed buildEvents={buildEvents()} fleetSaveEvents={fleetSaveEvents()} farmAttacks={farmAttacks()} />

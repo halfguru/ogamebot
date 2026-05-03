@@ -14,12 +14,12 @@ import (
 	"github.com/user/ogame-bot/internal/constants"
 	"github.com/user/ogame-bot/internal/defender"
 	"github.com/user/ogame-bot/internal/model"
-	"github.com/user/ogame-bot/internal/ogamed"
+	"github.com/user/ogame-bot/internal/ogamex"
 )
 
 // Farmer orchestrates auto-farming: scans galaxies, spies inactives, attacks profitable targets.
 type Farmer struct {
-	client      ogamed.ClientInterface
+	client      ogamex.ClientInterface
 	stateMgr    FarmerStateReader
 	db          *sql.DB
 	cfg         config.AutoFarmConfig
@@ -32,7 +32,7 @@ type Broadcaster interface {
 }
 
 // NewFarmer creates a new Farmer with all required dependencies.
-func NewFarmer(client ogamed.ClientInterface, stateMgr FarmerStateReader, db *sql.DB, cfg config.AutoFarmConfig, log *slog.Logger) *Farmer {
+func NewFarmer(client ogamex.ClientInterface, stateMgr FarmerStateReader, db *sql.DB, cfg config.AutoFarmConfig, log *slog.Logger) *Farmer {
 	return &Farmer{
 		client:   client,
 		stateMgr: stateMgr,

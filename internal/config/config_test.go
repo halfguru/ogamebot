@@ -9,7 +9,7 @@ import (
 )
 
 func TestLoad_ValidConfig(t *testing.T) {
-	t.Setenv("TEST_OGAME_PASSWORD", "mysecret123")
+	t.Setenv("TEST_OGAMEX_PASSWORD", "mysecret123")
 
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
@@ -24,17 +24,14 @@ func TestLoad_ValidConfig(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if cfg.Account.Universe != "s123-en.ogame.gameforge.com" {
-		t.Errorf("Account.Universe = %q, want %q", cfg.Account.Universe, "s123-en.ogame.gameforge.com")
+	if cfg.OGameX.URL != "https://ogamex.example.com" {
+		t.Errorf("OGameX.URL = %q, want %q", cfg.OGameX.URL, "https://ogamex.example.com")
 	}
-	if cfg.Account.Username != "testuser" {
-		t.Errorf("Account.Username = %q, want %q", cfg.Account.Username, "testuser")
+	if cfg.OGameX.Email != "testuser@example.com" {
+		t.Errorf("OGameX.Email = %q, want %q", cfg.OGameX.Email, "testuser@example.com")
 	}
-	if cfg.Account.Password != "mysecret123" {
-		t.Errorf("Account.Password = %q, want %q", cfg.Account.Password, "mysecret123")
-	}
-	if cfg.Ogamed.URL != "http://ogamed:8080" {
-		t.Errorf("Ogamed.URL = %q, want %q", cfg.Ogamed.URL, "http://ogamed:8080")
+	if cfg.OGameX.Password != "mysecret123" {
+		t.Errorf("OGameX.Password = %q, want %q", cfg.OGameX.Password, "mysecret123")
 	}
 	if cfg.Features.Defender.Enabled != false {
 		t.Error("Features.Defender.Enabled = true, want false")
@@ -54,17 +51,15 @@ func TestLoad_ValidConfig(t *testing.T) {
 }
 
 func TestLoad_EnvInterpolation(t *testing.T) {
-	t.Setenv("TEST_OGAME_PASS", "secret123")
+	t.Setenv("TEST_OGAMEX_PASS", "secret123")
 
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	yaml := `
-account:
-  universe: "s123-en.ogame.gameforge.com"
-  username: "testuser"
-  password: "${TEST_OGAME_PASS}"
-ogamed:
-  url: "http://ogamed:8080"
+ogamex:
+  url: "https://ogamex.example.com"
+  email: "testuser@example.com"
+  password: "${TEST_OGAMEX_PASS}"
 features:
   defender:
     enabled: false
@@ -85,8 +80,8 @@ logLevel: "info"
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if cfg.Account.Password != "secret123" {
-		t.Errorf("Password = %q, want %q", cfg.Account.Password, "secret123")
+	if cfg.OGameX.Password != "secret123" {
+		t.Errorf("Password = %q, want %q", cfg.OGameX.Password, "secret123")
 	}
 }
 
@@ -94,12 +89,10 @@ func TestLoad_MissingEnvVar(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	yaml := `
-account:
-  universe: "s123-en.ogame.gameforge.com"
-  username: "testuser"
+ogamex:
+  url: "https://ogamex.example.com"
+  email: "testuser@example.com"
   password: "${NONEXISTENT_VAR_12345}"
-ogamed:
-  url: "http://ogamed:8080"
 features:
   defender:
     enabled: false
@@ -120,8 +113,8 @@ logLevel: "info"
 		t.Fatalf("Load() should succeed with unresolved env var (left as literal), got: %v", err)
 	}
 
-	if cfg.Account.Password != "${NONEXISTENT_VAR_12345}" {
-		t.Errorf("Password = %q, want literal ${NONEXISTENT_VAR_12345}", cfg.Account.Password)
+	if cfg.OGameX.Password != "${NONEXISTENT_VAR_12345}" {
+		t.Errorf("Password = %q, want literal ${NONEXISTENT_VAR_12345}", cfg.OGameX.Password)
 	}
 }
 
@@ -132,40 +125,28 @@ func TestValidate_RequiredFields(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "missing universe",
+			name: "missing url",
 			config: Config{
-				Account:  AccountConfig{Universe: "", Username: "u", Password: "p"},
-				Ogamed:   OgamedConfig{URL: "http://localhost:8080"},
+				OGameX:    OGameXConfig{URL: "", Email: "u@example.com", Password: "p"},
 				RateLimit: RateLimitConfig{DefaultMinDelayMs: 1000, DefaultMaxDelayMs: 2000},
 			},
-			wantErr: "account.universe",
+			wantErr: "ogamex.url",
 		},
 		{
-			name: "missing username",
+			name: "missing email",
 			config: Config{
-				Account:  AccountConfig{Universe: "uni", Username: "", Password: "p"},
-				Ogamed:   OgamedConfig{URL: "http://localhost:8080"},
+				OGameX:    OGameXConfig{URL: "https://ogamex.example.com", Email: "", Password: "p"},
 				RateLimit: RateLimitConfig{DefaultMinDelayMs: 1000, DefaultMaxDelayMs: 2000},
 			},
-			wantErr: "account.username",
+			wantErr: "ogamex.email",
 		},
 		{
 			name: "missing password",
 			config: Config{
-				Account:  AccountConfig{Universe: "uni", Username: "u", Password: ""},
-				Ogamed:   OgamedConfig{URL: "http://localhost:8080"},
+				OGameX:    OGameXConfig{URL: "https://ogamex.example.com", Email: "u@example.com", Password: ""},
 				RateLimit: RateLimitConfig{DefaultMinDelayMs: 1000, DefaultMaxDelayMs: 2000},
 			},
-			wantErr: "account.password",
-		},
-		{
-			name: "missing ogamed URL",
-			config: Config{
-				Account:  AccountConfig{Universe: "uni", Username: "u", Password: "p"},
-				Ogamed:   OgamedConfig{URL: ""},
-				RateLimit: RateLimitConfig{DefaultMinDelayMs: 1000, DefaultMaxDelayMs: 2000},
-			},
-			wantErr: "ogamed.url",
+			wantErr: "ogamex.password",
 		},
 	}
 
@@ -181,8 +162,7 @@ func TestValidate_RequiredFields(t *testing.T) {
 
 func TestValidate_RateLimitMin(t *testing.T) {
 	cfg := Config{
-		Account:  AccountConfig{Universe: "uni", Username: "u", Password: "p"},
-		Ogamed:   OgamedConfig{URL: "http://localhost:8080"},
+		OGameX:    OGameXConfig{URL: "https://ogamex.example.com", Email: "u@example.com", Password: "p"},
 		RateLimit: RateLimitConfig{DefaultMinDelayMs: 100, DefaultMaxDelayMs: 200},
 	}
 
@@ -194,8 +174,7 @@ func TestValidate_RateLimitMin(t *testing.T) {
 
 func TestValidate_RateLimitMaxLessThanMin(t *testing.T) {
 	cfg := Config{
-		Account:  AccountConfig{Universe: "uni", Username: "u", Password: "p"},
-		Ogamed:   OgamedConfig{URL: "http://localhost:8080"},
+		OGameX:    OGameXConfig{URL: "https://ogamex.example.com", Email: "u@example.com", Password: "p"},
 		RateLimit: RateLimitConfig{DefaultMinDelayMs: 5000, DefaultMaxDelayMs: 3000},
 	}
 
@@ -215,12 +194,10 @@ func TestLoad_MissingFile(t *testing.T) {
 
 // validYAML is a valid config matching config.example.yaml structure
 const validYAML = `
-account:
-  universe: "s123-en.ogame.gameforge.com"
-  username: "testuser"
-  password: "${TEST_OGAME_PASSWORD}"
-ogamed:
-  url: "http://ogamed:8080"
+ogamex:
+  url: "https://ogamex.example.com"
+  email: "testuser@example.com"
+  password: "${TEST_OGAMEX_PASSWORD}"
 features:
   defender:
     enabled: false
@@ -235,12 +212,10 @@ func TestDefenderConfig_LoadWithFields(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	yaml := `
-account:
-  universe: "uni"
-  username: "u"
+ogamex:
+  url: "https://ogamex.example.com"
+  email: "u@example.com"
   password: "p"
-ogamed:
-  url: "http://localhost:8080"
 features:
   defender:
     enabled: true
@@ -293,12 +268,10 @@ func TestDefenderConfig_Defaults(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	yaml := `
-account:
-  universe: "uni"
-  username: "u"
+ogamex:
+  url: "https://ogamex.example.com"
+  email: "u@example.com"
   password: "p"
-ogamed:
-  url: "http://localhost:8080"
 features:
   defender:
     enabled: true
@@ -378,8 +351,7 @@ func TestDefenderConfig_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := Config{
-				Account:   AccountConfig{Universe: "uni", Username: "u", Password: "p"},
-				Ogamed:    OgamedConfig{URL: "http://localhost:8080"},
+				OGameX:    OGameXConfig{URL: "https://ogamex.example.com", Email: "u@example.com", Password: "p"},
 				Features:  FeaturesConfig{Defender: tt.def},
 				RateLimit: RateLimitConfig{DefaultMinDelayMs: 1000, DefaultMaxDelayMs: 2000},
 			}
