@@ -86,6 +86,9 @@ func (m *mockClient) GetConstructions(_ context.Context, _ int) (model.Construct
 func (m *mockClient) BuildBuilding(_ context.Context, _, _ int) error {
 	return nil
 }
+func (m *mockClient) BuildResearch(_ context.Context, _, _ int) error {
+	return nil
+}
 func (m *mockClient) GetGalaxyInfos(_ context.Context, _, _ int) (model.SystemInfos, error) {
 	return model.SystemInfos{}, nil
 }

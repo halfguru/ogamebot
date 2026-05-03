@@ -86,6 +86,7 @@ func (m *mockFarmerClient) GetConstructions(_ context.Context, _ int) (model.Con
 	return model.Constructions{}, nil
 }
 func (m *mockFarmerClient) BuildBuilding(_ context.Context, _, _ int) error { return nil }
+func (m *mockFarmerClient) BuildResearch(_ context.Context, _, _ int) error { return nil }
 func (m *mockFarmerClient) GetGalaxyInfos(_ context.Context, galaxy, system int) (model.SystemInfos, error) {
 	if m.galaxyErr != nil {
 		return model.SystemInfos{}, m.galaxyErr

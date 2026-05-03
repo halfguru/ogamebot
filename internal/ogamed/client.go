@@ -46,6 +46,7 @@ type ClientInterface interface {
 	CancelFleet(ctx context.Context, fleetID int64) error
 	GetConstructions(ctx context.Context, planetID int) (model.Constructions, error)
 	BuildBuilding(ctx context.Context, planetID, buildingID int) error
+	BuildResearch(ctx context.Context, planetID, researchID int) error
 	GetGalaxyInfos(ctx context.Context, galaxy, system int) (model.SystemInfos, error)
 	GetEspionageReportMessages(ctx context.Context) ([]model.EspionageReportSummary, error)
 	GetEspionageReport(ctx context.Context, messageID int64) (model.EspionageReport, error)
@@ -360,6 +361,12 @@ func (c *Client) GetConstructions(ctx context.Context, planetID int) (model.Cons
 // BuildBuilding starts constructing the given building on the specified planet.
 func (c *Client) BuildBuilding(ctx context.Context, planetID, buildingID int) error {
 	path := fmt.Sprintf("/bot/planets/%d/build/building/%d", planetID, buildingID)
+	_, err := postTyped[any](c, ctx, path, url.Values{})
+	return err
+}
+
+func (c *Client) BuildResearch(ctx context.Context, planetID, researchID int) error {
+	path := fmt.Sprintf("/bot/planets/%d/build/research/%d", planetID, researchID)
 	_, err := postTyped[any](c, ctx, path, url.Values{})
 	return err
 }

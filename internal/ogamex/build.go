@@ -73,3 +73,44 @@ func (c *Client) BuildBuilding(ctx context.Context, planetID, buildingID int) er
 
 	return nil
 }
+
+var researchIDs = map[int]bool{
+	106: true, 108: true, 109: true, 110: true, 111: true,
+	113: true, 114: true, 115: true, 117: true, 118: true,
+	120: true, 121: true, 122: true, 123: true, 124: true, 199: true,
+}
+
+func (c *Client) BuildResearch(ctx context.Context, planetID, researchID int) error {
+	path := fmt.Sprintf("/research/add-buildrequest?cp=%d", planetID)
+
+	data := url.Values{}
+	data.Set("technologyId", fmt.Sprintf("%d", researchID))
+
+	body, err := c.doPost(ctx, path, data)
+	if err != nil {
+		return fmt.Errorf("ogamex: BuildResearch POST failed: %w", err)
+	}
+
+	var resp buildResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("ogamex: BuildResearch response parse error: %w", err)
+	}
+
+	if resp.Status != "success" && resp.Status != "ok" {
+		msg := resp.Message
+		if msg == "" {
+			msg = string(body)
+		}
+		return fmt.Errorf("ogamex: BuildResearch failed: %s", msg)
+	}
+
+	if resp.Success != nil && !*resp.Success {
+		msg := resp.Message
+		if msg == "" {
+			msg = string(body)
+		}
+		return fmt.Errorf("ogamex: BuildResearch failed: %s", msg)
+	}
+
+	return nil
+}

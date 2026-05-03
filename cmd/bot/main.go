@@ -5,10 +5,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -33,9 +35,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 3. Setup structured logging per D-18 (JSON in production)
+	// 3. Setup structured logging
 	level := parseLogLevel(cfg.LogLevel)
-	log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+	log = slog.New(newPrettyHandler(os.Stdout, level))
 
 	log.Info("Starting OGame Bot")
 
@@ -173,3 +175,54 @@ func parseLogLevel(level string) slog.Level {
 		return slog.LevelInfo
 	}
 }
+
+type prettyHandler struct {
+	w     io.Writer
+	level slog.Level
+	attrs []slog.Attr
+}
+
+func newPrettyHandler(w io.Writer, level slog.Level) *prettyHandler {
+	return &prettyHandler{w: w, level: level}
+}
+
+func (h *prettyHandler) Enabled(_ context.Context, level slog.Level) bool  { return level >= h.level }
+func (h *prettyHandler) Handle(_ context.Context, r slog.Record) error {
+	var levelStr string
+	switch {
+	case r.Level >= slog.LevelError:
+		levelStr = "ERR "
+	case r.Level >= slog.LevelWarn:
+		levelStr = "WARN"
+	case r.Level >= slog.LevelInfo:
+		levelStr = "INFO"
+	default:
+		levelStr = "DBG "
+	}
+
+	var fields []string
+	r.Attrs(func(a slog.Attr) bool {
+		fields = append(fields, fmt.Sprintf("%s=%s", a.Key, a.Value.String()))
+		return true
+	})
+	for _, a := range h.attrs {
+		fields = append(fields, fmt.Sprintf("%s=%s", a.Key, a.Value.String()))
+	}
+
+	fieldStr := ""
+	if len(fields) > 0 {
+		fieldStr = " " + strings.Join(fields, " ")
+	}
+
+	fmt.Fprintf(h.w, "%s %s %s%s\n",
+		r.Time.Format("15:04:05"),
+		levelStr,
+		r.Message,
+		fieldStr,
+	)
+	return nil
+}
+func (h *prettyHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &prettyHandler{w: h.w, level: h.level, attrs: append(h.attrs, attrs...)}
+}
+func (h *prettyHandler) WithGroup(name string) slog.Handler { return h }

@@ -14,19 +14,19 @@ import (
 	"github.com/user/ogame-bot/internal/model"
 	"github.com/user/ogame-bot/internal/ogamed"
 
-	_ "github.com/user/ogame-bot/internal/state" // registers sqlite driver
+	_ "github.com/user/ogame-bot/internal/state"
 )
 
-// --- Mock implementations ---
-
-// mockBuilderClient satisfies ogamed.ClientInterface for builder tests.
 type mockBuilderClient struct {
-	constructions map[int]model.Constructions // planetID → constructions
-	constructErr  error
-	buildErr      error
-	buildCalled   bool
-	lastPlanetID  int
-	lastBuildingID int
+	constructions   map[int]model.Constructions
+	constructErr    error
+	buildErr        error
+	buildCalled     bool
+	lastPlanetID    int
+	lastBuildingID  int
+	researchCalled  bool
+	lastResearchID  int
+	researchErr     error
 }
 
 func (m *mockBuilderClient) Login(_ context.Context) error                       { return nil }
@@ -84,6 +84,12 @@ func (m *mockBuilderClient) BuildBuilding(_ context.Context, planetID, buildingI
 	m.lastBuildingID = buildingID
 	return m.buildErr
 }
+func (m *mockBuilderClient) BuildResearch(_ context.Context, planetID, researchID int) error {
+	m.researchCalled = true
+	m.lastPlanetID = planetID
+	m.lastResearchID = researchID
+	return m.researchErr
+}
 func (m *mockBuilderClient) GetGalaxyInfos(_ context.Context, _, _ int) (model.SystemInfos, error) {
 	return model.SystemInfos{}, nil
 }
@@ -103,17 +109,16 @@ func (m *mockBuilderClient) SolveCaptchaChallenge(_ context.Context, _ string, _
 	return nil
 }
 
-// mockBuilderStateReader satisfies BuilderStateReader for builder tests.
 type mockBuilderStateReader struct {
 	planets     []model.Planet
 	planetsErr  error
-	resources   map[int]model.Resources // planetID → resources
+	resources   map[int]model.Resources
 	resErr      error
 	research    model.Research
 	researchErr error
-	buildings   map[int]model.ResourceBuildings // planetID → buildings
+	buildings   map[int]model.ResourceBuildings
 	buildErr    error
-	facilities  map[int]model.Facilities // planetID → facilities
+	facilities  map[int]model.Facilities
 	facilErr    error
 	speed       int
 	speedErr    error
@@ -161,8 +166,6 @@ func (m *mockBuilderStateReader) GetFacilities(_ context.Context, planetID int) 
 func (m *mockBuilderStateReader) GetServerSpeed(_ context.Context) (int, error) {
 	return m.speed, m.speedErr
 }
-
-// --- Test helpers ---
 
 func newTestDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -214,7 +217,7 @@ func insertTestPlanet(t *testing.T, db *sql.DB, id int, name string, fieldsUsed,
 
 func testBuilder(mc *mockBuilderClient, ms *mockBuilderStateReader, db *sql.DB, cfg config.AutoBuildConfig) *Builder {
 	b := NewBuilder(mc, ms, db, cfg, testLogger())
-	b.antiDetectPct = 0 // deterministic in tests
+	b.antiDetectPct = 0
 	return b
 }
 
@@ -230,16 +233,22 @@ func defaultAutoBuildConfig() config.AutoBuildConfig {
 			"DeuteriumSynthesizer": 26,
 			"SolarPlant":           26,
 			"FusionReactor":        20,
+			"RoboticsFactory":      10,
+			"Shipyard":             12,
+			"ResearchLab":          12,
+			"NaniteFactory":        5,
+			"MetalStorage":         15,
+			"CrystalStorage":       15,
+			"DeuteriumStorage":     15,
 		},
 		PlanetOverrides: map[string]map[string]int{},
+		ResearchOrder:   []string{},
 	}
 }
 
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 }
-
-// --- Constructor Test ---
 
 func TestBuilderConstructor(t *testing.T) {
 	db := newTestDB(t)
@@ -256,8 +265,6 @@ func TestBuilderConstructor(t *testing.T) {
 		t.Fatal("NewBuilder returned nil")
 	}
 }
-
-// --- resolveMaxLevel Tests ---
 
 func TestResolveMaxLevelGlobalDefault(t *testing.T) {
 	cfg := defaultAutoBuildConfig()
@@ -293,7 +300,7 @@ func TestResolveMaxLevelPlanetOverride(t *testing.T) {
 func TestResolveMaxLevelNoConfig(t *testing.T) {
 	cfg := config.AutoBuildConfig{
 		FeatureConfig: config.FeatureConfig{Enabled: true, PollIntervalMs: 30000},
-		MaxLevels:     map[string]int{}, // empty
+		MaxLevels:     map[string]int{},
 	}
 	mc := &mockBuilderClient{}
 	ms := &mockBuilderStateReader{}
@@ -306,8 +313,6 @@ func TestResolveMaxLevelNoConfig(t *testing.T) {
 		t.Errorf("expected 0 for missing max level config, got %d", maxLvl)
 	}
 }
-
-// --- buildingLevel Tests ---
 
 func TestBuildingLevel(t *testing.T) {
 	buildings := model.ResourceBuildings{
@@ -327,12 +332,12 @@ func TestBuildingLevel(t *testing.T) {
 		{constants.BuildingDeuteriumSynthesizer, 10},
 		{constants.BuildingSolarPlant, 18},
 		{constants.BuildingFusionReactor, 5},
-		{999, 0}, // unknown building
+		{999, 0},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("building_%d", tt.buildingID), func(t *testing.T) {
-			got := buildingLevel(buildings, tt.buildingID)
+			got := buildingLevel(buildings, model.Facilities{}, tt.buildingID)
 			if got != tt.expected {
 				t.Errorf("buildingLevel(%d) = %d, want %d", tt.buildingID, got, tt.expected)
 			}
@@ -340,17 +345,12 @@ func TestBuildingLevel(t *testing.T) {
 	}
 }
 
-// --- Poll Tests ---
-
 func TestPollPicksHighestROI(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 	insertTestPlanet(t, db, 1, "Homeworld", 50, 200)
 	insertTestPlanet(t, db, 2, "Colony", 30, 200)
 
-	// Planet 1: Metal Mine 15, Crystal Mine 12 — expensive upgrades
-	// Planet 2: Metal Mine 1, Crystal Mine 1 — cheap upgrades, very high ROI
-	// Expect: Planet 2's buildings dominate; Metal Mine 1→2 should win
 	mc := &mockBuilderClient{}
 	ms := &mockBuilderStateReader{
 		planets: []model.Planet{
@@ -381,11 +381,9 @@ func TestPollPicksHighestROI(t *testing.T) {
 	if !mc.buildCalled {
 		t.Fatal("BuildBuilding should have been called")
 	}
-	// Planet 2 should win (lower level buildings have better ROI)
 	if mc.lastPlanetID != 2 {
 		t.Errorf("expected build on planet 2, got planet %d", mc.lastPlanetID)
 	}
-	// Metal Mine 1→2 should win (ROI ~0.35) over Crystal Mine 1→2 (ROI ~0.19)
 	if mc.lastBuildingID != constants.BuildingMetalMine {
 		t.Errorf("expected Metal Mine (1), got building %d", mc.lastBuildingID)
 	}
@@ -398,7 +396,7 @@ func TestPollSkipsActiveConstruction(t *testing.T) {
 
 	mc := &mockBuilderClient{
 		constructions: map[int]model.Constructions{
-			1: {Building: model.Construction{ID: 1, Level: 16}}, // active construction!
+			1: {Building: model.Construction{ID: 1, Level: 16}},
 		},
 	}
 	ms := &mockBuilderStateReader{
@@ -424,7 +422,7 @@ func TestPollSkipsActiveConstruction(t *testing.T) {
 	b.poll(ctx)
 
 	if mc.buildCalled {
-		t.Error("BuildBuilding should NOT have been called — planet is full")
+		t.Error("BuildBuilding should NOT have been called — planet has active construction")
 	}
 }
 
@@ -443,7 +441,7 @@ func TestPollRespectsMaxLevelCap(t *testing.T) {
 		},
 		research: model.Research{PlasmaTechnology: 10, EnergyTechnology: 5},
 		buildings: map[int]model.ResourceBuildings{
-			1: {MetalMine: 15, CrystalMine: 12, SolarPlant: 20}, // Crystal Mine is available, not at max
+			1: {MetalMine: 15, CrystalMine: 12, SolarPlant: 20},
 		},
 		facilities: map[int]model.Facilities{
 			1: {RoboticsFactory: 10, NaniteFactory: 2},
@@ -451,7 +449,7 @@ func TestPollRespectsMaxLevelCap(t *testing.T) {
 		speed: 1,
 	}
 	cfg := defaultAutoBuildConfig()
-	cfg.MaxLevels["MetalMine"] = 15 // Metal Mine already at max!
+	cfg.MaxLevels["MetalMine"] = 15
 
 	b := testBuilder(mc, ms, db, cfg)
 
@@ -489,7 +487,6 @@ func TestPollRespectsPerPlanetOverride(t *testing.T) {
 		speed: 1,
 	}
 	cfg := defaultAutoBuildConfig()
-	// Override: MetalMine capped at 15 on Homeworld
 	cfg.PlanetOverrides = map[string]map[string]int{
 		"Homeworld": {"MetalMine": 15},
 	}
@@ -575,7 +572,6 @@ func TestPollRecordsBuildEvent(t *testing.T) {
 		t.Fatal("BuildBuilding should have been called")
 	}
 
-	// Verify build event was recorded in database
 	var count int
 	err := db.QueryRow("SELECT COUNT(*) FROM build_events WHERE planet_id = 1").Scan(&count)
 	if err != nil {
@@ -585,7 +581,6 @@ func TestPollRecordsBuildEvent(t *testing.T) {
 		t.Errorf("expected 1 build event, got %d", count)
 	}
 
-	// Verify fields — Metal Mine 1→2 should have the best ROI
 	var buildingName string
 	var fromLevel, toLevel int
 	var roiScore float64
@@ -634,7 +629,6 @@ func TestPollHandlesConstructionsAPIError(t *testing.T) {
 	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
-	// Should not panic, should log and continue
 	b.poll(ctx)
 
 	if mc.buildCalled {
@@ -671,7 +665,6 @@ func TestPollHandlesBuildBuildingAPIError(t *testing.T) {
 	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
-	// Should not panic — should log the error and continue
 	b.poll(ctx)
 
 	if !mc.buildCalled {
@@ -693,25 +686,19 @@ func TestPollEmptyPlanetList(t *testing.T) {
 	b := testBuilder(mc, ms, db, cfg)
 
 	ctx := context.Background()
-	b.poll(ctx) // Should not panic
+	b.poll(ctx)
 
 	if mc.buildCalled {
 		t.Error("BuildBuilding should NOT have been called with no planets")
 	}
 }
 
-// --- Sorting verification test ---
-
 func TestPollCandidatesSortedByROI(t *testing.T) {
-	// This test verifies that candidates are sorted by ROI score descending
-	// by checking the building that was actually built
 	db := newTestDB(t)
 	defer db.Close()
 	insertTestPlanet(t, db, 1, "Homeworld", 50, 200)
 
 	mc := &mockBuilderClient{}
-	// Metal Mine level 1 → 2 (extremely cheap, high ROI)
-	// Crystal Mine level 10 → 11 (more expensive, lower ROI)
 	ms := &mockBuilderStateReader{
 		planets: []model.Planet{
 			{ID: 1, Name: "Homeworld", TemperatureMin: 0, TemperatureMax: 100, FieldsUsed: 50, FieldsTotal: 200},
@@ -738,15 +725,269 @@ func TestPollCandidatesSortedByROI(t *testing.T) {
 	if !mc.buildCalled {
 		t.Fatal("BuildBuilding should have been called")
 	}
-	// Metal Mine 1→2 should win (cheaper, higher ROI)
 	if mc.lastBuildingID != constants.BuildingMetalMine {
 		t.Errorf("expected Metal Mine (highest ROI), got building %d", mc.lastBuildingID)
 	}
 }
 
-// Helper to verify sorted candidates (used internally)
 func sortCandidates(candidates []ROIResult) {
 	sort.Slice(candidates, func(i, j int) bool {
 		return candidates[i].ROIScore > candidates[j].ROIScore
 	})
+}
+
+func TestPollEnergyTierTriggersOnNegativeEnergy(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	insertTestPlanet(t, db, 1, "Homeworld", 50, 200)
+
+	mc := &mockBuilderClient{}
+	ms := &mockBuilderStateReader{
+		planets: []model.Planet{
+			{ID: 1, Name: "Homeworld", TemperatureMin: 0, TemperatureMax: 100, FieldsUsed: 50, FieldsTotal: 200},
+		},
+		resources: map[int]model.Resources{
+			1: {Metal: 500000, Crystal: 200000, Deuterium: 100000, Energy: -500},
+		},
+		research: model.Research{PlasmaTechnology: 5, EnergyTechnology: 3},
+		buildings: map[int]model.ResourceBuildings{
+			1: {MetalMine: 5, CrystalMine: 3, SolarPlant: 3},
+		},
+		facilities: map[int]model.Facilities{
+			1: {RoboticsFactory: 2},
+		},
+		speed: 1,
+	}
+	cfg := defaultAutoBuildConfig()
+
+	b := testBuilder(mc, ms, db, cfg)
+
+	ctx := context.Background()
+	b.poll(ctx)
+
+	if !mc.buildCalled {
+		t.Fatal("BuildBuilding should have been called")
+	}
+	if mc.lastBuildingID != constants.BuildingSolarPlant {
+		t.Errorf("expected Solar Plant (energy tier), got building %d", mc.lastBuildingID)
+	}
+}
+
+func TestPollResearchTier(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	insertTestPlanet(t, db, 1, "Homeworld", 50, 200)
+
+	mc := &mockBuilderClient{
+		constructions: map[int]model.Constructions{
+			1: {Building: model.Construction{ID: 0}},
+		},
+	}
+	ms := &mockBuilderStateReader{
+		planets: []model.Planet{
+			{ID: 1, Name: "Homeworld", TemperatureMin: 0, TemperatureMax: 100, FieldsUsed: 50, FieldsTotal: 200},
+		},
+		resources: map[int]model.Resources{
+			1: {Metal: 500000, Crystal: 200000, Deuterium: 100000, Energy: 500},
+		},
+		research: model.Research{},
+		buildings: map[int]model.ResourceBuildings{
+			1: {MetalMine: 1, CrystalMine: 1, DeuteriumSynthesizer: 1, SolarPlant: 5},
+		},
+		facilities: map[int]model.Facilities{
+			1: {RoboticsFactory: 2, ResearchLab: 3, Shipyard: 2},
+		},
+		speed: 1,
+	}
+	cfg := defaultAutoBuildConfig()
+	cfg.MaxLevels["MetalMine"] = 1
+	cfg.MaxLevels["CrystalMine"] = 1
+	cfg.MaxLevels["DeuteriumSynthesizer"] = 1
+	cfg.MaxLevels["RoboticsFactory"] = 2
+	cfg.MaxLevels["ResearchLab"] = 3
+	cfg.MaxLevels["Shipyard"] = 2
+	cfg.ResearchOrder = []string{"EnergyTechnology"}
+	cfg.MaxLevels["EnergyTechnology"] = 20
+
+	b := testBuilder(mc, ms, db, cfg)
+
+	ctx := context.Background()
+	b.poll(ctx)
+
+	if !mc.researchCalled {
+		t.Fatal("BuildResearch should have been called")
+	}
+	if mc.lastResearchID != 113 {
+		t.Errorf("expected research ID 113 (EnergyTechnology), got %d", mc.lastResearchID)
+	}
+}
+
+func TestPollResearchSkipsWhenBuildingActive(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	insertTestPlanet(t, db, 1, "Homeworld", 50, 200)
+
+	mc := &mockBuilderClient{
+		constructions: map[int]model.Constructions{
+			1: {Building: model.Construction{ID: 1, Level: 2}},
+		},
+	}
+	ms := &mockBuilderStateReader{
+		planets: []model.Planet{
+			{ID: 1, Name: "Homeworld", TemperatureMin: 0, TemperatureMax: 100, FieldsUsed: 50, FieldsTotal: 200},
+		},
+		resources: map[int]model.Resources{
+			1: {Metal: 500000, Crystal: 200000, Deuterium: 100000, Energy: 500},
+		},
+		research: model.Research{},
+		buildings: map[int]model.ResourceBuildings{
+			1: {MetalMine: 1, CrystalMine: 1, SolarPlant: 5},
+		},
+		facilities: map[int]model.Facilities{
+			1: {RoboticsFactory: 2, ResearchLab: 3},
+		},
+		speed: 1,
+	}
+	cfg := defaultAutoBuildConfig()
+	cfg.ResearchOrder = []string{"EnergyTechnology"}
+	cfg.MaxLevels["EnergyTechnology"] = 20
+
+	b := testBuilder(mc, ms, db, cfg)
+
+	ctx := context.Background()
+	b.poll(ctx)
+
+	if !mc.researchCalled {
+		t.Fatal("BuildResearch should have been called (research has its own slot)")
+	}
+}
+
+func TestPollInfrastructureTier(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	insertTestPlanet(t, db, 1, "Homeworld", 50, 200)
+
+	mc := &mockBuilderClient{}
+	ms := &mockBuilderStateReader{
+		planets: []model.Planet{
+			{ID: 1, Name: "Homeworld", TemperatureMin: 0, TemperatureMax: 100, FieldsUsed: 50, FieldsTotal: 200},
+		},
+		resources: map[int]model.Resources{
+			1: {Metal: 500000, Crystal: 200000, Deuterium: 100000, Energy: 500},
+		},
+		research: model.Research{},
+		buildings: map[int]model.ResourceBuildings{
+			1: {MetalMine: 1, CrystalMine: 1, DeuteriumSynthesizer: 1, SolarPlant: 20},
+		},
+		facilities: map[int]model.Facilities{
+			1: {RoboticsFactory: 0, ResearchLab: 0, Shipyard: 0},
+		},
+		speed: 1,
+	}
+	cfg := defaultAutoBuildConfig()
+	cfg.MaxLevels["MetalMine"] = 1
+	cfg.MaxLevels["CrystalMine"] = 1
+	cfg.MaxLevels["DeuteriumSynthesizer"] = 1
+
+	b := testBuilder(mc, ms, db, cfg)
+
+	ctx := context.Background()
+	b.poll(ctx)
+
+	if !mc.buildCalled {
+		t.Fatal("BuildBuilding should have been called")
+	}
+	if mc.lastBuildingID != constants.BuildingResearchLab {
+		t.Errorf("expected ResearchLab (infrastructure tier), got building %d", mc.lastBuildingID)
+	}
+}
+
+func TestPollStorageTier(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	insertTestPlanet(t, db, 1, "Homeworld", 50, 200)
+
+	mc := &mockBuilderClient{}
+	ms := &mockBuilderStateReader{
+		planets: []model.Planet{
+			{ID: 1, Name: "Homeworld", TemperatureMin: 0, TemperatureMax: 100, FieldsUsed: 50, FieldsTotal: 200},
+		},
+		resources: map[int]model.Resources{
+			1: {Metal: 9500, Crystal: 500, Deuterium: 100, Energy: 500},
+		},
+		research: model.Research{},
+		buildings: map[int]model.ResourceBuildings{
+			1: {MetalMine: 1, CrystalMine: 1, DeuteriumSynthesizer: 1, SolarPlant: 20, MetalStorage: 0},
+		},
+		facilities: map[int]model.Facilities{
+			1: {RoboticsFactory: 2, ResearchLab: 5, Shipyard: 3},
+		},
+		speed: 1,
+	}
+	cfg := defaultAutoBuildConfig()
+	cfg.MaxLevels["MetalMine"] = 1
+	cfg.MaxLevels["CrystalMine"] = 1
+	cfg.MaxLevels["DeuteriumSynthesizer"] = 1
+	cfg.MaxLevels["RoboticsFactory"] = 2
+	cfg.MaxLevels["ResearchLab"] = 5
+	cfg.MaxLevels["Shipyard"] = 3
+
+	b := testBuilder(mc, ms, db, cfg)
+
+	ctx := context.Background()
+	b.poll(ctx)
+
+	if !mc.buildCalled {
+		t.Fatal("BuildBuilding should have been called")
+	}
+	if mc.lastBuildingID != constants.BuildingMetalStorage {
+		t.Errorf("expected MetalStorage (storage tier), got building %d", mc.lastBuildingID)
+	}
+}
+
+func TestResearchCostCalculation(t *testing.T) {
+	cost := ResearchCost(113, 0)
+	if cost.Metal != 0 || cost.Crystal != 800 || cost.Deuterium != 400 {
+		t.Errorf("Energy Tech level 1 cost: expected metal=0 crystal=800 deut=400, got metal=%d crystal=%d deut=%d",
+			cost.Metal, cost.Crystal, cost.Deuterium)
+	}
+
+	cost2 := ResearchCost(113, 1)
+	if cost2.Crystal != 1600 || cost2.Deuterium != 800 {
+		t.Errorf("Energy Tech level 2 cost: expected crystal=1600 deut=800, got crystal=%d deut=%d",
+			cost2.Crystal, cost2.Deuterium)
+	}
+}
+
+func TestMeetsResearchPrerequisites(t *testing.T) {
+	research := model.Research{
+		EnergyTechnology:     5,
+		LaserTechnology:      5,
+		IonTechnology:        3,
+		EspionageTechnology:  4,
+	}
+
+	if !MeetsResearchPrerequisites(114, research) {
+		t.Error("Should meet Hyperspace Tech prereqs (Energy 5, Laser 5, Ion 3)")
+	}
+
+	if MeetsResearchPrerequisites(122, research) {
+		t.Error("Should NOT meet Plasma prereqs (needs Energy 5, Ion 4)")
+	}
+
+	if !MeetsResearchPrerequisites(113, research) {
+		t.Error("Energy Technology has no prereqs, should always pass")
+	}
+}
+
+func TestResearchNameToID(t *testing.T) {
+	if ResearchNameToID["EnergyTechnology"] != 113 {
+		t.Errorf("EnergyTechnology should map to 113, got %d", ResearchNameToID["EnergyTechnology"])
+	}
+	if ResearchNameToID["PlasmaTechnology"] != 122 {
+		t.Errorf("PlasmaTechnology should map to 122, got %d", ResearchNameToID["PlasmaTechnology"])
+	}
+	if _, ok := ResearchNameToID["NonExistentTech"]; ok {
+		t.Error("Non-existent tech should not be in map")
+	}
 }

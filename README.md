@@ -1,8 +1,6 @@
-# OGame Bot
+# OGameX Bot
 
-Open-source OGame automation bot. Connects to your OGame account via [ogamed](https://github.com/alaingilbert/ogame) and handles fleet safety, auto-building, auto-farming, and provides a web dashboard for monitoring.
-
-> ⚠️ Botting violates OGame Terms of Service. Use at your own risk.
+Open-source OGame automation bot targeting [OGameX](https://github.com/lanedirt/OGameX) — an open-source OGame clone. Handles fleet safety, auto-building, auto-farming, and provides a web dashboard for monitoring. Runs as a single Go binary on Windows.
 
 ## Features
 
@@ -11,34 +9,29 @@ Open-source OGame automation bot. Connects to your OGame account via [ogamed](ht
 - **Auto-Farm** — Scans galaxy for inactive players, spies them, attacks when profitable
 - **Web Dashboard** — Real-time empire overview with WebSocket updates, fleet movements, build/activity logs
 - **Anti-Detection** — Randomized request intervals, jitter on all actions, configurable rate limiting
-- **Zero-Ops** — SQLite database, single Docker Compose command, persistent data volume
+- **Zero-Ops** — SQLite database, single Go binary, no Docker needed
 
 ## Quick Start
 
 ### Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
-- An OGame account
+- [Go 1.22+](https://go.dev/dl/)
+- An OGameX account (e.g., at [main.ogamex.dev](https://main.ogamex.dev))
 
 ### 1. Configure
 
 ```bash
-cp .env.example .env
 cp config.example.yaml config.yaml
 ```
 
-Edit `.env` with your OGame credentials:
-
-```env
-OGAMED_UNIVERSE=s123-en.ogame.gameforge.com
-OGAMED_USERNAME=your_username
-OGAMED_PASSWORD=your_password
-OGAMED_LANGUAGE=en
-```
-
-Edit `config.yaml` to enable features:
+Edit `config.yaml` with your OGameX credentials and enable features:
 
 ```yaml
+ogamex:
+  url: "https://main.ogamex.dev"
+  email: "your@email.com"
+  password: "your_password"
+
 features:
   defender:
     enabled: true
@@ -52,39 +45,56 @@ features:
     pollIntervalMs: 300000
 ```
 
+Secrets can be loaded from environment variables via `${ENV_VAR}` interpolation:
+
+```bash
+export OGAMEX_EMAIL="your@email.com"
+export OGAMEX_PASSWORD="your_password"
+```
+
 ### 2. Run
 
 ```bash
-docker compose up --build -d
+go run ./cmd/bot
 ```
 
 ### 3. Monitor
 
 Open http://localhost:3000 for the web dashboard.
 
+### 4. Build Binary
+
+```bash
+go build -o bot.exe ./cmd/bot
+./bot.exe
+```
+
 ## Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│   ogamed (Go)   │     │   Bot (Go)      │
-│   OGame API     │◄────│   Automation    │
-│   REST daemon   │     │   engine        │
-└─────────────────┘     │                 │
-                        │  ┌───────────┐  │    ┌──────────────┐
-                        │  │ Defender  │  │    │  Dashboard   │
-                        │  │ Builder   │  │◄──►│  (SolidJS)   │
-                        │  │ Farmer    │  │ WS │              │
-                        │  └───────────┘  │    └──────────────┘
-                        │  ┌───────────┐  │
-                        │  │  SQLite   │  │
-                        │  │  (state)  │  │
-                        │  └───────────┘  │
-                        └─────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                    Bot (Go)                          │
+│                                                     │
+│  ┌──────────────┐    ┌──────────────────────────┐   │
+│  │  OGameX      │    │    Workers                │   │
+│  │  Client      │◄───│  ┌────────┐ ┌──────────┐ │   │
+│  │  (HTTP+CSRF) │    │  │Defender│ │ Builder  │ │   │
+│  └──────┬───────┘    │  └────────┘ └──────────┘ │   │    ┌──────────────┐
+│         │            │  ┌────────┐               │   │    │  Dashboard   │
+│         │            │  │ Farmer │               │◄──┼───►│  (SolidJS)   │
+│         │            │  └────────┘               │   │ WS │              │
+│         │            └──────────────────────────┘   │    └──────────────┘
+│         │                                           │
+│  ┌──────▼───────┐                                   │
+│  │    SQLite    │                                   │
+│  │   (state)    │                                   │
+│  └──────────────┘                                   │
+└─────────────────────────────────────────────────────┘
 ```
 
-- **ogamed** — REST daemon wrapping OGame's HTTP API (handles auth, anti-bot, captcha)
-- **Bot engine** — Go workers for fleet safety, auto-build, auto-farm, with REST API + WebSocket for the dashboard
-- **Dashboard** — SolidJS SPA, served embedded from the Go binary, real-time updates via WebSocket
+- **OGameX Client** — Go HTTP client with Laravel session auth, CSRF token management, HTML/JSON parsing via goquery
+- **Workers** — Defender (fleet-save), Builder (ROI upgrades), Farmer (galaxy scan + attack)
+- **Dashboard** — SolidJS SPA with real-time WebSocket updates
 
 ## Project Structure
 
@@ -94,7 +104,19 @@ internal/
   config/                    YAML config loader with env interpolation
   constants/                 OGame building/ship/mission IDs
   model/                     Domain types
-  ogamed/                    REST client with rate limiter + retry
+  ogamex/                    OGameX HTTP client (session auth + CSRF)
+    client.go                Client struct + interface satisfaction
+    session.go               Login/Logout with CSRF extraction
+    transport.go             HTTP helpers (doGet, doPost, doAJAX)
+    parser.go                HTML/JSON parsing (goquery)
+    planets.go               Planet/resource/building queries
+    fleet.go                 Fleet event queries
+    fleet_dispatch.go        SendFleet + CancelFleet
+    build.go                 BuildBuilding
+    galaxy.go                Galaxy scan
+    espionage.go             Espionage reports
+    global.go                Research, constructions, server info
+  ogamed/                    Legacy OGame REST client (fallback)
   state/                     SQLite database + game state cache
   defender/                  Fleet safety worker + escape route calculator
   builder/                   Auto-build worker + ROI calculator
@@ -106,28 +128,22 @@ packages/
 
 ## Configuration
 
-All settings live in `config.yaml`. Secrets come from `.env` via `${ENV_VAR}` interpolation.
+All settings live in `config.yaml`. Secrets can use `${ENV_VAR}` interpolation.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| `ogamex.url` | — | OGameX server URL (required for OGameX mode) |
+| `ogamex.email` | — | OGameX account email |
+| `ogamex.password` | — | OGameX account password |
 | `features.defender.enabled` | `false` | Enable fleet-save on attack detection |
 | `features.defender.recallEnabled` | `true` | Auto-recall fleet after attack passes |
 | `features.defender.safetyMarginMs` | `120000` | Min time before attack to trigger save |
 | `features.autoBuild.enabled` | `false` | Enable ROI-based building upgrades |
 | `features.autoFarm.enabled` | `false` | Enable inactive player farming |
-| `rateLimit.defaultMinDelayMs` | `2000` | Min delay between API calls (ms) |
 | `dashboard.enabled` | `true` | Enable web dashboard |
 | `dashboard.port` | `3000` | Dashboard HTTP port |
 
 ## Development
-
-### Run locally (without Docker)
-
-```bash
-# Start ogamed separately (requires Go + OGame credentials)
-# Then run the bot:
-go run ./cmd/bot
-```
 
 ### Run tests
 
@@ -135,11 +151,37 @@ go run ./cmd/bot
 go test ./...
 ```
 
-### Build
+### Build dashboard
+
+The SolidJS dashboard must be built before the Go binary so static files get embedded:
 
 ```bash
-go build -o bot ./cmd/bot
+pnpm install
+pnpm --filter @ogame-bot/dashboard build
 ```
+
+This outputs to `internal/dashboard/static/` which the Go binary embeds.
+
+### Build bot
+
+```bash
+go build -o bot.exe ./cmd/bot
+```
+
+### Dev with hot-reload dashboard
+
+```bash
+# Terminal 1: Go bot
+go run ./cmd/bot
+
+# Terminal 2: Vite dev server (proxies API/WS to :3000)
+pnpm --filter @ogame-bot/dashboard dev
+# Open http://localhost:5173
+```
+
+### Legacy OGame (ogamed) Support
+
+The bot still supports the original ogamed REST client as a fallback. To use it instead of OGameX, omit the `ogamex` section and configure `account` + `ogamed` in `config.yaml`. This requires the ogamed Docker container.
 
 ## License
 

@@ -3,6 +3,8 @@ package ogamex
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strconv"
 
 	"github.com/user/ogame-bot/internal/model"
 )
@@ -12,7 +14,28 @@ func (c *Client) GetPlanets(ctx context.Context) ([]model.Planet, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetching overview: %w", err)
 	}
-	return parsePlanetList(toReader(body))
+	planets, err := parsePlanetList(toReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	activeID := extractActivePlanetID(body)
+	if activeID > 0 {
+		parsePlanetDetails(body, activeID, planets)
+	}
+
+	return planets, nil
+}
+
+func extractActivePlanetID(body []byte) int {
+	re := regexp.MustCompile(`cp=(\d+)`)
+	matches := re.FindAllSubmatch(body, -1)
+	if len(matches) == 0 {
+		return 0
+	}
+	last := matches[len(matches)-1]
+	id, _ := strconv.Atoi(string(last[1]))
+	return id
 }
 
 func (c *Client) GetResources(ctx context.Context, planetID int) (model.Resources, error) {

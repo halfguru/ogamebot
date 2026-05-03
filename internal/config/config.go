@@ -97,8 +97,9 @@ type FeaturesConfig struct {
 // AutoBuildConfig holds the auto-build feature settings including per-building caps.
 type AutoBuildConfig struct {
 	FeatureConfig   `yaml:",inline"`
-	MaxLevels       map[string]int            `yaml:"maxLevels"`       // global defaults: {"MetalMine": 30, ...}
-	PlanetOverrides map[string]map[string]int `yaml:"planetOverrides"` // per-planet: {"Homeworld": {"MetalMine": 35}}
+	MaxLevels       map[string]int            `yaml:"maxLevels"`
+	PlanetOverrides map[string]map[string]int `yaml:"planetOverrides"`
+	ResearchOrder   []string                  `yaml:"researchOrder"`
 }
 
 // AutoBuildDefaults applies default max-level caps when not set.
@@ -107,6 +108,34 @@ func (a *AutoBuildConfig) AutoBuildDefaults() {
 		a.MaxLevels = map[string]int{
 			"MetalMine": 30, "CrystalMine": 28, "DeuteriumSynthesizer": 26,
 			"SolarPlant": 26, "FusionReactor": 20,
+			"RoboticsFactory": 10, "Shipyard": 12, "ResearchLab": 12,
+			"NaniteFactory": 5,
+			"MetalStorage": 15, "CrystalStorage": 15, "DeuteriumStorage": 15,
+			"EnergyTechnology": 20, "CombustionDrive": 20, "ImpulseDrive": 20,
+			"HyperspaceTechnology": 20, "HyperspaceDrive": 20, "PlasmaTechnology": 20,
+			"EspionageTechnology": 20, "ComputerTechnology": 20, "Astrophysics": 20,
+			"LaserTechnology": 15, "IonTechnology": 15, "WeaponTechnology": 20,
+			"ShieldingTechnology": 20, "ArmourTechnology": 20,
+			"IntergalacticResearchNetwork": 10,
+		}
+	}
+	if a.ResearchOrder == nil {
+		a.ResearchOrder = []string{
+			"EnergyTechnology",
+			"CombustionDrive",
+			"ImpulseDrive",
+			"ComputerTechnology",
+			"HyperspaceTechnology",
+			"HyperspaceDrive",
+			"PlasmaTechnology",
+			"EspionageTechnology",
+			"Astrophysics",
+			"LaserTechnology",
+			"IonTechnology",
+			"WeaponTechnology",
+			"ShieldingTechnology",
+			"ArmourTechnology",
+			"IntergalacticResearchNetwork",
 		}
 	}
 }

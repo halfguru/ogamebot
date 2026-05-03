@@ -38,6 +38,7 @@ type mockClient struct {
 	cancelFleetFunc        func(ctx context.Context, fleetID int64) error
 	getConstructionsFunc   func(ctx context.Context, planetID int) (model.Constructions, error)
 	buildBuildingFunc      func(ctx context.Context, planetID, buildingID int) error
+	buildResearchFunc      func(ctx context.Context, planetID, researchID int) error
 }
 
 func (m *mockClient) Login(ctx context.Context) error {
@@ -157,6 +158,12 @@ func (m *mockClient) GetConstructions(ctx context.Context, planetID int) (model.
 func (m *mockClient) BuildBuilding(ctx context.Context, planetID, buildingID int) error {
 	if m.buildBuildingFunc != nil {
 		return m.buildBuildingFunc(ctx, planetID, buildingID)
+	}
+	return nil
+}
+func (m *mockClient) BuildResearch(ctx context.Context, planetID, researchID int) error {
+	if m.buildResearchFunc != nil {
+		return m.buildResearchFunc(ctx, planetID, researchID)
 	}
 	return nil
 }

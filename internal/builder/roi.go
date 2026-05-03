@@ -28,6 +28,13 @@ var BuildingDefs = map[int]BuildingDef{
 	constants.BuildingDeuteriumSynthesizer: {"Deuterium Synthesizer", 225, 75, 0, 1.5, true},
 	constants.BuildingSolarPlant:           {"Solar Plant", 75, 30, 0, 1.5, false},
 	constants.BuildingFusionReactor:        {"Fusion Reactor", 900, 360, 180, 1.8, false},
+	constants.BuildingMetalStorage:         {"Metal Storage", 1000, 0, 0, 2.0, false},
+	constants.BuildingCrystalStorage:       {"Crystal Storage", 1000, 500, 0, 2.0, false},
+	constants.BuildingDeuteriumStorage:     {"Deuterium Storage", 1000, 1000, 0, 2.0, false},
+	constants.BuildingRoboticsFactory:      {"Robotics Factory", 400, 120, 200, 2.0, false},
+	constants.BuildingShipyard:             {"Shipyard", 400, 200, 100, 2.0, false},
+	constants.BuildingResearchLab:          {"Research Lab", 200, 400, 200, 2.0, false},
+	constants.BuildingNaniteFactory:        {"Nanite Factory", 1000000, 500000, 100000, 2.0, false},
 }
 
 // ROIResult represents the ROI analysis for a single building upgrade candidate.
@@ -248,6 +255,20 @@ func productionIncrease(buildingID int, currentLevel, targetLevel int, research 
 		before := FusionProduction(currentLevel, research.EnergyTechnology)
 		after := FusionProduction(targetLevel, research.EnergyTechnology)
 		return float64(after-before) * 0.5
+	case constants.BuildingMetalStorage:
+		return 0.1
+	case constants.BuildingCrystalStorage:
+		return 0.1
+	case constants.BuildingDeuteriumStorage:
+		return 0.1
+	case constants.BuildingRoboticsFactory:
+		return 0.3
+	case constants.BuildingShipyard:
+		return 0.2
+	case constants.BuildingResearchLab:
+		return 0.25
+	case constants.BuildingNaniteFactory:
+		return 0.4
 	default:
 		return 0
 	}
@@ -272,7 +293,90 @@ func energyDelta(buildingID int, currentLevel, targetLevel int, research model.R
 	}
 }
 
-// avgTemp returns the average temperature of a planet.
 func avgTemp(p model.Planet) int {
 	return (p.TemperatureMin + p.TemperatureMax) / 2
+}
+
+type ResearchDef struct {
+	Name        string
+	BaseMetal   int
+	BaseCrystal int
+	BaseDeut    int
+	Factor      float64
+}
+
+var ResearchDefs = map[int]ResearchDef{
+	106: {"Espionage Technology", 200, 1000, 200, 2.0},
+	108: {"Computer Technology", 0, 400, 600, 2.0},
+	109: {"Weapon Technology", 800, 200, 0, 2.0},
+	110: {"Shielding Technology", 200, 600, 0, 2.0},
+	111: {"Armor Technology", 1000, 0, 0, 2.0},
+	113: {"Energy Technology", 0, 800, 400, 2.0},
+	114: {"Hyperspace Technology", 0, 4000, 2000, 2.0},
+	115: {"Combustion Drive", 400, 0, 600, 2.0},
+	117: {"Impulse Drive", 2000, 4000, 600, 2.0},
+	118: {"Hyperspace Drive", 10000, 20000, 6000, 2.0},
+	120: {"Laser Technology", 200, 100, 0, 2.0},
+	121: {"Ion Technology", 1000, 300, 100, 2.0},
+	122: {"Plasma Technology", 2000, 4000, 1000, 2.0},
+	123: {"Intergalactic Research Network", 240000, 400000, 160000, 2.0},
+	124: {"Astrophysics", 4000, 8000, 4000, 1.75},
+	199: {"Graviton Technology", 0, 0, 0, 3.0},
+}
+
+var ResearchNameToID = map[string]int{
+	"EspionageTechnology":          106,
+	"ComputerTechnology":           108,
+	"WeaponTechnology":             109,
+	"ShieldingTechnology":          110,
+	"ArmourTechnology":             111,
+	"EnergyTechnology":             113,
+	"HyperspaceTechnology":         114,
+	"CombustionDrive":              115,
+	"ImpulseDrive":                 117,
+	"HyperspaceDrive":              118,
+	"LaserTechnology":              120,
+	"IonTechnology":                121,
+	"PlasmaTechnology":             122,
+	"IntergalacticResearchNetwork": 123,
+	"Astrophysics":                 124,
+	"GravitonTechnology":           199,
+}
+
+var researchPrerequisites = map[int][]prerequisite{
+	110: {{120, 3}, {106, 2}},
+	111: {{109, 2}},
+	114: {{113, 5}, {120, 5}, {121, 3}},
+	117: {{113, 1}},
+	118: {{114, 3}, {117, 3}},
+	121: {{113, 4}, {120, 5}},
+	122: {{113, 5}, {121, 4}},
+	123: {{114, 8}, {113, 8}},
+	124: {{113, 3}, {106, 4}},
+	199: {{113, 12}},
+}
+
+func ResearchCost(researchID, currentLevel int) model.Resources {
+	def, ok := ResearchDefs[researchID]
+	if !ok {
+		return model.Resources{}
+	}
+	targetLevel := currentLevel + 1
+	return BuildingCost(model.Resources{
+		Metal: def.BaseMetal, Crystal: def.BaseCrystal, Deuterium: def.BaseDeut,
+	}, def.Factor, targetLevel)
+}
+
+func MeetsResearchPrerequisites(researchID int, research model.Research) bool {
+	prereqs, ok := researchPrerequisites[researchID]
+	if !ok {
+		return true
+	}
+	for _, p := range prereqs {
+		level := researchLevel(p.researchID, research)
+		if level < p.minLevel {
+			return false
+		}
+	}
+	return true
 }

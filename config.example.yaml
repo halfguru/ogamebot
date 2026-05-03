@@ -25,7 +25,18 @@ features:
     maxReactionDelayS: 120 # Maximum random delay before reacting to attack (default 120s)
   autoBuild:
     enabled: false
-    pollIntervalMs: 120000 # Check for builds every 2 min
+    pollIntervalMs: 30000 # Check for builds every 30s
+    # researchOrder: override default research priority (defaults shown)
+    # researchOrder:
+    #   - EnergyTechnology
+    #   - CombustionDrive
+    #   - ImpulseDrive
+    #   - ComputerTechnology
+    #   - HyperspaceTechnology
+    #   - HyperspaceDrive
+    #   - PlasmaTechnology
+    #   - EspionageTechnology
+    #   - Astrophysics
   autoFarm:
     enabled: false
     pollIntervalMs: 300000 # Check for farm targets every 5 min

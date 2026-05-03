@@ -11,9 +11,12 @@ services:
       OGAMED_LANGUAGE: ${OGAMED_LANGUAGE:-en}
       OGAMED_HOST: "0.0.0.0"
       OGAMED_PORT: "8080"
-      OGAMED_AUTO_LOGIN: "false"
+      OGAMED_AUTO_LOGIN: "true"
+      OGAMED_BEARER_TOKEN: ${OGAMED_BEARER_TOKEN:-}
       OGAMED_PROXY: ${OGAMED_PROXY:-}
       OGAMED_PROXY_TYPE: ${OGAMED_PROXY_TYPE:-socks5}
+    volumes:
+      - ./cookies.json:/root/.ogame/storage/device_name/cookies
     ports:
       - "127.0.0.1:8080:8080"
     restart: unless-stopped
