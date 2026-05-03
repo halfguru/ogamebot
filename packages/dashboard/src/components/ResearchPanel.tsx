@@ -52,8 +52,10 @@ const categories: ResearchCategory[] = [
 
 function levelColor(level: number): string {
   if (level === 0) return 'research-low';
-  if (level < 8) return 'research-mid';
-  return 'research-high';
+  if (level <= 5) return 'research-mid';
+  if (level <= 10) return 'research-high';
+  if (level <= 15) return 'research-epic';
+  return 'research-legendary';
 }
 
 export default function ResearchPanel(props: { research: APIResearch | null }) {

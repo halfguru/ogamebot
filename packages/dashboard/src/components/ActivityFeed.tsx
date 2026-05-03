@@ -12,6 +12,18 @@ function formatNumber(n: number): string {
   return n.toString();
 }
 
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const secs = Math.floor(diff / 1000);
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
 export default function ActivityFeed(props: {
   buildEvents: APIBuildEvent[];
   fleetSaveEvents: APIFleetSaveEvent[];
@@ -36,7 +48,7 @@ export default function ActivityFeed(props: {
             {(item) => (
               <div class={`feed-item ${item.kind}`}>
                 <Show when={item.kind === 'build'}>
-                  <span class="badge build">🔨 BUILD</span>
+                  <span class="feed-icon">🔨</span>
                   <span class="feed-text">
                     {(item as { kind: 'build'; data: APIBuildEvent }).data.buildingName}{' '}
                     {(item as { kind: 'build'; data: APIBuildEvent }).data.fromLevel}→
@@ -46,7 +58,7 @@ export default function ActivityFeed(props: {
                   </span>
                 </Show>
                 <Show when={item.kind === 'fleet-save'}>
-                  <span class="badge fleet-save">🛡️ FLEET SAVE</span>
+                  <span class="feed-icon">🛡️</span>
                   <span class="feed-text">
                     Planet #{(item as { kind: 'fleet-save'; data: APIFleetSaveEvent }).data.planetId} → #
                     {(item as { kind: 'fleet-save'; data: APIFleetSaveEvent }).data.destPlanetId}, recalled:{' '}
@@ -54,7 +66,7 @@ export default function ActivityFeed(props: {
                   </span>
                 </Show>
                 <Show when={item.kind === 'farm'}>
-                  <span class="badge farm">⚔️ FARM</span>
+                  <span class="feed-icon">⚔️</span>
                   <span class="feed-text">
                     Attack →{' '}
                     {(item as { kind: 'farm'; data: APIFarmAttack }).data.targetCoord}, loot:{' '}
@@ -62,7 +74,7 @@ export default function ActivityFeed(props: {
                     {formatNumber((item as { kind: 'farm'; data: APIFarmAttack }).data.crystalLooted)} crystal
                   </span>
                 </Show>
-                <span class="feed-time">{item.time}</span>
+                <span class="feed-time">{relativeTime(item.time)}</span>
               </div>
             )}
           </For>

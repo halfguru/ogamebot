@@ -36,7 +36,22 @@ export default function EmpireOverview(props: {
     <section class="empire-overview">
       <h2>Empire Overview ({props.planets.length} planets)</h2>
       <div class="resource-totals">
-        Total: Metal {formatNumber(totals().metal)} | Crystal {formatNumber(totals().crystal)} | Deuterium {formatNumber(totals().deuterium)} | Energy {formatNumber(totals().energy)}
+        <span class="total-item metal">
+          <span class="total-label">Metal</span>
+          <span class="total-value">{formatNumber(totals().metal)}</span>
+        </span>
+        <span class="total-item crystal">
+          <span class="total-label">Crystal</span>
+          <span class="total-value">{formatNumber(totals().crystal)}</span>
+        </span>
+        <span class="total-item deuterium">
+          <span class="total-label">Deuterium</span>
+          <span class="total-value">{formatNumber(totals().deuterium)}</span>
+        </span>
+        <span class="total-item energy">
+          <span class="total-label">Energy</span>
+          <span class="total-value">{formatNumber(totals().energy)}</span>
+        </span>
       </div>
       <div class="planet-grid">
         {props.planets.map((p) => (

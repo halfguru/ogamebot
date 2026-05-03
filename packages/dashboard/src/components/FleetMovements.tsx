@@ -13,6 +13,18 @@ const missionNames: Record<number, string> = {
   15: 'Expedition',
 };
 
+function missionBadgeClass(mission: number): string {
+  switch (mission) {
+    case 1: case 2: return 'attack';
+    case 3: return 'transport';
+    case 4: return 'deploy';
+    case 6: return 'espionage';
+    case 8: return 'harvest';
+    case 15: return 'expedition';
+    default: return 'default';
+  }
+}
+
 function getCountdown(arrivalTime: number): { text: string; className: string } {
   const now = Date.now();
   const target = arrivalTime * 1000;
@@ -29,7 +41,7 @@ function getCountdown(arrivalTime: number): { text: string; className: string } 
   const totalMins = totalSec / 60;
   if (totalMins > 10) return { text: parts.join(' '), className: 'countdown-green' };
   if (totalMins > 5) return { text: parts.join(' '), className: 'countdown-yellow' };
-  return { text: parts.join(' '), className: 'countdown-red' };
+  return { text: parts.join(' '), className: 'countdown-red pulse' };
 }
 
 function CountdownCell(props: { arrivalTime: number }) {
@@ -48,7 +60,23 @@ function CountdownCell(props: { arrivalTime: number }) {
   return <td class={info().className}>{info().text}</td>;
 }
 
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  return n.toString();
+}
+
 export default function FleetMovements(props: { fleets: APIFleet[] }) {
+  const totalCargo = () =>
+    props.fleets.reduce(
+      (acc, f) => ({
+        metal: acc.metal + f.metal,
+        crystal: acc.crystal + f.crystal,
+        deuterium: acc.deuterium + f.deuterium,
+      }),
+      { metal: 0, crystal: 0, deuterium: 0 },
+    );
+
   return (
     <section class="fleet-movements">
       <h2>Fleet Movements ({props.fleets.length} active)</h2>
@@ -79,7 +107,9 @@ export default function FleetMovements(props: { fleets: APIFleet[] }) {
                     [{fleet.destGalaxy}:{fleet.destSystem}:{fleet.destPosition}]
                   </td>
                   <td>
-                    {missionNames[fleet.mission] || `#${fleet.mission}`}
+                    <span class={`mission-badge ${missionBadgeClass(fleet.mission)}`}>
+                      {missionNames[fleet.mission] || `#${fleet.mission}`}
+                    </span>
                     {fleet.returnFlight ? ' (R)' : ''}
                   </td>
                   <CountdownCell arrivalTime={fleet.arrivalTime} />
@@ -91,6 +121,11 @@ export default function FleetMovements(props: { fleets: APIFleet[] }) {
             </For>
           </tbody>
         </table>
+        <div class="fleet-summary">
+          <span>Total in transit: <strong>M:{formatNumber(totalCargo().metal)}</strong></span>
+          <span><strong>C:{formatNumber(totalCargo().crystal)}</strong></span>
+          <span><strong>D:{formatNumber(totalCargo().deuterium)}</strong></span>
+        </div>
       </Show>
     </section>
   );
