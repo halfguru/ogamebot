@@ -6,6 +6,12 @@ export const apiResourcesSchema = z.object({
   crystal: z.number(),
   deuterium: z.number(),
   energy: z.number(),
+  metalStorage: z.number(),
+  crystalStorage: z.number(),
+  deuteriumStorage: z.number(),
+  metalProduction: z.number(),
+  crystalProduction: z.number(),
+  deuteriumProduction: z.number(),
 });
 
 /** Zod schema for APIBuildings. */
@@ -39,6 +45,7 @@ export const apiPlanetSchema = z.object({
   fieldsTotal: z.number(),
   temperatureMin: z.number(),
   temperatureMax: z.number(),
+  imageType: z.string(),
   resources: apiResourcesSchema,
   buildings: apiBuildingsSchema,
   facilities: apiFacilitiesSchema,

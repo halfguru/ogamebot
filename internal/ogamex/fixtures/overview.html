@@ -5,7 +5,7 @@
 <div id="planetList">
   <div class="smallplanet">
     <a href="?cp=12345" class="planetlink">
-      <img class="planetPic" src="/img/planets/1.jpg" alt="Homeworld">
+      <img class="planetPic js_replace2x" alt="Homeworld" src="https://main.ogamex.dev/img/planets/medium/normal_1.png">
       <span class="planet-name">Homeworld</span>
       <span class="planet-koords">[1:2:3]</span>
     </a>
@@ -38,5 +38,26 @@
 <div id="overviewBottom">
   <div class="factor" data-value="7">Speed 7x</div>
 </div>
+<script>
+function reloadResources(callback) {
+    var newData = {
+        "metal": {
+            "amount": 12345,
+            "storage": 50000,
+            "production": 25.5
+        },
+        "crystal": {
+            "amount": 6789,
+            "storage": 40000,
+            "production": 15.333
+        },
+        "deuterium": {
+            "amount": 2345,
+            "storage": 30000,
+            "production": 8.75
+        }
+    };
+}
+</script>
 </body>
 </html>

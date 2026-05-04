@@ -80,6 +80,7 @@ func (h *Handlers) handlePlanets(w http.ResponseWriter, r *http.Request) {
 			FieldsTotal:    p.FieldsTotal,
 			TemperatureMin: p.TemperatureMin,
 			TemperatureMax: p.TemperatureMax,
+			ImageType:      p.ImageType,
 		}
 
 		res, _, err := h.stateMgr.GetResources(ctx, p.ID)
@@ -87,10 +88,16 @@ func (h *Handlers) handlePlanets(w http.ResponseWriter, r *http.Request) {
 			h.log.Warn("handlePlanets: GetResources failed", "planetID", p.ID, "error", err)
 		} else {
 			apiPlanet.Resources = APIResources{
-				Metal:     res.Metal,
-				Crystal:   res.Crystal,
-				Deuterium: res.Deuterium,
-				Energy:    res.Energy,
+				Metal:               res.Metal,
+				Crystal:             res.Crystal,
+				Deuterium:           res.Deuterium,
+				Energy:              res.Energy,
+				MetalStorage:        res.MetalStorage,
+				CrystalStorage:      res.CrystalStorage,
+				DeuteriumStorage:    res.DeuteriumStorage,
+				MetalProduction:     res.MetalProduction,
+				CrystalProduction:   res.CrystalProduction,
+				DeuteriumProduction: res.DeuteriumProduction,
 			}
 		}
 

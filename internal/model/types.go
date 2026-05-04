@@ -14,11 +14,17 @@ type Coordinate struct {
 
 // Resources represents the resource amounts on a planet.
 type Resources struct {
-	Metal      int `json:"Metal"`
-	Crystal    int `json:"Crystal"`
-	Deuterium  int `json:"Deuterium"`
-	Energy     int `json:"Energy"`
-	DarkMatter int `json:"Darkmatter"`
+	Metal               int     `json:"Metal"`
+	Crystal             int     `json:"Crystal"`
+	Deuterium           int     `json:"Deuterium"`
+	Energy              int     `json:"Energy"`
+	DarkMatter          int     `json:"Darkmatter"`
+	MetalStorage        int     `json:"MetalStorage"`
+	CrystalStorage      int     `json:"CrystalStorage"`
+	DeuteriumStorage    int     `json:"DeuteriumStorage"`
+	MetalProduction     float64 `json:"MetalProduction"`
+	CrystalProduction   float64 `json:"CrystalProduction"`
+	DeuteriumProduction float64 `json:"DeuteriumProduction"`
 }
 
 type PlanetDetails struct {
@@ -39,6 +45,7 @@ type Planet struct {
 	TemperatureMin int        `json:"TemperatureMin"`
 	TemperatureMax int        `json:"TemperatureMax"`
 	IsMoon         bool       `json:"IsMoon"`
+	ImageType      string     `json:"ImageType"`
 }
 
 // ShipCount represents a ship type and its quantity in a fleet.

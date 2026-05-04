@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/user/ogame-bot/internal/constants"
+	"github.com/user/ogame-bot/internal/model"
 )
 
 func TestParseAmount(t *testing.T) {
@@ -56,6 +57,9 @@ func TestParsePlanetList(t *testing.T) {
 	}
 	if p.Coordinate.Galaxy != 1 || p.Coordinate.System != 2 || p.Coordinate.Position != 3 {
 		t.Errorf("planet[0] coords = %v, want [1:2:3]", p.Coordinate)
+	}
+	if p.ImageType != "normal" {
+		t.Errorf("planet[0] ImageType = %q, want %q", p.ImageType, "normal")
 	}
 	m := planets[1]
 	if m.ID != 67890 {
@@ -434,5 +438,33 @@ func TestParseConstructions(t *testing.T) {
 	}
 	if c.Building.Countdown != 12345 {
 		t.Errorf("Building.Countdown = %d, want 12345", c.Building.Countdown)
+	}
+}
+
+func TestParseResourceProduction(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("fixtures/overview.html")
+	if err != nil {
+		t.Fatalf("reading fixture: %v", err)
+	}
+	var r model.Resources
+	parseResourceProduction(data, &r)
+	if r.MetalProduction != 25.5 {
+		t.Errorf("MetalProduction = %f, want 25.5", r.MetalProduction)
+	}
+	if r.CrystalProduction != 15.333 {
+		t.Errorf("CrystalProduction = %f, want 15.333", r.CrystalProduction)
+	}
+	if r.DeuteriumProduction != 8.75 {
+		t.Errorf("DeuteriumProduction = %f, want 8.75", r.DeuteriumProduction)
+	}
+	if r.MetalStorage != 50000 {
+		t.Errorf("MetalStorage = %d, want 50000", r.MetalStorage)
+	}
+	if r.CrystalStorage != 40000 {
+		t.Errorf("CrystalStorage = %d, want 40000", r.CrystalStorage)
+	}
+	if r.DeuteriumStorage != 30000 {
+		t.Errorf("DeuteriumStorage = %d, want 30000", r.DeuteriumStorage)
 	}
 }

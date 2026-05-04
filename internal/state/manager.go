@@ -164,18 +164,22 @@ func (m *Manager) upsertPlanet(ctx context.Context, p model.Planet) error {
 		isMoon = 1
 	}
 	_, err := m.db.ExecContext(ctx, `INSERT OR REPLACE INTO planets
-		(id, name, galaxy, system, position, is_moon, diameter, fields_used, fields_total, temperature_min, temperature_max)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		(id, name, galaxy, system, position, is_moon, diameter, fields_used, fields_total, temperature_min, temperature_max, image_type)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, p.Name, p.Coordinate.Galaxy, p.Coordinate.System, p.Coordinate.Position,
-		isMoon, p.Diameter, p.FieldsUsed, p.FieldsTotal, p.TemperatureMin, p.TemperatureMax)
+		isMoon, p.Diameter, p.FieldsUsed, p.FieldsTotal, p.TemperatureMin, p.TemperatureMax, p.ImageType)
 	return err
 }
 
 func (m *Manager) upsertResources(ctx context.Context, planetID int, r model.Resources) error {
 	_, err := m.db.ExecContext(ctx, `INSERT OR REPLACE INTO resources
-		(planet_id, metal, crystal, deuterium, energy)
-		VALUES (?, ?, ?, ?, ?)`,
-		planetID, r.Metal, r.Crystal, r.Deuterium, r.Energy)
+		(planet_id, metal, crystal, deuterium, energy,
+		 metal_storage, crystal_storage, deuterium_storage,
+		 metal_production, crystal_production, deuterium_production)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		planetID, r.Metal, r.Crystal, r.Deuterium, r.Energy,
+		r.MetalStorage, r.CrystalStorage, r.DeuteriumStorage,
+		r.MetalProduction, r.CrystalProduction, r.DeuteriumProduction)
 	return err
 }
 
@@ -243,7 +247,7 @@ func (m *Manager) upsertResearch(ctx context.Context, r model.Research) error {
 // GetPlanets returns all cached planets from SQLite.
 func (m *Manager) GetPlanets(ctx context.Context) ([]model.Planet, error) {
 	rows, err := m.db.QueryContext(ctx, `SELECT id, name, galaxy, system, position, is_moon,
-		diameter, fields_used, fields_total, temperature_min, temperature_max FROM planets`)
+		diameter, fields_used, fields_total, temperature_min, temperature_max, image_type FROM planets`)
 	if err != nil {
 		return nil, fmt.Errorf("querying planets: %w", err)
 	}
@@ -255,7 +259,7 @@ func (m *Manager) GetPlanets(ctx context.Context) ([]model.Planet, error) {
 		var isMoon int
 		err := rows.Scan(&p.ID, &p.Name, &p.Coordinate.Galaxy, &p.Coordinate.System,
 			&p.Coordinate.Position, &isMoon, &p.Diameter, &p.FieldsUsed, &p.FieldsTotal,
-			&p.TemperatureMin, &p.TemperatureMax)
+			&p.TemperatureMin, &p.TemperatureMax, &p.ImageType)
 		if err != nil {
 			return nil, fmt.Errorf("scanning planet: %w", err)
 		}
@@ -269,8 +273,13 @@ func (m *Manager) GetPlanets(ctx context.Context) ([]model.Planet, error) {
 func (m *Manager) GetResources(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error) {
 	var r model.Resources
 	err := m.db.QueryRowContext(ctx,
-		"SELECT metal, crystal, deuterium, energy FROM resources WHERE planet_id = ?", planetID).
-		Scan(&r.Metal, &r.Crystal, &r.Deuterium, &r.Energy)
+		`SELECT metal, crystal, deuterium, energy,
+		 metal_storage, crystal_storage, deuterium_storage,
+		 metal_production, crystal_production, deuterium_production
+		 FROM resources WHERE planet_id = ?`, planetID).
+		Scan(&r.Metal, &r.Crystal, &r.Deuterium, &r.Energy,
+			&r.MetalStorage, &r.CrystalStorage, &r.DeuteriumStorage,
+			&r.MetalProduction, &r.CrystalProduction, &r.DeuteriumProduction)
 	if err != nil {
 		return model.Resources{}, model.PlanetDetails{}, fmt.Errorf("querying resources for planet %d: %w", planetID, err)
 	}
