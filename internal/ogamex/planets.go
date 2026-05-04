@@ -48,6 +48,7 @@ func (c *Client) GetResources(ctx context.Context, planetID int) (model.Resource
 	if err != nil {
 		return model.Resources{}, model.PlanetDetails{}, err
 	}
+	parseResourceProduction(body, &resources)
 	var details model.PlanetDetails
 	parsePlanetDetailsForBody(body, &details)
 	return resources, details, nil

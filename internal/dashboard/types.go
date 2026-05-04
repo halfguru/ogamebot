@@ -18,6 +18,7 @@ type APIPlanet struct {
 	FieldsTotal    int           `json:"fieldsTotal"`
 	TemperatureMin int           `json:"temperatureMin"`
 	TemperatureMax int           `json:"temperatureMax"`
+	ImageType      string        `json:"imageType"`
 	Resources      APIResources  `json:"resources"`
 	Buildings      APIBuildings  `json:"buildings"`
 	Facilities     APIFacilities `json:"facilities"`
@@ -25,10 +26,16 @@ type APIPlanet struct {
 
 // APIResources represents resource amounts for the dashboard API.
 type APIResources struct {
-	Metal     int `json:"metal"`
-	Crystal   int `json:"crystal"`
-	Deuterium int `json:"deuterium"`
-	Energy    int `json:"energy"`
+	Metal               int     `json:"metal"`
+	Crystal             int     `json:"crystal"`
+	Deuterium           int     `json:"deuterium"`
+	Energy              int     `json:"energy"`
+	MetalStorage        int     `json:"metalStorage"`
+	CrystalStorage      int     `json:"crystalStorage"`
+	DeuteriumStorage    int     `json:"deuteriumStorage"`
+	MetalProduction     float64 `json:"metalProduction"`
+	CrystalProduction   float64 `json:"crystalProduction"`
+	DeuteriumProduction float64 `json:"deuteriumProduction"`
 }
 
 // APIBuildings represents resource building levels for the dashboard API.

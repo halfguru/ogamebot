@@ -2,7 +2,7 @@ import type { APIPlanet, APIBuildEvent, PlanetBuildPlan, APIBuildings, APIFacili
 import { formatNumber } from '@ogame-bot/shared';
 import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 
-function ResourceBar(props: { label: string; value: number; type: string }) {
+function ResourceBar(props: { label: string; value: number; type: string; production?: number }) {
   const maxStorage = () => {
     if (props.value <= 0) return 100;
     const mag = Math.pow(10, Math.floor(Math.log10(props.value)));
@@ -20,6 +20,9 @@ function ResourceBar(props: { label: string; value: number; type: string }) {
         />
         <span class="resource-bar-value">{formatNumber(props.value)}</span>
       </div>
+      <Show when={props.production && props.production > 0}>
+        <span class="resource-production">+{props.production!.toFixed(1)}/hr</span>
+      </Show>
     </div>
   );
 }
@@ -51,9 +54,22 @@ function BuildCountdown(props: { event: APIBuildEvent; currentLevel: number }) {
   onCleanup(() => {
     if (interval) clearInterval(interval);
   });
+  const completed = () => {
+    tick();
+    return props.currentLevel >= props.event.toLevel;
+  };
+  const progress = () => {
+    tick();
+    if (completed()) return 100;
+    const created = new Date(props.event.createdAt).getTime();
+    const elapsed = Date.now() - created;
+    const buildDurationMs = props.event.buildTimeSeconds * 1000;
+    if (buildDurationMs <= 0) return 100;
+    return Math.min(100, Math.max(0, (elapsed / buildDurationMs) * 100));
+  };
   const text = () => {
     tick();
-    if (props.currentLevel >= props.event.toLevel) {
+    if (completed()) {
       return `Completed: ${props.event.buildingName} ${props.event.toLevel}`;
     }
     const created = new Date(props.event.createdAt).getTime();
@@ -69,7 +85,21 @@ function BuildCountdown(props: { event: APIBuildEvent; currentLevel: number }) {
     }
     return `Completed: ${props.event.buildingName} ${props.event.toLevel}`;
   };
-  return <div class="build-queue">{text()}</div>;
+  return (
+    <div class="build-queue">
+      <Show when={!completed()} fallback={
+        <div class="build-queue-header">
+          <span class="build-complete-icon">✓</span>
+          <span class="build-queue-text">{text()}</span>
+        </div>
+      }>
+        <div class="build-progress-track">
+          <div class="build-progress-fill" style={{ width: `${progress()}%` }} />
+          <span class="build-progress-text">{text()}</span>
+        </div>
+      </Show>
+    </div>
+  );
 }
 
 export default function PlanetCard(props: { planet: APIPlanet; buildEvent?: APIBuildEvent; buildPlan?: PlanetBuildPlan }) {
@@ -79,8 +109,10 @@ export default function PlanetCard(props: { planet: APIPlanet; buildEvent?: APIB
 
   const fac = () => props.planet.facilities;
 
+  const imageTypeClass = () => props.planet.imageType ? `planet-type-${props.planet.imageType}` : '';
+
   return (
-    <div class="planet-card">
+    <div class={`planet-card ${imageTypeClass()}`}>
       <div class="planet-card-inner">
         <div class="planet-header">
           <h3>{props.planet.name}</h3>
@@ -92,12 +124,15 @@ export default function PlanetCard(props: { planet: APIPlanet; buildEvent?: APIB
           </Show>
         </div>
         <div class={`planet-fields ${fieldsClass()}`}>
-          Fields: {props.planet.fieldsUsed}/{props.planet.fieldsTotal}
+          <div class="fields-bar-track">
+            <div class={`fields-bar-fill ${fieldsClass()}`} style={{ width: `${Math.min(fieldsPercent(), 100)}%` }} />
+            <span class="fields-bar-text">{props.planet.fieldsUsed}/{props.planet.fieldsTotal}</span>
+          </div>
         </div>
         <div class="planet-resources">
-          <ResourceBar label="Metal" value={props.planet.resources.metal} type="metal" />
-          <ResourceBar label="Crystal" value={props.planet.resources.crystal} type="crystal" />
-          <ResourceBar label="Deut" value={props.planet.resources.deuterium} type="deuterium" />
+          <ResourceBar label="Metal" value={props.planet.resources.metal} type="metal" production={props.planet.resources.metalProduction} />
+          <ResourceBar label="Crystal" value={props.planet.resources.crystal} type="crystal" production={props.planet.resources.crystalProduction} />
+          <ResourceBar label="Deut" value={props.planet.resources.deuterium} type="deuterium" production={props.planet.resources.deuteriumProduction} />
           <ResourceBar label="Energy" value={props.planet.resources.energy} type="energy" />
         </div>
         <div class="planet-section-label">Buildings</div>

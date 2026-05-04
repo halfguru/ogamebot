@@ -6,6 +6,12 @@ export interface APIResources {
   crystal: number;
   deuterium: number;
   energy: number;
+  metalStorage: number;
+  crystalStorage: number;
+  deuteriumStorage: number;
+  metalProduction: number;
+  crystalProduction: number;
+  deuteriumProduction: number;
 }
 
 /** Resource building levels on a planet. */
@@ -39,6 +45,7 @@ export interface APIPlanet {
   fieldsTotal: number;
   temperatureMin: number;
   temperatureMax: number;
+  imageType: string;
   resources: APIResources;
   buildings: APIBuildings;
   facilities: APIFacilities;

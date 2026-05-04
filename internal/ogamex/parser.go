@@ -17,6 +17,7 @@ var versionRe = regexp.MustCompile(`(\d+\.\d+\.\d+)`)
 var fieldsRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*<span>(\d+)<\\?/span>\\?/<span>(\d+)<\\?/span>`)
 var tempRe = regexp.MustCompile(`textContent\[3\]\s*=\s*"[^"]*?(-?\d+)[^\d]*?(-?\d+)`)
 var planetNameRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*\\?/<span>(\d+)<\\?/span>`)
+var planetImageTypeRe = regexp.MustCompile(`/planets/\w+/([a-z]+)_\d+\.`)
 
 func parseAmount(s string) int {
 	s = strings.TrimSpace(s)
@@ -124,11 +125,19 @@ func parsePlanetList(body io.Reader) ([]model.Planet, error) {
 		}
 		coord.Type = coordType
 
+		var imageType string
+		if imgSrc, exists := s.Find("img.planetPic").Attr("src"); exists {
+			if m := planetImageTypeRe.FindStringSubmatch(imgSrc); len(m) > 1 {
+				imageType = m[1]
+			}
+		}
+
 		planets = append(planets, model.Planet{
 			ID:         planetID,
 			Name:       name,
 			Coordinate: coord,
 			IsMoon:     isMoon,
+			ImageType:  imageType,
 		})
 	})
 
@@ -523,4 +532,42 @@ func parseServerInfo(body []byte) (speed int, version string) {
 	}
 
 	return speed, version
+}
+
+func parseResourceProduction(body []byte, r *model.Resources) {
+	for _, name := range []string{"metal", "crystal", "deuterium"} {
+		blockRe := regexp.MustCompile(`"` + name + `"\s*:\s*\{([^}]*"production"[^}]*)\}`)
+		match := blockRe.FindSubmatch(body)
+		if match == nil {
+			continue
+		}
+		block := string(match[1])
+
+		prodRe := regexp.MustCompile(`"production"\s*:\s*([0-9]+\.?[0-9]*)`)
+		storRe := regexp.MustCompile(`"storage"\s*:\s*([0-9]+\.?[0-9]*)`)
+
+		if m := prodRe.FindStringSubmatch(block); m != nil {
+			prod, _ := strconv.ParseFloat(m[1], 64)
+			switch name {
+			case "metal":
+				r.MetalProduction = prod
+			case "crystal":
+				r.CrystalProduction = prod
+			case "deuterium":
+				r.DeuteriumProduction = prod
+			}
+		}
+
+		if m := storRe.FindStringSubmatch(block); m != nil {
+			stor, _ := strconv.ParseFloat(m[1], 64)
+			switch name {
+			case "metal":
+				r.MetalStorage = int(stor)
+			case "crystal":
+				r.CrystalStorage = int(stor)
+			case "deuterium":
+				r.DeuteriumStorage = int(stor)
+			}
+		}
+	}
 }

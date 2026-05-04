@@ -319,6 +319,14 @@ section h2::before {
   background: var(--gradient-blue-purple);
 }
 
+.planet-card.planet-type-ice::before { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+.planet-card.planet-type-desert::before { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+.planet-card.planet-type-dry::before { background: linear-gradient(135deg, #eab308, #facc15); }
+.planet-card.planet-type-jungle::before { background: linear-gradient(135deg, #22c55e, #4ade80); }
+.planet-card.planet-type-gas::before { background: linear-gradient(135deg, #a855f7, #c084fc); }
+.planet-card.planet-type-normal::before { background: linear-gradient(135deg, #6b7280, #9ca3af); }
+.planet-card.planet-type-water::before { background: linear-gradient(135deg, #06b6d4, #22d3ee); }
+
 .planet-card:hover {
   background-color: var(--bg-card-hover);
   box-shadow: var(--shadow-card-hover);
@@ -391,15 +399,37 @@ section h2::before {
    ============================================ */
 
 .planet-fields {
-  font-size: 0.8rem;
   margin-bottom: 0.75rem;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  color: var(--text-muted);
 }
 
-.planet-fields.fields-ok { color: var(--accent-green); }
-.planet-fields.fields-warning { color: var(--accent-yellow); }
-.planet-fields.fields-critical { color: var(--accent-red); }
+.fields-bar-track {
+  height: 18px;
+  background-color: rgba(13, 17, 23, 0.6);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.fields-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width var(--transition);
+}
+
+.fields-bar-fill.fields-ok { background: linear-gradient(90deg, #1a4731, #2d7a5a); }
+.fields-bar-fill.fields-warning { background: linear-gradient(90deg, #5a3e1a, #a67c2e); }
+.fields-bar-fill.fields-critical { background: linear-gradient(90deg, #5a1a1a, #a62e2e); }
+
+.fields-bar-text {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-primary);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+}
 
 /* ============================================
    Resource Progress Bars
@@ -463,6 +493,16 @@ section h2::before {
   white-space: nowrap;
 }
 
+.resource-production {
+  font-size: 0.6rem;
+  color: var(--accent-green);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 52px;
+  text-align: right;
+}
+
 /* ============================================
    Building & Facility Pills
    ============================================ */
@@ -522,6 +562,46 @@ section h2::before {
   font-size: 0.78rem;
   color: var(--accent-blue);
   font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.build-queue-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.build-complete-icon {
+  color: var(--accent-green);
+  font-weight: 700;
+}
+
+.build-queue-text {
+  color: var(--accent-green);
+}
+
+.build-progress-track {
+  height: 20px;
+  background-color: rgba(13, 17, 23, 0.6);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.build-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(88, 166, 255, 0.3), rgba(88, 166, 255, 0.5));
+  border-radius: 4px;
+  transition: width 1s linear;
+}
+
+.build-progress-text {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 
 .planet-next-build {
@@ -841,6 +921,27 @@ section h2::before {
   margin-top: 0.1rem;
 }
 
+.feed-item-latest {
+  border-color: var(--accent-blue);
+  background-color: rgba(88, 166, 255, 0.06);
+}
+
+.feed-item-latest .feed-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.feed-item-latest::before {
+  width: 10px;
+  height: 10px;
+}
+
+.feed-group-count {
+  font-size: 0.7rem;
+  color: var(--accent-yellow);
+  font-weight: 600;
+}
+
 /* ============================================
    Research Panel
    ============================================ */
@@ -894,11 +995,36 @@ section h2::before {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border);
   transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
 }
 
 .research-tech:hover {
   border-color: var(--text-muted);
 }
+
+.tech-level-bar-track {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.tech-level-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width var(--transition);
+}
+
+.tech-level-bar-fill.research-low { background: rgba(110, 118, 129, 0.1); }
+.tech-level-bar-fill.research-mid { background: rgba(88, 166, 255, 0.1); }
+.tech-level-bar-fill.research-high { background: rgba(63, 185, 80, 0.1); }
+.tech-level-bar-fill.research-epic { background: rgba(188, 140, 255, 0.1); }
+.tech-level-bar-fill.research-legendary { background: rgba(210, 153, 34, 0.15); }
 
 .research-tech .tech-name {
   font-size: 0.75rem;

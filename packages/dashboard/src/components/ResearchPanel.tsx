@@ -58,6 +58,8 @@ function levelColor(level: number): string {
   return 'research-legendary';
 }
 
+const MAX_LEVEL = 20;
+
 export default function ResearchPanel(props: { research: APIResearch | null }) {
   return (
     <section class="research-panel">
@@ -68,12 +70,19 @@ export default function ResearchPanel(props: { research: APIResearch | null }) {
             <div class="research-category">
               <h3>{cat.name}</h3>
               <div class="research-techs">
-                {cat.techs.map((tech) => (
-                  <div class={`research-tech ${levelColor(props.research![tech.key])}`}>
-                    <span class="tech-name">{tech.label}</span>
-                    <span class="tech-level">{props.research![tech.key]}</span>
-                  </div>
-                ))}
+                {cat.techs.map((tech) => {
+                  const level = props.research![tech.key];
+                  const pct = Math.min((level / MAX_LEVEL) * 100, 100);
+                  return (
+                    <div class={`research-tech ${levelColor(level)}`}>
+                      <div class="tech-level-bar-track">
+                        <div class={`tech-level-bar-fill ${levelColor(level)}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span class="tech-name">{tech.label}</span>
+                      <span class="tech-level">{level}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
