@@ -1,6 +1,6 @@
 # Pitfalls Research: OGameX Bot
 
-Research based on analysis of OGameX source code (github.com/lanedirt/OGameX, Laravel 12.x), existing ogamed client (`internal/ogamed/client.go`), and common OGame bot failure modes.
+Research based on analysis of OGameX source code (github.com/lanedirt/OGameX, Laravel 12.x), the OGameX client (`internal/ogamex/`), and common OGame bot failure modes.
 
 ---
 
@@ -20,7 +20,7 @@ OGameX rotates CSRF tokens on nearly every AJAX response. Every JSON response in
 
 ### 2. Session Cookie Lifecycle and Expiry
 
-Laravel sessions expire after a configurable lifetime (default 120 minutes of inactivity in `config/session.php`). The `laravel_session` cookie must be preserved across all requests. Unlike ogamed's bearer token (which was stateless), Laravel sessions are stateful — the server tracks last activity.
+Laravel sessions expire after a configurable lifetime (default 120 minutes of inactivity in `config/session.php`). The `laravel_session` cookie must be preserved across all requests. Unlike a stateless bearer token, Laravel sessions are stateful — the server tracks last activity.
 
 **Warning signs**: After a quiet period (no API calls for 2+ hours), all requests return redirect to `/login` or 401. The bot appears to be running but is actually getting auth errors silently.
 
@@ -33,7 +33,7 @@ Laravel sessions expire after a configurable lifetime (default 120 minutes of in
 
 ### 3. Login is Multi-Step (Not a Single Call)
 
-ogamed login was one GET to `/bot/login`. OGameX login via Laravel Fortify is:
+OGameX login via Laravel Fortify is:
 1. `GET /login` → extract CSRF token from HTML `<meta name="csrf-token">` or hidden `_token` field
 2. `POST /login` with `email`, `password`, `_token` → receives `laravel_session` cookie + redirect to `/overview`
 3. Extract the new CSRF token from the redirect page (it won't be in the login POST response)
@@ -60,7 +60,7 @@ Go's `http.Client` has a built-in cookie jar, but it must be explicitly configur
 
 ### 5. Mixed Response Formats (HTML + JSON + HTML-inside-JSON)
 
-This is the single biggest difference from ogamed. The old client had a clean JSON envelope `{Status, Code, Result}` for everything. OGameX mixes three response types:
+This is the single biggest difference from a typical REST API. The previous client had a clean JSON envelope for everything. OGameX mixes three response types:
 
 | Endpoint | Response Type | Notes |
 |----------|--------------|-------|
@@ -84,7 +84,7 @@ This is the single biggest difference from ogamed. The old client had a clean JS
 
 ### 6. No Single "Get Full Game State" Endpoint
 
-ogamed had dedicated endpoints for everything: `/bot/planets`, `/bot/planets/{id}/resources`, `/bot/fleets`. OGameX has NO equivalent. State is scattered:
+OGameX has NO single state endpoint. State is scattered:
 
 - **Planet list**: Embedded in the overview HTML page as a planet menu widget
 - **Current planet resources**: Available via the resource bar (rendered in every page's header)
@@ -100,7 +100,7 @@ ogamed had dedicated endpoints for everything: `/bot/planets`, `/bot/planets/{id
 
 ### 7. Fleet Dispatch is a Two-Step Process
 
-ogamed's `SendFleet` was one POST. OGameX requires:
+OGameX requires:
 
 1. **Step 1**: `POST /ajax/fleet/dispatch/check-target` with `{galaxy, system, position, type, am202: 1, ...}` → returns `orders` (available missions), `shipsData`, and target info
 2. **Step 2**: `POST /ajax/fleet/dispatch/send-fleet` with `{galaxy, system, position, type, mission, speed, am202: count, metal, crystal, deuterium, token}` → returns `{success, newAjaxToken}`
@@ -115,7 +115,7 @@ The `token` field in step 2 must be the `newAjaxToken` from step 1. Speed is sen
 
 ### 8. Ship Quantities Sent as Individual Form Fields, Not Arrays
 
-ogamed used `ships=202,5&ships=203,10` (repeated parameter with comma-separated values). OGameX uses individual fields: `am202=5&am203=10` where the field name is `am` + the ship ID.
+Other OGame bots use `ships=202,5&ships=203,10` (repeated parameter with comma-separated values). OGameX uses individual fields: `am202=5&am203=10` where the field name is `am` + the ship ID.
 
 **Evidence**: FleetController `dispatchSendFleet` extracts ships via `$this->getUnitsFromRequest()` which loops all input fields prefixed with "am".
 
@@ -182,21 +182,11 @@ The OGameX `ObjectService::getObjectById()` maps IDs to internal objects, and th
 
 ---
 
-## Migration Pitfalls (ogamed → OGameX)
+## Migration Pitfalls (Client Implementation)
 
-### 13. Response Envelope Change Breaks Generic Unmarshaling
+### 13. Response Format Variations
 
-The old client uses `getTyped[T]` with a generic envelope:
-```go
-type OgamedResponse[T any] struct {
-    Status  string `json:"Status"`
-    Code    int    `json:"Code"`
-    Message string `json:"Message"`
-    Result  T      `json:"Result"`
-}
-```
-
-OGameX has no universal envelope. Responses use different structures:
+Each endpoint uses its own response structure:
 - `{success: bool, message: string, newAjaxToken: string}`
 - `{status: string, message: string}`
 - `{success: bool, errors: [{message: string, error: int}]}`
@@ -210,20 +200,19 @@ OGameX has no universal envelope. Responses use different structures:
 
 ### 14. Case Sensitivity in JSON Field Names
 
-ogamed responses used PascalCase (`Status`, `Code`, `Result`). OGameX uses camelCase (`newAjaxToken`, `targetPlayerId`, `fleet_unit_count` — actually a mix of camelCase and snake_case).
+OGameX uses a mix of camelCase and snake_case (`newAjaxToken`, `targetPlayerId`, `fleet_unit_count`).
 
-**Warning signs**: Struct fields are always zero/empty after unmarshaling. You copy ogamed PascalCase tags to OGameX structs.
+**Warning signs**: Struct fields are always zero/empty after unmarshaling. You copy tags from a different source.
 
-**Prevention**: Use the actual field names from OGameX responses. Create new structs — don't try to adapt the ogamed ones. Use `json:` tags matching OGameX's actual output.
+**Prevention**: Use the actual field names from OGameX responses. Use `json:` tags matching OGameX's actual output.
 
 **Phase**: Phase 1 — all response structs.
 
 ### 15. Error Handling Is Fundamentally Different
 
-ogamed errors: `{Status: "error", Code: 500, Message: "..."}` — always in the envelope.
-OGameX errors: HTTP 419 (CSRF), HTTP 500 (server error), JSON `{success: false, errors: [...]}`, or a redirect to `/login` (expired session).
+Error responses vary: HTTP 419 (CSRF), HTTP 500 (server error), JSON `{success: false, errors: [...]}`, or a redirect to `/login` (expired session).
 
-**Warning signs**: Error checking code looks for `envelope.Status != "ok"` but OGameX never returns that format. HTTP redirects are followed silently, returning the login page HTML as if it were a successful response.
+**Warning signs**: Error checking code expects a single error format but OGameX returns different formats. HTTP redirects are followed silently, returning the login page HTML as if it were a successful response.
 
 **Prevention**: 
 - Don't follow redirects automatically (check for 302 to `/login`).
@@ -235,16 +224,9 @@ OGameX errors: HTTP 419 (CSRF), HTTP 500 (server error), JSON `{success: false, 
 
 ### 16. ClientInterface Methods Don't Map 1:1 to OGameX
 
-The existing `ClientInterface` has methods like `GetAttacks()`, `GetSlots()`, `IsUnderAttack()` that map to clean ogamed endpoints. OGameX has no direct equivalents:
+The `ClientInterface` has methods like `GetAttacks()`, `GetSlots()`, `IsUnderAttack()` that require creative mapping to OGameX endpoints:
 
-| Method | ogamed Endpoint | OGameX Equivalent |
-|--------|----------------|-------------------|
-| `IsUnderAttack()` | `/bot/is-under-attack` | Parse eventbox `hostile > 0` |
-| `GetAttacks()` | `/bot/attacks` | Parse event list HTML for hostile missions |
-| `GetSlots()` | `/bot/slots` | Parse fleet page HTML for slot counts |
-| `GetPlanets()` | `/bot/planets` | Parse overview HTML planet menu |
-| `GetResources()` | `/bot/planets/{id}/resources` | Parse overview page resource bar |
-| `GetServerTime()` | `/bot/server/time` | Parse any AJAX response `serverTime` field |
+| Method | OGameX Equivalent |
 
 **Warning signs**: You implement the interface but each method requires complex HTML parsing instead of a simple API call. Methods return partial or incorrect data.
 
@@ -254,11 +236,11 @@ The existing `ClientInterface` has methods like `GetAttacks()`, `GetSlots()`, `I
 
 ### 17. Rate Limiting Has Different Constraints
 
-ogamed had its own rate limiter. OGameX has no explicit rate limiting, but Laravel has built-in throttling on login (default 5 attempts/minute). More importantly, OGameX is a full web app — each request does more work (DB queries, session handling, view rendering) than ogamed's lightweight API.
+OGameX has no explicit rate limiting, but Laravel has built-in throttling on login (default 5 attempts/minute). More importantly, OGameX is a full web app — each request does more work (DB queries, session handling, view rendering) than a lightweight API.
 
 **Warning signs**: After running the bot for a while, responses become slow. The OGameX demo server (main.ogamex.dev) may throttle or IP-ban aggressive clients.
 
-**Prevention**: Keep the rate limiter from the ogamed client. Add longer delays between heavy operations (galaxy scans, fleet dispatches). Be respectful of the shared demo server.
+**Prevention**: Keep a rate limiter. Add longer delays between heavy operations (galaxy scans, fleet dispatches). Be respectful of the shared demo server.
 
 **Phase**: Phase 1 — carry over rate limiter, add OGameX-specific delays.
 
@@ -306,16 +288,14 @@ Building a general parser is a bottomless time sink.
 
 **Phase**: All phases — keep parser scope tight.
 
-### 21. No Docker Means No Container Networking
+### 21. Native Binary Means No Container Networking
 
-The old setup used Docker Compose with ogamed and bot containers. The new setup is a single Go binary. This is simpler but means:
-- No container DNS (ogamed was reachable at `http://ogamed:8080`)
+The bot is a single Go binary with no Docker dependencies. This means:
+- Direct URL connections (e.g., `https://main.ogamex.dev`)
 - No container restart policies
 - No built-in log aggregation
 
-**Warning signs**: Config files still reference Docker hostnames. Network errors trying to reach `ogamed:8080`.
-
-**Prevention**: Update all configuration to use direct URLs (`https://main.ogamex.dev`). Remove Docker-specific networking code. The bot is now a native binary — treat it as such.
+**Prevention**: Use direct URLs in configuration. The bot is a native binary — treat it as such.
 
 **Phase**: Phase 1 — config cleanup.
 
@@ -372,7 +352,7 @@ This is the highest-risk phase. Pitfalls are concentrated here.
 
 | Pitfall | Prevention | Priority |
 |---------|-----------|----------|
-| No Docker (#21) | Update config, remove container references | Low |
+| No Docker (#21) | Use direct URLs in config | Low |
 
 ---
 

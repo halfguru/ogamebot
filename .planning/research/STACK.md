@@ -2,7 +2,7 @@
 
 ## Summary
 
-The bot needs a new HTTP client layer that speaks to OGameX's Laravel/AJAX endpoints instead of the ogamed REST API. The core insight: **Go's standard library `net/http` with its cookie jar is sufficient for session management** — no external HTTP client library needed. The only new dependency is **goquery** for HTML parsing to extract CSRF tokens from login pages.
+The bot uses a direct HTTP client layer that speaks to OGameX's Laravel/AJAX endpoints. The core insight: **Go's standard library `net/http` with its cookie jar is sufficient for session management** — no external HTTP client library needed. The only additional dependency is **goquery** for HTML parsing to extract CSRF tokens from login pages.
 
 ---
 
@@ -31,12 +31,11 @@ That's it. The entire OGameX client can be built with:
 - **`net/http`** — cookie jar handles session persistence, manual CSRF token in headers
 - **`goquery`** — parse the login page HTML to extract `<meta name="csrf-token">`
 
-## Dependencies Removed
+## Dependencies (No Longer Used)
 
 | Dependency | Reason |
 |---|---|
-| ogamed (entire Docker container) | No longer needed — bot talks directly to OGameX |
-| `internal/ogamed/` package | Replaced by `internal/ogamex/` package |
+| Docker for middleware | No longer needed — bot talks directly to OGameX |
 
 The following **internal packages are reused as-is** (import path changes only):
 - `internal/model/` — domain types (Planet, Fleet, Resources, etc.)
@@ -90,7 +89,7 @@ The following **internal packages are reused as-is** (import path changes only):
 ### 4. No HTTP retry library (keep existing retry logic)
 
 **Why keep custom retry?**
-- The existing `retryWithBackoff()` in `internal/ogamed/retry.go` is well-tested (exponential backoff + jitter).
+- The existing `retryWithBackoff()` is well-tested (exponential backoff + jitter).
 - It will move to a shared package (e.g., `internal/http/retry.go`) with minimal changes.
 - Libraries like `hashicorp/go-retryablehttp` are fine but add a dependency for something we already have.
 
@@ -134,12 +133,12 @@ Derived from `routes/web.php` analysis:
 ## Architecture: New Client Package
 
 ```
-internal/ogamex/           (new — replaces internal/ogamed/)
+internal/ogamex/           (OGameX HTTP client)
 ├── client.go              — Client struct, Login(), session management
 ├── csrf.go                — CSRF token extraction from HTML
 ├── ajax.go                — Generic GET/POST wrappers for AJAX endpoints
 ├── endpoints.go           — ClientInterface implementation (26 methods)
-├── types.go               — OGameX-specific response types (renamed from OgamedError, etc.)
+├── types.go               — OGameX-specific response types
 └── client_test.go         — Tests with httptest.Server mocks
 ```
 

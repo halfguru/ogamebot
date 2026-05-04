@@ -15,7 +15,7 @@ export const resourcesSchema = z.object({
   Darkmatter: z.number().optional().default(0),
 });
 
-// ogamed returns arrays of planet objects with specific keys
+// OGameX returns arrays of planet objects with specific keys
 export const planetSchema = z.object({
   ID: z.number(),
   Name: z.string(),

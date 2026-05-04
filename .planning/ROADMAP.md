@@ -19,7 +19,7 @@ Phase 6: Web Dashboard        ████████████████�
 
 ## Phase 1: Core Infrastructure — OGameX Client
 
-**Goal:** Replace `internal/ogamed/` with `internal/ogamex/` that authenticates with OGameX via Laravel session login, maintains CSRF tokens, and loads configuration for the new target. Bot compiles and login succeeds.
+**Goal:** Build `internal/ogamex/` that authenticates with OGameX via Laravel session login, maintains CSRF tokens, and loads configuration. Bot compiles and login succeeds.
 
 **Dependencies:** None (first phase)
 **Requirements:** INFRA-01, INFRA-02, INFRA-03, INFRA-04
@@ -31,7 +31,7 @@ Plans:
 - [ ] 01-02-PLAN.md — Login + session + CSRF management (INFRA-01, INFRA-02)
 
 **Success Criteria:**
-1. `go build ./...` succeeds with new `internal/ogamex/` package alongside `internal/ogamed/`
+1. `go build ./...` succeeds with `internal/ogamex/` package
 2. Bot logs into `main.ogamex.dev` with email/password and receives session cookie
 3. CSRF token is extracted from login response HTML and sent with subsequent AJAX requests
 4. Bot auto-refreshes CSRF token from `newAjaxToken` in JSON responses (thread-safe)
@@ -117,7 +117,7 @@ Plans:
 
 **Scope:**
 - Implement `BuildBuilding()`: POST building upgrade endpoint for a planet (extract from resources page DOM)
-- Verify building IDs match OGameX's internal IDs (may differ from ogamed)
+- Verify building IDs match OGameX's internal IDs
 - Implement research start: POST research upgrade endpoint
 - Handle OGameX response for "not enough resources" / "build slot full" gracefully
 - Map OGameX building IDs to `internal/constants/buildings.go` constants if they differ
@@ -176,7 +176,7 @@ Plans:
 
 **Scope:**
 - Verify `internal/dashboard/` handlers work with new state manager (they read from SQLite — should be transparent)
-- Update any hardcoded ogamed references in dashboard TypeScript/API
+- Update any stale references in dashboard TypeScript/API
 - Verify WebSocket hub broadcasts fleet-save, build, and farm events
 - Test dashboard loads and shows live data from OGameX-connected bot
 - Verify CORS and static file serving work for development
@@ -184,8 +184,7 @@ Plans:
 ### Plan 6.2 — Cleanup + final validation (cross-cutting)
 
 **Scope:**
-- Remove all remaining `internal/ogamed/` code and imports
-- Remove `docker-compose.yml` ogamed service, `Dockerfile` for ogamed
+- Final codebase review and cleanup
 - Update `README.md` with OGameX setup instructions
 - Update `config.example.yaml` with final OGameX config structure
 - Remove `cookies.json` from repo (gitignore)

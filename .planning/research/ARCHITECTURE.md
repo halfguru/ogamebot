@@ -21,15 +21,15 @@ The existing codebase has a clean layered architecture with an interface-based c
      │  (SQLite cache, periodic poll)│      │
      └────────────┬──────────────────┘      │
                   │                          │
-     ┌────────────▼──────────────────┐      │
-     │     ogamed.ClientInterface    │◄─────┘
-     │  (26 methods, abstracted)     │
-     └────────────┬──────────────────┘
-                  │                         ← SWAP BOUNDARY
-     ┌────────────▼──────────────────┐
-     │   ogamed.Client (concrete)    │  ← TO BE REPLACED
-     │   REST calls to ogamed daemon │
-     └───────────────────────────────┘
+      ┌────────────▼──────────────────┐      │
+      │     ClientInterface           │◄─────┘
+      │  (26 methods, abstracted)     │
+      └────────────┬──────────────────┘
+                   │                         ← SWAP BOUNDARY
+      ┌────────────▼──────────────────┐
+      │   ogamex.Client (concrete)    │
+      │   Direct HTTP to OGameX       │
+      └───────────────────────────────┘
 ```
 
 ### Preserved components (zero or minimal changes)
@@ -40,15 +40,15 @@ The existing codebase has a clean layered architecture with an interface-based c
 | Game constants | `internal/constants` | None (ship/building IDs are the same game) |
 | ROI calculator | `internal/builder/roi.go` | None (pure math) |
 | Escape routes | `internal/defender/escape.go` | None (pure math) |
-| Workers | `internal/defender, builder, farmer` | Import path change only (`ogamed` → `ogamex`) |
-| State manager | `internal/state` | Import path change + adjust for any new methods |
+| Workers | `internal/defender, builder, farmer` | Import path (`ogamex`) |
+| State manager | `internal/state` | Adjust for any new methods |
 | Dashboard | `internal/dashboard` | None (reads from SQLite) |
-| Config | `internal/config` | Replace `OgamedConfig` with `OGameXConfig` |
+| Config | `internal/config` | `OGameXConfig` for OGameX connection |
 | Migrations | `internal/state/migrations` | None (SQLite schema is client-agnostic) |
 
 ### Interface methods to implement
 
-The `ClientInterface` in `internal/ogamed/client.go:28` defines 26 methods. The new OGameX client must implement all of them. Some methods won't have direct OGameX equivalents and will need creative mapping (see New Client Architecture).
+The `ClientInterface` defines 26 methods. The OGameX client implements all of them. Some methods don't have direct OGameX equivalents and need creative mapping (see New Client Architecture).
 
 ## New Client Architecture
 
@@ -68,12 +68,11 @@ internal/ogamex/
 └── galaxy.go          # Galaxy scan, espionage report implementation
 ```
 
-### Why a new package (`internal/ogamex`)
+### Why a dedicated package (`internal/ogamex`)
 
-- Clean import path swap: `"github.com/user/ogame-bot/internal/ogamex"` replaces `"github.com/user/ogame-bot/internal/ogamed"`
-- No risk of accidentally using ogamed-specific code
+- Clean separation: all OGameX-specific HTTP logic in one place
+- No risk of accidentally using old client-specific code
 - Tests can use fixture HTML files without touching real servers
-- The old `internal/ogamed/` package can be deleted once the new client is validated
 
 ### Client struct design
 
@@ -278,11 +277,7 @@ func (c *Client) ensureAuthenticated(ctx context.Context) error {
 ### Config changes
 
 ```yaml
-# Old config
-ogamed:
-  url: "http://ogamed:8080"
-
-# New config
+# Config
 ogamex:
   url: "https://main.ogamex.dev"
   email: "${OGAMEX_EMAIL}"
@@ -290,7 +285,7 @@ ogamex:
   universe: ""  # OGameX uses single-universe, may not be needed
 ```
 
-The `AccountConfig` struct already has `Username` and `Password` fields — these map directly to OGameX's email/password login. The `OgamedConfig` struct gets replaced with `OGameXConfig`.
+The `AccountConfig` struct already has `Username` and `Password` fields — these map directly to OGameX's email/password login. The `OGameXConfig` struct handles OGameX-specific settings.
 
 ## Component Boundaries
 
@@ -367,7 +362,7 @@ The defender bypasses the state manager for some calls because it needs **fresh 
 - `GetShips` — needs exact current ship count before fleet-save
 - `GetSlots` — needs real-time slot availability
 
-This pattern continues with the new client. These calls go through the same `ClientInterface` but hit OGameX directly instead of ogamed.
+This pattern continues with the OGameX client. These calls go through the same `ClientInterface` and hit OGameX directly.
 
 ## Data Flow
 
@@ -549,15 +544,14 @@ The build order respects dependency chains: each phase produces a testable incre
 
 ### Phase 7: Integration + wiring swap
 
-**Goal**: Replace ogamed client with ogamex client in main.go, verify all workers function.
+**Goal**: Wire the OGameX client in main.go, verify all workers function.
 
 **Files to modify**:
-- `cmd/bot/main.go` — Swap `ogamed.NewClient(...)` → `ogamex.NewClient(...)`
-- `internal/config/config.go` — Replace `OgamedConfig` with `OGameXConfig`
+- `cmd/bot/main.go` — Use `ogamex.NewClient(...)`
+- `internal/config/config.go` — Use `OGameXConfig`
 - `config.yaml` — Update config structure
 - Remove captcha handling from main.go (OGameX has no captchas)
 - Remove rate limiter creation from main.go
-- Remove Docker dependency from deployment
 
 **Test**: Full end-to-end test — login, state refresh, detect attacks, fleet-save, build, farm.
 
@@ -567,9 +561,7 @@ The build order respects dependency chains: each phase produces a testable incre
 
 **Goal**: Remove dead code, update documentation.
 
-- Delete `internal/ogamed/` package
-- Remove ogamed-related config fields
-- Remove Docker Compose files for ogamed
+- Ensure no references to old client package remain
 - Update AGENTS.md, PROJECT.md, README
 - Remove rate limiter code (not needed for OGameX)
 

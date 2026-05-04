@@ -1,7 +1,7 @@
 # Features Research: OGameX Bot
 
 **Date:** 2026-05-03
-**Context:** Brownfield pivot from ogamed (official OGame) to OGameX (open-source clone). Existing Go bot has defender, builder, farmer, and dashboard workers behind a `ClientInterface` abstraction.
+**Context:** OGameX bot (open-source OGame clone). Go bot with defender, builder, farmer, and dashboard workers behind a `ClientInterface` abstraction.
 
 ---
 
@@ -15,7 +15,7 @@ Features every OGame bot must have. Without these, users will leave for TBot or 
 - CSRF token extraction and rotation
 - Session recovery after network errors or server restarts
 - **Depends on:** Nothing (foundation)
-- **Existing:** ogamed client handles session; needs rewrite for OGameX AJAX auth
+- **Existing:** OGameX client handles session auth directly via HTTP
 
 ### 2. Game State Retrieval (Complexity: Medium)
 - Fetch planets, resources, fleets, buildings, facilities, ships, defense, research
@@ -168,15 +168,14 @@ Things possible with OGameX that are impossible or impractical with official OGa
 - No residential proxy requirement
 - No request-pattern obfuscation needed
 - Rate limiting is basic (login throttle only)
-- **Impact:** Massive simplification. Eliminates entire subsystem (ogamed had captcha.go). Faster development, fewer failure modes, more reliable operation.
+- **Impact:** Massive simplification. No anti-bot subsystem needed. Faster development, fewer failure modes, more reliable operation.
 
 ### 19. Direct API Access (No Middleware) (Complexity: Medium rewrite)
-- OGameX exposes JSON AJAX endpoints directly — no need for ogamed daemon
+- OGameX exposes JSON AJAX endpoints directly
 - Bot talks HTTP to OGameX directly (session + CSRF)
-- Eliminates Docker dependency on ogamed container
 - Single Go binary deployment
 - **Impact:** Simpler deployment, fewer moving parts, full control over API layer
-- **Existing:** Currently depends on ogamed REST API; rewrite to direct OGameX HTTP
+- **Existing:** OGameX client communicates directly via HTTP
 
 ### 20. Self-Hosted Server Control (Complexity: Low, if self-hosting)
 - If running own OGameX instance: access to admin panel, database
@@ -259,7 +258,7 @@ Telegram Notifications (needs events ────┘
 ```
 
 ### Critical Path (v1 for OGameX pivot)
-1. **OGameX Client** (new) — replaces ogamed client; direct HTTP to OGameX
+1. **OGameX Client** — direct HTTP to OGameX (session auth + CSRF)
 2. **Session Management** — login, CSRF, keepalive
 3. **Game State** — map OGameX AJAX endpoints to domain types
 4. **Fleet-Save** — highest priority (core value: protect the fleet)
@@ -298,11 +297,11 @@ Telegram Notifications (needs events ────┘
 | Dashboard | SolidJS + WebSocket | Blazor WebUI | None |
 | Telegram | Planned | Yes | No |
 | Anti-Bot Evasion | None needed | Captcha solver, proxy | Captcha solver |
-| Deployment | Single binary | ogamed + .NET | ogamed + Node |
+| Deployment | Single binary | .NET runtime | Node runtime |
 | Self-Host Server Control | Possible | No | No |
 | Open Source | Yes | Yes | Yes |
 
-**Key advantage over TBot:** No anti-bot cat-and-mouse game. Simpler deployment (single binary vs ogamed + .NET). Can evolve with OGameX upstream.
+**Key advantage over TBot:** No anti-bot cat-and-mouse game. Simpler deployment (single binary vs .NET runtime). Can evolve with OGameX upstream.
 
 ---
 

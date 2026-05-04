@@ -1,5 +1,3 @@
-export { ogamedResponseSchema, OgamedError } from './ogamed.js';
-export type { OgamedResponse } from './ogamed.js';
 export {
   coordinateSchema,
   resourcesSchema,

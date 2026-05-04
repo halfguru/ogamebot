@@ -36,9 +36,9 @@ The bot must reliably protect your fleet and grow your empire while you're away 
 
 ## Context
 
-### Pivot from ogamed
+### Targeting OGameX
 
-This project pivots from an ogamed-based bot (which wrapped the official Gameforge OGame API) to targeting OGameX (github.com/lanedirt/OGameX), an open-source OGame clone. The ogamed approach failed because Gameforge blocks automated logins. OGameX has no anti-bot protections.
+This bot targets OGameX (github.com/lanedirt/OGameX), an open-source OGame clone. OGameX has no anti-bot protections, making it an ideal automation target.
 
 ### OGameX Architecture
 
@@ -51,7 +51,7 @@ This project pivots from an ogamed-based bot (which wrapped the official Gamefor
 
 ### Existing Codebase
 
-The ogamed-based bot has clean architecture with a `ClientInterface` abstraction (26 methods). All workers (defender, builder, farmer) depend on this interface, never the concrete client. The pivot replaces the concrete client while keeping:
+The bot has clean architecture with a `ClientInterface` abstraction (26 methods). All workers (defender, builder, farmer) depend on this interface, never the concrete client. The OGameX client implements this interface, reusing:
 - Domain types (Planet, Fleet, Resources, Ships, etc.)
 - Game constants (ship IDs, building IDs, mission types)
 - Pure-math engines (ROI calculator, escape route calculator)
@@ -61,7 +61,7 @@ The ogamed-based bot has clean architecture with a `ClientInterface` abstraction
 
 ### Reference Projects
 
-- **TBot** (github.com/ogame-tbot/TBot) — Most complete OGame bot. C#/.NET on top of ogamed.
+- **TBot** (github.com/ogame-tbot/TBot) — Most complete OGame bot. C#/.NET with its own HTTP client.
 - **Cruiser** (github.com/kweimann/cruiser) — Focused on safety. Smart fleet-save.
 
 ## Constraints
@@ -77,13 +77,13 @@ The ogamed-based bot has clean architecture with a `ClientInterface` abstraction
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Pivot from official OGame to OGameX | Gameforge anti-bot blocks automated logins; OGameX has zero anti-bot | — Pending |
-| Swap client layer, reuse workers | Clean ClientInterface abstraction makes this 70% reuse | — Pending |
-| Target main.ogamex.dev live demo | No need to self-host; demo is always available | — Pending |
-| Native Go binary (no Docker) | No ogamed container needed; single binary is simpler | — Pending |
-| Go for bot engine | Developer knows Go best; goroutines for parallel ops | — Pending |
-| SolidJS for dashboard only | Existing dashboard code works; mobile-responsive | — Pending |
-| Session-based auth with CSRF | OGameX uses Laravel Fortify; bot must maintain session + token | — Pending |
+| Target OGameX directly | OGameX has zero anti-bot; ideal automation target | — Complete |
+| OGameX client with ClientInterface | Clean abstraction makes this 70% reuse of existing workers | — Complete |
+| Target main.ogamex.dev live demo | No need to self-host; demo is always available | — Complete |
+| Native Go binary (no Docker) | Single binary is simpler; no middleware dependencies | — Complete |
+| Go for bot engine | Developer knows Go best; goroutines for parallel ops | — Complete |
+| SolidJS for dashboard only | Existing dashboard code works; mobile-responsive | — Complete |
+| Session-based auth with CSRF | OGameX uses Laravel Fortify; bot must maintain session + token | — Complete |
 
 ## Evolution
 
@@ -103,4 +103,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-03 after OGameX pivot*
+*Last updated: 2026-05-04 — all ogamed references removed*

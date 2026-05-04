@@ -11,7 +11,7 @@
 - `encoding/json` decodes AJAX responses (OGameX returns JSON for game data endpoints)
 - No browser automation needed — OGameX is traditional form-post + AJAX
 - Keep existing: modernc.org/sqlite, gorilla/websocket, yaml.v3
-- Remove: all ogamed dependencies, Docker for ogamed
+- Remove: all Docker dependencies for middleware
 
 ### Table Stakes
 7 features, all already implemented in the codebase:
@@ -32,7 +32,7 @@
 
 ### OGameX-Specific Opportunities
 - **Zero anti-bot evasion** — no captcha, no proxy, no fingerprinting
-- **Single Go binary** — no Docker, no ogamed middleware
+- **Single Go binary** — no Docker, no middleware
 - **Direct DB access** if self-hosting (MySQL queries for game state)
 - **No Lifeforms** — simpler scope than TBot
 
@@ -50,7 +50,7 @@
 4. Build actions (upgrade buildings, start research)
 5. Galaxy scan + espionage
 6. Wire up existing workers (defender, builder, farmer)
-7. Cleanup (remove ogamed package, update Docker/config)
+7. Cleanup (update config, documentation)
 
 ---
 *Research synthesized: 2026-05-03*
