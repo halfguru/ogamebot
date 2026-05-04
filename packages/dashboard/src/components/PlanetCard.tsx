@@ -21,7 +21,7 @@ function ResourceBar(props: { label: string; value: number; type: string; produc
         <span class="resource-bar-value">{formatNumber(props.value)}</span>
       </div>
       <Show when={props.production && props.production > 0}>
-        <span class="resource-production">+{props.production!.toFixed(1)}/hr</span>
+        <span class="resource-production">+{formatNumber(Math.round(props.production! * 3600))}/hr</span>
       </Show>
     </div>
   );
