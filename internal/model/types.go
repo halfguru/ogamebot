@@ -1,5 +1,5 @@
 // Package model defines domain types for all OGame entities.
-// JSON tags use PascalCase to match ogamed's exact response field names.
+// JSON tags use PascalCase to match OGameX's response field names.
 package model
 
 import "time"
@@ -150,7 +150,7 @@ type Research struct {
 	ArmourTechnology             int `json:"ArmourTechnology"`
 }
 
-// AttackEvent represents an incoming attack detected by ogamed.
+// AttackEvent represents an incoming attack detected by the OGameX client.
 type AttackEvent struct {
 	ID              int64       `json:"ID"`
 	MissionType     int         `json:"MissionType"`
@@ -203,7 +203,7 @@ type Slots struct {
 	ExpTotal int `json:"ExpTotal"`
 }
 
-// SystemInfos represents the result of scanning one solar system via ogamed galaxy-infos endpoint.
+// SystemInfos represents the result of scanning one solar system via the OGameX galaxy endpoint.
 type SystemInfos struct {
 	Galaxy  int              `json:"Galaxy"`
 	System  int              `json:"System"`
@@ -211,7 +211,7 @@ type SystemInfos struct {
 }
 
 // PlanetPosition represents a planet slot in a solar system scan result.
-// JSON tags match ogamed's PascalCase response format.
+// JSON tags use PascalCase for API consistency.
 type PlanetPosition struct {
 	Position     int        `json:"Position"`
 	Name         string     `json:"Name"`
@@ -233,7 +233,7 @@ type EspionageReportSummary struct {
 	Date       time.Time  `json:"Date"`
 }
 
-// EspionageReport represents a detailed espionage report parsed from ogamed.
+// EspionageReport represents a detailed espionage report parsed from OGameX.
 // Defense and fleet fields are only populated when the corresponding Has* fields are true
 // (depends on number of probes sent vs target's espionage tech level).
 type EspionageReport struct {

@@ -18,7 +18,7 @@ var _ ogamex.ClientInterface = (*mockClient)(nil)
 
 // --- Mock implementations ---
 
-// mockClient satisfies ogamed.ClientInterface for defender tests.
+// mockClient satisfies ogamex.ClientInterface for defender tests.
 type mockClient struct {
 	attacks     []model.AttackEvent
 	attacksErr  error

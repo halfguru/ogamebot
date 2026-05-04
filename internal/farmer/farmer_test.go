@@ -17,7 +17,7 @@ import (
 
 // --- Mock implementations ---
 
-// mockFarmerClient satisfies ogamed.ClientInterface for farmer tests.
+// mockFarmerClient satisfies ogamex.ClientInterface for farmer tests.
 type mockFarmerClient struct {
 	slots           model.Slots
 	slotsErr        error

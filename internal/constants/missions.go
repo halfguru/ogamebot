@@ -1,7 +1,7 @@
-// Package constants defines game constant IDs matching OGame/ogamed values.
+// Package constants defines game constant IDs matching OGameX values.
 package constants
 
-// Mission type IDs matching ogamed mission types.
+// Mission type IDs matching OGameX mission types.
 const (
 	MissionAttack          = 1
 	MissionACSAttack       = 2

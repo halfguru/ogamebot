@@ -119,7 +119,6 @@ internal/
     galaxy.go                Galaxy scan
     espionage.go             Espionage reports
     global.go                Research, constructions, server info
-  ogamed/                    Legacy OGame REST client (fallback)
   state/                     SQLite database + game state cache
   defender/                  Fleet safety worker + escape route calculator
   builder/                   Auto-build worker + ROI calculator
@@ -181,10 +180,6 @@ go run ./cmd/bot
 pnpm --filter @ogame-bot/dashboard dev
 # Open http://localhost:5173
 ```
-
-### Legacy OGame (ogamed) Support
-
-The bot still supports the original ogamed REST client as a fallback. To use it instead of OGameX, omit the `ogamex` section and configure `account` + `ogamed` in `config.yaml`. This requires the ogamed Docker container.
 
 ## License
 

@@ -379,7 +379,7 @@ func (d *Defender) savePlanet(ctx context.Context, planet model.Planet, attacks 
 		return
 	}
 
-	ships, err := d.client.GetShips(ctx, planet.ID) // Fresh from ogamed
+	ships, err := d.client.GetShips(ctx, planet.ID)
 	if err != nil {
 		d.log.Error("Failed to get ships", "error", err)
 		return

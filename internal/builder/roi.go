@@ -55,7 +55,7 @@ type ROIResult struct {
 
 // BuildingCost returns the resources needed to upgrade to the given level.
 // Formula: baseCost * factor^(level-1)
-// Source: verified from ogamed source (baseLevelable.go)
+// Source: verified from OGameX source (baseLevelable.go)
 func BuildingCost(baseCost model.Resources, factor float64, level int) model.Resources {
 	return model.Resources{
 		Metal:     int(float64(baseCost.Metal) * math.Pow(factor, float64(level-1))),
@@ -66,7 +66,7 @@ func BuildingCost(baseCost model.Resources, factor float64, level int) model.Res
 
 // MetalProduction returns hourly metal production at the given level.
 // Formula: 30 * (1 + plasmaTech/100) * speed * level * 1.1^level + 30*speed (basic income)
-// Source: verified from ogamed source (metalMine.go)
+// Source: verified from OGameX source (metalMine.go)
 func MetalProduction(level, plasmaTech, universeSpeed int) int {
 	if level == 0 {
 		return 30 * universeSpeed
@@ -80,7 +80,7 @@ func MetalProduction(level, plasmaTech, universeSpeed int) int {
 // CrystalProduction returns hourly crystal production at the given level.
 // Note: plasma bonus is 0.66% per level (not 1% like metal).
 // Formula: 20 * speed * (1 + plasmaTech*0.0066) * level * 1.1^level + 15*speed (basic income)
-// Source: verified from ogamed source (crystalMine.go)
+// Source: verified from OGameX source (crystalMine.go)
 func CrystalProduction(level, plasmaTech, universeSpeed int) int {
 	if level == 0 {
 		return 15 * universeSpeed
@@ -95,7 +95,7 @@ func CrystalProduction(level, plasmaTech, universeSpeed int) int {
 // DeuteriumProduction returns hourly deuterium production at the given level.
 // Note: depends on average planet temperature. Plasma bonus is 0.33% per level.
 // Formula: 10 * (1 + plasmaTech*0.0033) * level * 1.1^level * (-0.004*avgTemp + 1.36) * speed
-// Source: verified from ogamed source (deuteriumSynthesizer.go)
+// Source: verified from OGameX source (deuteriumSynthesizer.go)
 func DeuteriumProduction(level, plasmaTech, avgTemperature, universeSpeed int) int {
 	if level == 0 {
 		return 0
@@ -108,21 +108,21 @@ func DeuteriumProduction(level, plasmaTech, avgTemperature, universeSpeed int) i
 
 // MineEnergyConsumption returns energy consumed by metal/crystal mines at the given level.
 // Formula: ceil(10 * level * 1.1^level)
-// Source: verified from ogamed source (metalMine.go, crystalMine.go)
+// Source: verified from OGameX source (metalMine.go, crystalMine.go)
 func MineEnergyConsumption(level int) int {
 	return int(math.Ceil(10.0 * float64(level) * math.Pow(1.1, float64(level))))
 }
 
 // DeutMineEnergyConsumption returns energy consumed by deuterium synthesizer at the given level.
 // Formula: ceil(20 * level * 1.1^level)
-// Source: verified from ogamed source (deuteriumSynthesizer.go)
+// Source: verified from OGameX source (deuteriumSynthesizer.go)
 func DeutMineEnergyConsumption(level int) int {
 	return int(math.Ceil(20.0 * float64(level) * math.Pow(1.1, float64(level))))
 }
 
 // SolarProduction returns energy produced by solar plant at the given level.
 // Formula: floor(20 * level * 1.1^level)
-// Source: verified from ogamed source (solarPlant.go)
+// Source: verified from OGameX source (solarPlant.go)
 func SolarProduction(level int) int {
 	if level == 0 {
 		return 0
@@ -132,7 +132,7 @@ func SolarProduction(level int) int {
 
 // FusionProduction returns energy produced by fusion reactor at the given level.
 // Formula: round(30 * level * (1.05 + energyTech*0.01)^level)
-// Source: verified from ogamed source (fusionReactor.go)
+// Source: verified from OGameX source (fusionReactor.go)
 func FusionProduction(level, energyTech int) int {
 	if level == 0 {
 		return 0
@@ -142,7 +142,7 @@ func FusionProduction(level, energyTech int) int {
 
 // ConstructionTime returns how long a building takes to construct.
 // Formula: (metalCost + crystalCost) / (2500 * (1 + roboticsFactory) * speed * 2^naniteFactory) hours
-// Source: verified from ogamed source (baseBuilding.go)
+// Source: verified from OGameX source (baseBuilding.go)
 func ConstructionTime(metalCost, crystalCost, roboticsFactory, naniteFactory, universeSpeed int) time.Duration {
 	hours := float64(metalCost+crystalCost) /
 		(2500.0 * (1.0 + float64(roboticsFactory)) * float64(universeSpeed) * math.Pow(2, float64(naniteFactory)))

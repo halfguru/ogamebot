@@ -15,7 +15,7 @@ import (
 	"github.com/user/ogame-bot/internal/ogamex"
 )
 
-// mockClient implements ogamed.ClientInterface for testing.
+// mockClient implements ogamex.ClientInterface for testing.
 // Each function field can be set per-test; unset fields return zero values.
 type mockClient struct {
 	loginFunc              func(ctx context.Context) error
@@ -421,13 +421,13 @@ func TestManager_Refresh_ContinuesOnPlanetError(t *testing.T) {
 		},
 		getResourcesFunc: func(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error) {
 			if planetID == 200 {
-				return model.Resources{}, model.PlanetDetails{}, fmt.Errorf("ogamed timeout")
+				return model.Resources{}, model.PlanetDetails{}, fmt.Errorf("client timeout")
 			}
 			return model.Resources{Metal: 9999, Crystal: 5555, Deuterium: 3333, Energy: 100}, model.PlanetDetails{}, nil
 		},
 		getResourceBuildingsFunc: func(ctx context.Context, planetID int) (model.ResourceBuildings, error) {
 			if planetID == 200 {
-				return model.ResourceBuildings{}, fmt.Errorf("ogamed timeout")
+				return model.ResourceBuildings{}, fmt.Errorf("client timeout")
 			}
 			return model.ResourceBuildings{MetalMine: 15}, nil
 		},
