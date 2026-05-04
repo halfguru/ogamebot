@@ -203,6 +203,7 @@ func newTestDB(t *testing.T) *sql.DB {
 		cost_crystal INTEGER NOT NULL DEFAULT 0,
 		cost_deut INTEGER NOT NULL DEFAULT 0,
 		roi_score REAL NOT NULL DEFAULT 0,
+		build_time_seconds INTEGER NOT NULL DEFAULT 0,
 		created_at DATETIME NOT NULL DEFAULT (datetime('now')))`)
 	if err != nil {
 		t.Fatalf("Failed to create build_events table: %v", err)

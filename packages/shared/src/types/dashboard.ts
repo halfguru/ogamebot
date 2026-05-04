@@ -92,6 +92,7 @@ export interface APIBuildEvent {
   costCrystal: number;
   costDeut: number;
   roiScore: number;
+  buildTimeSeconds: number;
   createdAt: string;
 }
 

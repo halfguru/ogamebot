@@ -37,11 +37,15 @@ function BuildCountdown(props: { event: APIBuildEvent }) {
     tick();
     const created = new Date(props.event.createdAt).getTime();
     const elapsed = Date.now() - created;
+    const buildDurationMs = props.event.buildTimeSeconds * 1000;
+    if (buildDurationMs > 0 && elapsed >= buildDurationMs) {
+      return `Completed: ${props.event.buildingName} ${props.event.toLevel}`;
+    }
     if (elapsed >= 0) {
-      const secs = Math.floor(elapsed / 1000);
-      const m = Math.floor(secs / 60);
-      const s = secs % 60;
-      return `Building ${props.event.buildingName} ${props.event.toLevel} (${m}m ${s}s ago)`;
+      const remaining = Math.max(0, buildDurationMs - elapsed);
+      const m = Math.floor(remaining / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      return `Building ${props.event.buildingName} ${props.event.toLevel} (${m}m ${s}s left)`;
     }
     return `Queued: ${props.event.buildingName} ${props.event.toLevel}`;
   };

@@ -902,12 +902,12 @@ func buildingLevel(buildings model.ResourceBuildings, facilities model.Facilitie
 
 func (b *Builder) recordBuildEvent(ctx context.Context, result ROIResult) error {
 	_, err := b.db.ExecContext(ctx,
-		`INSERT INTO build_events (planet_id, building_id, building_name, from_level, to_level, cost_metal, cost_crystal, cost_deut, roi_score)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO build_events (planet_id, building_id, building_name, from_level, to_level, cost_metal, cost_crystal, cost_deut, roi_score, build_time_seconds)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		result.PlanetID, result.BuildingID, result.BuildingName,
 		result.CurrentLevel, result.TargetLevel,
 		result.CostMetal, result.CostCrystal, result.CostDeuterium,
-		result.ROIScore)
+		result.ROIScore, int(result.BuildTime.Seconds()))
 	if err != nil {
 		return fmt.Errorf("recording build event for planet %d building %s: %w", result.PlanetID, result.BuildingName, err)
 	}

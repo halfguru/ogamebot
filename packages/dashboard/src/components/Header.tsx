@@ -1,4 +1,5 @@
 import type { JSX } from 'solid-js';
+import { Show } from 'solid-js';
 
 interface HeaderProps {
   connected: boolean;

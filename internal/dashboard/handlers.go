@@ -201,7 +201,7 @@ func (h *Handlers) handleResearch(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) handleBuildEvents(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.db.QueryContext(r.Context(),
 		`SELECT id, planet_id, building_name, from_level, to_level,
-		        cost_metal, cost_crystal, cost_deut, roi_score, created_at
+		        cost_metal, cost_crystal, cost_deut, roi_score, build_time_seconds, created_at
 		 FROM build_events ORDER BY id DESC LIMIT 50`)
 	if err != nil {
 		h.writeError(w, "failed to fetch build events", http.StatusInternalServerError)
@@ -214,7 +214,7 @@ func (h *Handlers) handleBuildEvents(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var e APIBuildEvent
 		if err := rows.Scan(&e.ID, &e.PlanetID, &e.BuildingName, &e.FromLevel, &e.ToLevel,
-			&e.CostMetal, &e.CostCrystal, &e.CostDeut, &e.ROIScore, &e.CreatedAt); err != nil {
+			&e.CostMetal, &e.CostCrystal, &e.CostDeut, &e.ROIScore, &e.BuildTimeSeconds, &e.CreatedAt); err != nil {
 			h.writeError(w, "failed to scan build event", http.StatusInternalServerError)
 			h.log.Error("handleBuildEvents: scan failed", "error", err)
 			return
