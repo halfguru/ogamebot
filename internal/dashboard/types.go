@@ -90,16 +90,18 @@ type APIResearch struct {
 
 // APIBuildEvent represents a build event from the auto-builder for the dashboard API.
 type APIBuildEvent struct {
-	ID           int64   `json:"id"`
-	PlanetID     int     `json:"planetId"`
-	BuildingName string  `json:"buildingName"`
-	FromLevel    int     `json:"fromLevel"`
-	ToLevel      int     `json:"toLevel"`
-	CostMetal    int     `json:"costMetal"`
-	CostCrystal  int     `json:"costCrystal"`
-	CostDeut     int     `json:"costDeut"`
-	ROIScore     float64 `json:"roiScore"`
-	CreatedAt    string  `json:"createdAt"`
+	ID               int64   `json:"id"`
+	PlanetID         int     `json:"planetId"`
+	BuildingID       int     `json:"buildingId"`
+	BuildingName     string  `json:"buildingName"`
+	FromLevel        int     `json:"fromLevel"`
+	ToLevel          int     `json:"toLevel"`
+	CostMetal        int     `json:"costMetal"`
+	CostCrystal      int     `json:"costCrystal"`
+	CostDeut         int     `json:"costDeut"`
+	ROIScore         float64 `json:"roiScore"`
+	BuildTimeSeconds int     `json:"buildTimeSeconds"`
+	CreatedAt        string  `json:"createdAt"`
 }
 
 // APIFleetSaveEvent represents a fleet-save event from the defender for the dashboard API.

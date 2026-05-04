@@ -110,11 +110,18 @@ func (m *Manager) refresh(ctx context.Context) error {
 		}
 
 		// Fetch and persist per-planet resources
-		resources, err := m.client.GetResources(ctx, planet.ID)
+		resources, details, err := m.client.GetResources(ctx, planet.ID)
 		if err != nil {
 			m.log.Warn("Failed to fetch resources", "planetID", planet.ID, "error", err)
 		} else {
 			m.upsertResources(ctx, planet.ID, resources)
+			if details.FieldsTotal > 0 {
+				planet.FieldsUsed = details.FieldsUsed
+				planet.FieldsTotal = details.FieldsTotal
+				planet.TemperatureMin = details.TempMin
+				planet.TemperatureMax = details.TempMax
+				m.upsertPlanet(ctx, planet)
+			}
 		}
 
 		// Fetch and persist per-planet buildings
@@ -259,15 +266,15 @@ func (m *Manager) GetPlanets(ctx context.Context) ([]model.Planet, error) {
 }
 
 // GetResources returns the cached resources for a planet.
-func (m *Manager) GetResources(ctx context.Context, planetID int) (model.Resources, error) {
+func (m *Manager) GetResources(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error) {
 	var r model.Resources
 	err := m.db.QueryRowContext(ctx,
 		"SELECT metal, crystal, deuterium, energy FROM resources WHERE planet_id = ?", planetID).
 		Scan(&r.Metal, &r.Crystal, &r.Deuterium, &r.Energy)
 	if err != nil {
-		return model.Resources{}, fmt.Errorf("querying resources for planet %d: %w", planetID, err)
+		return model.Resources{}, model.PlanetDetails{}, fmt.Errorf("querying resources for planet %d: %w", planetID, err)
 	}
-	return r, nil
+	return r, model.PlanetDetails{}, nil
 }
 
 // GetFleets returns all cached fleets from SQLite.

@@ -40,8 +40,8 @@ func (m *mockFarmerClient) Logout(_ context.Context) error                      
 func (m *mockFarmerClient) GetServerTime(_ context.Context) (string, error)     { return "", nil }
 func (m *mockFarmerClient) IsUnderAttack(_ context.Context) (bool, error)       { return false, nil }
 func (m *mockFarmerClient) GetPlanets(_ context.Context) ([]model.Planet, error) { return nil, nil }
-func (m *mockFarmerClient) GetResources(_ context.Context, _ int) (model.Resources, error) {
-	return model.Resources{}, nil
+func (m *mockFarmerClient) GetResources(_ context.Context, _ int) (model.Resources, model.PlanetDetails, error) {
+	return model.Resources{}, model.PlanetDetails{}, nil
 }
 func (m *mockFarmerClient) GetResourceBuildings(_ context.Context, _ int) (model.ResourceBuildings, error) {
 	return model.ResourceBuildings{}, nil

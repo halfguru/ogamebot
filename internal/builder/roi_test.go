@@ -456,7 +456,6 @@ func TestCalculateROI_InsufficientResources(t *testing.T) {
 }
 
 func TestCalculateROI_EnergyDeficit(t *testing.T) {
-	// MetalMine level 10 → 11 needs more energy. With Energy=5 (deficit), should fail.
 	result, ok := CalculateROI(
 		constants.BuildingMetalMine,
 		10,
@@ -468,8 +467,11 @@ func TestCalculateROI_EnergyDeficit(t *testing.T) {
 		1,
 		30,
 	)
-	if ok {
-		t.Error("CalculateROI should return false for energy deficit on mine upgrade")
+	if !ok {
+		t.Error("CalculateROI should return true for mine upgrade even with energy deficit (energy handled by tier system)")
+	}
+	if result.EnergyDelta >= 0 {
+		t.Errorf("Mine upgrade should have negative EnergyDelta, got %d", result.EnergyDelta)
 	}
 	_ = result
 }

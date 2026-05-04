@@ -17,7 +17,7 @@ type ClientInterface interface {
 	GetServerTime(ctx context.Context) (string, error)
 	IsUnderAttack(ctx context.Context) (bool, error)
 	GetPlanets(ctx context.Context) ([]model.Planet, error)
-	GetResources(ctx context.Context, planetID int) (model.Resources, error)
+	GetResources(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error)
 	GetResourceBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error)
 	GetFacilities(ctx context.Context, planetID int) (model.Facilities, error)
 	GetShips(ctx context.Context, planetID int) (model.Ships, error)

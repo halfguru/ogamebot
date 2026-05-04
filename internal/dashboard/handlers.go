@@ -18,7 +18,7 @@ import (
 // Dashboard handlers read game state through this interface.
 type StateReader interface {
 	GetPlanets(ctx context.Context) ([]model.Planet, error)
-	GetResources(ctx context.Context, planetID int) (model.Resources, error)
+	GetResources(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error)
 	GetFleets(ctx context.Context) ([]model.Fleet, error)
 	GetResearch(ctx context.Context) (model.Research, error)
 	GetBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error)
@@ -82,7 +82,7 @@ func (h *Handlers) handlePlanets(w http.ResponseWriter, r *http.Request) {
 			TemperatureMax: p.TemperatureMax,
 		}
 
-		res, err := h.stateMgr.GetResources(ctx, p.ID)
+		res, _, err := h.stateMgr.GetResources(ctx, p.ID)
 		if err != nil {
 			h.log.Warn("handlePlanets: GetResources failed", "planetID", p.ID, "error", err)
 		} else {
@@ -200,8 +200,8 @@ func (h *Handlers) handleResearch(w http.ResponseWriter, r *http.Request) {
 // GET /api/events/builds
 func (h *Handlers) handleBuildEvents(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.db.QueryContext(r.Context(),
-		`SELECT id, planet_id, building_name, from_level, to_level,
-		        cost_metal, cost_crystal, cost_deut, roi_score, created_at
+		`SELECT id, planet_id, building_id, building_name, from_level, to_level,
+		        cost_metal, cost_crystal, cost_deut, roi_score, build_time_seconds, created_at
 		 FROM build_events ORDER BY id DESC LIMIT 50`)
 	if err != nil {
 		h.writeError(w, "failed to fetch build events", http.StatusInternalServerError)
@@ -213,8 +213,8 @@ func (h *Handlers) handleBuildEvents(w http.ResponseWriter, r *http.Request) {
 	events := make([]APIBuildEvent, 0)
 	for rows.Next() {
 		var e APIBuildEvent
-		if err := rows.Scan(&e.ID, &e.PlanetID, &e.BuildingName, &e.FromLevel, &e.ToLevel,
-			&e.CostMetal, &e.CostCrystal, &e.CostDeut, &e.ROIScore, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.PlanetID, &e.BuildingID, &e.BuildingName, &e.FromLevel, &e.ToLevel,
+			&e.CostMetal, &e.CostCrystal, &e.CostDeut, &e.ROIScore, &e.BuildTimeSeconds, &e.CreatedAt); err != nil {
 			h.writeError(w, "failed to scan build event", http.StatusInternalServerError)
 			h.log.Error("handleBuildEvents: scan failed", "error", err)
 			return

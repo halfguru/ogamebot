@@ -188,18 +188,6 @@ func CalculateROI(
 	// Calculate energy delta
 	energyDelta := energyDelta(buildingID, currentLevel, targetLevel, research)
 
-	// For energy consumers: check if planet has enough energy surplus
-	if def.EnergyConsumer {
-		// additionalEnergyNeeded is negative (consumes more energy)
-		additionalEnergyNeeded := -energyDelta // make positive for comparison
-		// resources.Energy represents current surplus (positive = surplus, negative = deficit)
-		if resources.Energy < additionalEnergyNeeded {
-			return ROIResult{}, false
-		}
-	}
-
-	// Calculate ROI score (production increase / total cost valued in metal-equivalent)
-	// Standard trade ratios: metal=1, crystal=1.5, deuterium=2.0
 	totalCostValue := float64(cost.Metal) + float64(cost.Crystal)*1.5 + float64(cost.Deuterium)*2.0
 	roiScore := prodIncrease / totalCostValue
 

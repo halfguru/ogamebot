@@ -1,4 +1,4 @@
-import type { APIPlanet, APIBuildEvent, PlanetBuildPlan } from '@ogame-bot/shared';
+import type { APIPlanet, APIBuildEvent, PlanetBuildPlan, APIBuildings, APIFacilities } from '@ogame-bot/shared';
 import { formatNumber } from '@ogame-bot/shared';
 import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 
@@ -24,7 +24,25 @@ function ResourceBar(props: { label: string; value: number; type: string }) {
   );
 }
 
-function BuildCountdown(props: { event: APIBuildEvent }) {
+function buildingCurrentLevel(buildings: APIBuildings, facilities: APIFacilities, buildingId: number): number {
+  switch (buildingId) {
+    case 1: return buildings.metalMine;
+    case 2: return buildings.crystalMine;
+    case 3: return buildings.deuteriumSynthesizer;
+    case 4: return buildings.solarPlant;
+    case 12: return buildings.fusionReactor;
+    case 14: return facilities.roboticsFactory;
+    case 15: return facilities.naniteFactory;
+    case 21: return facilities.shipyard;
+    case 22: return buildings.metalStorage;
+    case 23: return buildings.crystalStorage;
+    case 24: return buildings.deuteriumStorage;
+    case 31: return facilities.researchLab;
+    default: return 0;
+  }
+}
+
+function BuildCountdown(props: { event: APIBuildEvent; currentLevel: number }) {
   const [tick, setTick] = createSignal(0);
   let interval: ReturnType<typeof setInterval> | undefined;
   onMount(() => {
@@ -35,15 +53,21 @@ function BuildCountdown(props: { event: APIBuildEvent }) {
   });
   const text = () => {
     tick();
+    if (props.currentLevel >= props.event.toLevel) {
+      return `Completed: ${props.event.buildingName} ${props.event.toLevel}`;
+    }
     const created = new Date(props.event.createdAt).getTime();
     const elapsed = Date.now() - created;
+    const buildDurationMs = props.event.buildTimeSeconds * 1000;
     if (elapsed >= 0) {
-      const secs = Math.floor(elapsed / 1000);
-      const m = Math.floor(secs / 60);
-      const s = secs % 60;
-      return `Building ${props.event.buildingName} ${props.event.toLevel} (${m}m ${s}s ago)`;
+      const remaining = Math.max(0, buildDurationMs - elapsed);
+      const m = Math.floor(remaining / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      if (remaining > 0) {
+        return `Building ${props.event.buildingName} ${props.event.toLevel} (${m}m ${s}s left)`;
+      }
     }
-    return `Queued: ${props.event.buildingName} ${props.event.toLevel}`;
+    return `Completed: ${props.event.buildingName} ${props.event.toLevel}`;
   };
   return <div class="build-queue">{text()}</div>;
 }
@@ -130,7 +154,7 @@ export default function PlanetCard(props: { planet: APIPlanet; buildEvent?: APIB
           </div>
         </Show>
         <Show when={props.buildEvent}>
-          <BuildCountdown event={props.buildEvent!} />
+          <BuildCountdown event={props.buildEvent!} currentLevel={buildingCurrentLevel(props.planet.buildings, props.planet.facilities, props.buildEvent!.buildingId)} />
         </Show>
       </div>
     </div>

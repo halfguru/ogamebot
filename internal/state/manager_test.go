@@ -23,7 +23,7 @@ type mockClient struct {
 	getServerTimeFunc      func(ctx context.Context) (string, error)
 	isUnderAttackFunc      func(ctx context.Context) (bool, error)
 	getPlanetsFunc         func(ctx context.Context) ([]model.Planet, error)
-	getResourcesFunc       func(ctx context.Context, planetID int) (model.Resources, error)
+	getResourcesFunc       func(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error)
 	getResourceBuildingsFunc func(ctx context.Context, planetID int) (model.ResourceBuildings, error)
 	getFacilitiesFunc      func(ctx context.Context, planetID int) (model.Facilities, error)
 	getShipsFunc           func(ctx context.Context, planetID int) (model.Ships, error)
@@ -71,11 +71,11 @@ func (m *mockClient) GetPlanets(ctx context.Context) ([]model.Planet, error) {
 	}
 	return nil, nil
 }
-func (m *mockClient) GetResources(ctx context.Context, planetID int) (model.Resources, error) {
+func (m *mockClient) GetResources(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error) {
 	if m.getResourcesFunc != nil {
 		return m.getResourcesFunc(ctx, planetID)
 	}
-	return model.Resources{}, nil
+	return model.Resources{}, model.PlanetDetails{}, nil
 }
 func (m *mockClient) GetResourceBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error) {
 	if m.getResourceBuildingsFunc != nil {
@@ -228,14 +228,14 @@ func TestManager_RefreshAll(t *testing.T) {
 				},
 			}, nil
 		},
-		getResourcesFunc: func(ctx context.Context, planetID int) (model.Resources, error) {
+		getResourcesFunc: func(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error) {
 			switch planetID {
 			case 100:
-				return model.Resources{Metal: 10000, Crystal: 5000, Deuterium: 2000, Energy: 150}, nil
+				return model.Resources{Metal: 10000, Crystal: 5000, Deuterium: 2000, Energy: 150}, model.PlanetDetails{}, nil
 			case 200:
-				return model.Resources{Metal: 3000, Crystal: 1500, Deuterium: 800, Energy: 50}, nil
+				return model.Resources{Metal: 3000, Crystal: 1500, Deuterium: 800, Energy: 50}, model.PlanetDetails{}, nil
 			default:
-				return model.Resources{}, fmt.Errorf("unknown planet %d", planetID)
+				return model.Resources{}, model.PlanetDetails{}, fmt.Errorf("unknown planet %d", planetID)
 			}
 		},
 		getResourceBuildingsFunc: func(ctx context.Context, planetID int) (model.ResourceBuildings, error) {
@@ -419,11 +419,11 @@ func TestManager_Refresh_ContinuesOnPlanetError(t *testing.T) {
 				{ID: 200, Name: "Bad", Coordinate: model.Coordinate{Galaxy: 2, System: 2, Position: 2}},
 			}, nil
 		},
-		getResourcesFunc: func(ctx context.Context, planetID int) (model.Resources, error) {
+		getResourcesFunc: func(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error) {
 			if planetID == 200 {
-				return model.Resources{}, fmt.Errorf("ogamed timeout")
+				return model.Resources{}, model.PlanetDetails{}, fmt.Errorf("ogamed timeout")
 			}
-			return model.Resources{Metal: 9999, Crystal: 5555, Deuterium: 3333, Energy: 100}, nil
+			return model.Resources{Metal: 9999, Crystal: 5555, Deuterium: 3333, Energy: 100}, model.PlanetDetails{}, nil
 		},
 		getResourceBuildingsFunc: func(ctx context.Context, planetID int) (model.ResourceBuildings, error) {
 			if planetID == 200 {

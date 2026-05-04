@@ -85,6 +85,7 @@ export interface APIResearch {
 export interface APIBuildEvent {
   id: number;
   planetId: number;
+  buildingId: number;
   buildingName: string;
   fromLevel: number;
   toLevel: number;
@@ -92,6 +93,7 @@ export interface APIBuildEvent {
   costCrystal: number;
   costDeut: number;
   roiScore: number;
+  buildTimeSeconds: number;
   createdAt: string;
 }
 
