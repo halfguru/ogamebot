@@ -14,9 +14,9 @@ import (
 
 var nonNumeric = regexp.MustCompile(`[^0-9\-]`)
 var versionRe = regexp.MustCompile(`(\d+\.\d+\.\d+)`)
-var fieldsRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*<span>(\d+)</span>\s*/\s*<span>(\d+)</span>`)
+var fieldsRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*<span>(\d+)<\\?/span>\\?/<span>(\d+)<\\?/span>`)
 var tempRe = regexp.MustCompile(`textContent\[3\]\s*=\s*"[^"]*?(-?\d+)[^\d]*?(-?\d+)`)
-var planetNameRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*/<span>(\d+)</span>`)
+var planetNameRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*\\?/<span>(\d+)<\\?/span>`)
 
 func parseAmount(s string) int {
 	s = strings.TrimSpace(s)
