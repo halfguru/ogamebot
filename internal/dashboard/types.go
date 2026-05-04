@@ -92,6 +92,7 @@ type APIResearch struct {
 type APIBuildEvent struct {
 	ID               int64   `json:"id"`
 	PlanetID         int     `json:"planetId"`
+	BuildingID       int     `json:"buildingId"`
 	BuildingName     string  `json:"buildingName"`
 	FromLevel        int     `json:"fromLevel"`
 	ToLevel          int     `json:"toLevel"`
