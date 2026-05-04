@@ -47,10 +47,13 @@ type prerequisite struct {
 }
 
 var buildingPrerequisites = map[int][]prerequisite{
-	constants.BuildingFusionReactor: {{113, 3}},
-	constants.BuildingNaniteFactory: {{108, 10}},
-	constants.BuildingTerraformer:   {{113, 12}},
-	constants.BuildingResearchLab:   {},
+	constants.BuildingFusionReactor:   {{113, 3}},
+	constants.BuildingShipyard:        {{14, 2}},
+	constants.BuildingResearchLab:     {},
+	constants.BuildingMissileSilo:     {{21, 1}},
+	constants.BuildingNaniteFactory:   {{108, 10}, {14, 10}},
+	constants.BuildingTerraformer:     {{15, 1}, {113, 12}},
+	constants.BuildingSpaceDock:       {{21, 2}},
 }
 
 func meetsPrerequisites(buildingID int, research model.Research, facilities model.Facilities) bool {
@@ -59,7 +62,7 @@ func meetsPrerequisites(buildingID int, research model.Research, facilities mode
 		return true
 	}
 	for _, p := range prereqs {
-		level := researchLevel(p.researchID, research, facilities)
+		level := objectLevel(p.researchID, research, facilities)
 		if level < p.minLevel {
 			return false
 		}
@@ -67,8 +70,14 @@ func meetsPrerequisites(buildingID int, research model.Research, facilities mode
 	return true
 }
 
-func researchLevel(id int, r model.Research, f model.Facilities) int {
+func objectLevel(id int, r model.Research, f model.Facilities) int {
 	switch id {
+	case 14:
+		return f.RoboticsFactory
+	case 15:
+		return f.NaniteFactory
+	case 21:
+		return f.Shipyard
 	case 31:
 		return f.ResearchLab
 	case 106:
@@ -394,7 +403,7 @@ func (b *Builder) computeAndSetPlan(ctx context.Context, planets []model.Planet,
 				continue
 			}
 			maxLevel := b.resolveMaxLevel(techName, "")
-			currentLevel := researchLevel(researchID, research, model.Facilities{})
+			currentLevel := objectLevel(researchID, research, model.Facilities{})
 			if maxLevel > 0 && currentLevel >= maxLevel {
 				continue
 			}
@@ -635,7 +644,7 @@ func (b *Builder) tryResearch(ctx context.Context, planets []model.Planet, resea
 		}
 
 		maxLevel := b.resolveMaxLevel(techName, "")
-		currentLevel := researchLevel(researchID, research, bestLabPlanet.facilities)
+		currentLevel := objectLevel(researchID, research, bestLabPlanet.facilities)
 		if maxLevel > 0 && currentLevel >= maxLevel {
 			continue
 		}

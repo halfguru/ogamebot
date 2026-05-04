@@ -374,7 +374,7 @@ func MeetsResearchPrerequisites(researchID int, research model.Research, facilit
 		return true
 	}
 	for _, p := range prereqs {
-		level := researchLevel(p.researchID, research, facilities)
+		level := objectLevel(p.researchID, research, facilities)
 		if level < p.minLevel {
 			return false
 		}
