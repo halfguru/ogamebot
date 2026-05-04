@@ -435,7 +435,6 @@ func TestCalculateROI_MaxLevel(t *testing.T) {
 }
 
 func TestCalculateROI_InsufficientResources(t *testing.T) {
-	// MetalMine level 10 → 11 costs a lot, give insufficient resources
 	result, ok := CalculateROI(
 		constants.BuildingMetalMine,
 		10,
@@ -447,8 +446,11 @@ func TestCalculateROI_InsufficientResources(t *testing.T) {
 		1,
 		30,
 	)
-	if ok {
-		t.Error("CalculateROI should return false for insufficient resources")
+	if !ok {
+		t.Error("CalculateROI should return true regardless of resources — affordability checked at build time")
+	}
+	if result.CostMetal <= 0 {
+		t.Error("Expected non-zero cost")
 	}
 	_ = result
 }

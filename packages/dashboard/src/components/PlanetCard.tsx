@@ -1,11 +1,6 @@
 import type { APIPlanet, APIBuildEvent, PlanetBuildPlan } from '@ogame-bot/shared';
+import { formatNumber } from '@ogame-bot/shared';
 import { Show, createSignal, onCleanup, onMount } from 'solid-js';
-
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
-  return n.toString();
-}
 
 function ResourceBar(props: { label: string; value: number; type: string }) {
   const maxStorage = () => {
@@ -121,13 +116,16 @@ export default function PlanetCard(props: { planet: APIPlanet; buildEvent?: APIB
         <Show when={props.buildPlan}>
           <div class="planet-section-label">Next Build</div>
           <div class="planet-next-build">
-            <span class={`pill plan tier-${props.buildPlan!.tier}`}>
+            <span class={`pill plan tier-${props.buildPlan!.tier} ${props.buildPlan!.affordable ? '' : 'pending'}`}>
               {props.buildPlan!.buildingName} {props.buildPlan!.currentLevel} → {props.buildPlan!.targetLevel}
             </span>
             <Show when={props.buildPlan!.costMetal > 0 || props.buildPlan!.costCrystal > 0 || props.buildPlan!.costDeuterium > 0}>
               <span class="plan-cost">
                 {formatNumber(props.buildPlan!.costMetal)}M {formatNumber(props.buildPlan!.costCrystal)}C {formatNumber(props.buildPlan!.costDeuterium)}D
               </span>
+            </Show>
+            <Show when={!props.buildPlan!.affordable}>
+              <span class="plan-status pending">Waiting for resources</span>
             </Show>
           </div>
         </Show>

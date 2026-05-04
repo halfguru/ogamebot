@@ -47,19 +47,19 @@ type prerequisite struct {
 }
 
 var buildingPrerequisites = map[int][]prerequisite{
-	constants.BuildingFusionReactor: {{106, 3}},
-	constants.BuildingNaniteFactory: {{114, 5}, {106, 10}},
+	constants.BuildingFusionReactor: {{113, 3}},
+	constants.BuildingNaniteFactory: {{108, 10}},
 	constants.BuildingTerraformer:   {{113, 12}},
 	constants.BuildingResearchLab:   {},
 }
 
-func meetsPrerequisites(buildingID int, research model.Research) bool {
+func meetsPrerequisites(buildingID int, research model.Research, facilities model.Facilities) bool {
 	prereqs, ok := buildingPrerequisites[buildingID]
 	if !ok {
 		return true
 	}
 	for _, p := range prereqs {
-		level := researchLevel(p.researchID, research)
+		level := researchLevel(p.researchID, research, facilities)
 		if level < p.minLevel {
 			return false
 		}
@@ -67,8 +67,10 @@ func meetsPrerequisites(buildingID int, research model.Research) bool {
 	return true
 }
 
-func researchLevel(id int, r model.Research) int {
+func researchLevel(id int, r model.Research, f model.Facilities) int {
 	switch id {
+	case 31:
+		return f.ResearchLab
 	case 106:
 		return r.EspionageTechnology
 	case 108:
@@ -120,17 +122,18 @@ type planetState struct {
 }
 
 type PlanetBuildPlan struct {
-	PlanetID      int    `json:"planetId"`
-	PlanetName    string `json:"planetName"`
-	BuildingID    int    `json:"buildingId"`
-	BuildingName  string `json:"buildingName"`
-	CurrentLevel  int    `json:"currentLevel"`
-	TargetLevel   int    `json:"targetLevel"`
-	CostMetal     int    `json:"costMetal"`
-	CostCrystal   int    `json:"costCrystal"`
-	CostDeuterium int    `json:"costDeuterium"`
+	PlanetID      int     `json:"planetId"`
+	PlanetName    string  `json:"planetName"`
+	BuildingID    int     `json:"buildingId"`
+	BuildingName  string  `json:"buildingName"`
+	CurrentLevel  int     `json:"currentLevel"`
+	TargetLevel   int     `json:"targetLevel"`
+	CostMetal     int     `json:"costMetal"`
+	CostCrystal   int     `json:"costCrystal"`
+	CostDeuterium int     `json:"costDeuterium"`
 	ROIScore      float64 `json:"roiScore"`
-	Tier          string `json:"tier"`
+	Tier          string  `json:"tier"`
+	Affordable    bool    `json:"affordable"`
 }
 
 type ResearchPlan struct {
@@ -281,7 +284,7 @@ func (b *Builder) computeAndSetPlan(ctx context.Context, planets []model.Planet,
 	for _, ps := range states {
 		if ps.resources.Energy < 0 {
 			for _, buildingID := range []int{constants.BuildingSolarPlant, constants.BuildingFusionReactor} {
-				if !meetsPrerequisites(buildingID, research) {
+				if !meetsPrerequisites(buildingID, research, ps.facilities) {
 					continue
 				}
 				currentLevel := buildingLevel(ps.buildings, ps.facilities, buildingID)
@@ -301,6 +304,7 @@ func (b *Builder) computeAndSetPlan(ctx context.Context, planets []model.Planet,
 						CostDeuterium: result.CostDeuterium,
 						ROIScore:      result.ROIScore,
 						Tier:          "energy",
+						Affordable:    ps.resources.Metal >= result.CostMetal && ps.resources.Crystal >= result.CostCrystal && ps.resources.Deuterium >= result.CostDeuterium,
 					}
 					existing, ok := planetPlans[ps.planet.ID]
 					if !ok || pp.ROIScore > existing.ROIScore {
@@ -331,6 +335,7 @@ func (b *Builder) computeAndSetPlan(ctx context.Context, planets []model.Planet,
 				CostDeuterium: result.CostDeuterium,
 				ROIScore:      result.ROIScore,
 				Tier:          "mines",
+				Affordable:    ps.resources.Metal >= result.CostMetal && ps.resources.Crystal >= result.CostCrystal && ps.resources.Deuterium >= result.CostDeuterium,
 			}
 			existing, ok := planetPlans[ps.planet.ID]
 			if !ok || pp.ROIScore > existing.ROIScore {
@@ -340,7 +345,7 @@ func (b *Builder) computeAndSetPlan(ctx context.Context, planets []model.Planet,
 
 		infraOrder := []int{constants.BuildingResearchLab, constants.BuildingRoboticsFactory, constants.BuildingShipyard, constants.BuildingNaniteFactory}
 		for _, buildingID := range infraOrder {
-			if !meetsPrerequisites(buildingID, research) {
+			if !meetsPrerequisites(buildingID, research, ps.facilities) {
 				continue
 			}
 			currentLevel := buildingLevel(ps.buildings, ps.facilities, buildingID)
@@ -354,9 +359,6 @@ func (b *Builder) computeAndSetPlan(ctx context.Context, planets []model.Planet,
 				continue
 			}
 			cost := BuildingCost(model.Resources{Metal: def.BaseMetal, Crystal: def.BaseCrystal, Deuterium: def.BaseDeut}, def.Factor, currentLevel+1)
-			if ps.resources.Metal < cost.Metal || ps.resources.Crystal < cost.Crystal || ps.resources.Deuterium < cost.Deuterium {
-				continue
-			}
 			pp := &PlanetBuildPlan{
 				PlanetID:      ps.planet.ID,
 				PlanetName:    ps.planet.Name,
@@ -368,6 +370,7 @@ func (b *Builder) computeAndSetPlan(ctx context.Context, planets []model.Planet,
 				CostCrystal:   cost.Crystal,
 				CostDeuterium: cost.Deuterium,
 				Tier:          "infrastructure",
+				Affordable:    ps.resources.Metal >= cost.Metal && ps.resources.Crystal >= cost.Crystal && ps.resources.Deuterium >= cost.Deuterium,
 			}
 			if _, ok := planetPlans[ps.planet.ID]; !ok {
 				planetPlans[ps.planet.ID] = pp
@@ -391,11 +394,11 @@ func (b *Builder) computeAndSetPlan(ctx context.Context, planets []model.Planet,
 				continue
 			}
 			maxLevel := b.resolveMaxLevel(techName, "")
-			currentLevel := researchLevel(researchID, research)
+			currentLevel := researchLevel(researchID, research, model.Facilities{})
 			if maxLevel > 0 && currentLevel >= maxLevel {
 				continue
 			}
-			if !MeetsResearchPrerequisites(researchID, research) {
+			if !MeetsResearchPrerequisites(researchID, research, model.Facilities{}) {
 				continue
 			}
 			cost := ResearchCost(researchID, currentLevel)
@@ -491,32 +494,11 @@ func (b *Builder) tryEnergy(ctx context.Context, planets []model.Planet, speed i
 			continue
 		}
 
-		mineIDs := []int{
-			constants.BuildingMetalMine,
-			constants.BuildingCrystalMine,
-			constants.BuildingDeuteriumSynthesizer,
-		}
-
-		var bestMine ROIResult
-		bestMineFound := false
-		for _, mineID := range mineIDs {
-			currentLevel := buildingLevel(ps.buildings, ps.facilities, mineID)
-			buildingName := buildingNameToMaxLevelKey[mineID]
-			maxLevel := b.resolveMaxLevel(buildingName, ps.planet.Name)
-			result, viable := CalculateROI(mineID, currentLevel, ps.planet, ps.buildings, ps.facilities, research, ps.resources, speed, maxLevel)
-			if viable && (!bestMineFound || result.ROIScore > bestMine.ROIScore) {
-				bestMine = result
-				bestMineFound = true
-			}
-		}
-
-		_ = bestMine
-
 		effectiveResources := deductSpent(ps.resources, spent, ps.planet.ID)
 		energyBuildingIDs := []int{constants.BuildingSolarPlant, constants.BuildingFusionReactor}
 		var candidates []ROIResult
 		for _, buildingID := range energyBuildingIDs {
-			if !meetsPrerequisites(buildingID, research) {
+			if !meetsPrerequisites(buildingID, research, ps.facilities) {
 				continue
 			}
 			currentLevel := buildingLevel(ps.buildings, ps.facilities, buildingID)
@@ -592,8 +574,9 @@ func (b *Builder) tryInfrastructure(ctx context.Context, planets []model.Planet,
 		constants.BuildingNaniteFactory,
 	}
 
+	var candidates []ROIResult
 	for _, buildingID := range infraOrder {
-		if !meetsPrerequisites(buildingID, research) {
+		if !meetsPrerequisites(buildingID, research, model.Facilities{}) {
 			continue
 		}
 		buildingName := buildingNameToMaxLevelKey[buildingID]
@@ -603,86 +586,22 @@ func (b *Builder) tryInfrastructure(ctx context.Context, planets []model.Planet,
 			if maxLevel == 0 || currentLevel >= maxLevel {
 				continue
 			}
-			def, ok := BuildingDefs[buildingID]
-			if !ok {
-				continue
+			result, viable := CalculateROI(buildingID, currentLevel, ps.planet, ps.buildings, ps.facilities, research, ps.resources, 1, maxLevel)
+			if viable {
+				candidates = append(candidates, result)
+				break
 			}
-			cost := BuildingCost(model.Resources{
-				Metal: def.BaseMetal, Crystal: def.BaseCrystal, Deuterium: def.BaseDeut,
-			}, def.Factor, currentLevel+1)
-			effectiveResources := deductSpent(ps.resources, spent, ps.planet.ID)
-			if effectiveResources.Metal < cost.Metal || effectiveResources.Crystal < cost.Crystal || effectiveResources.Deuterium < cost.Deuterium {
-				continue
-			}
-
-			key := buildKey{ps.planet.ID, buildingID}
-			if until, ok := b.cooldown[key]; ok && time.Now().Before(until) {
-				continue
-			}
-
-			targetLevel := currentLevel + 1
-
-			liveResources, err := b.client.GetResources(ctx, ps.planet.ID)
-			if err != nil {
-				b.log.Warn("Failed to fetch live resources, using cached", "planet", ps.planet.ID, "error", err)
-				liveResources = ps.resources
-			}
-			effectiveLiveResources := deductSpent(liveResources, spent, ps.planet.ID)
-			if effectiveLiveResources.Metal < cost.Metal || effectiveLiveResources.Crystal < cost.Crystal || effectiveLiveResources.Deuterium < cost.Deuterium {
-				b.log.Debug("Skipping infrastructure — insufficient live resources",
-					"planet", ps.planet.ID,
-					"building", def.Name,
-					"need", fmt.Sprintf("metal=%d crystal=%d deut=%d", cost.Metal, cost.Crystal, cost.Deuterium),
-					"have", fmt.Sprintf("metal=%d crystal=%d deut=%d", effectiveLiveResources.Metal, effectiveLiveResources.Crystal, effectiveLiveResources.Deuterium),
-				)
-				continue
-			}
-
-			if err := b.client.BuildBuilding(ctx, ps.planet.ID, buildingID); err != nil {
-				b.log.Error("BuildBuilding failed",
-					"planet", ps.planet.ID,
-					"building", def.Name,
-					"error", err)
-				b.cooldown[key] = time.Now().Add(10 * time.Minute)
-				return true
-			}
-
-			b.log.Info("Built infrastructure",
-				"planet", ps.planet.ID,
-				"building", def.Name,
-				"fromLevel", currentLevel,
-				"toLevel", targetLevel,
-			)
-
-			b.cooldown[key] = time.Now().Add(2 * time.Minute)
-
-			b.addSpent(spent, ps.planet.ID, model.Resources{Metal: cost.Metal, Crystal: cost.Crystal, Deuterium: cost.Deuterium})
-
-			result := ROIResult{
-				PlanetID:      ps.planet.ID,
-				BuildingID:    buildingID,
-				BuildingName:  def.Name,
-				CurrentLevel:  currentLevel,
-				TargetLevel:   targetLevel,
-				CostMetal:     cost.Metal,
-				CostCrystal:   cost.Crystal,
-				CostDeuterium: cost.Deuterium,
-			}
-			if err := b.recordBuildEvent(ctx, result); err != nil {
-				b.log.Error("Failed to record build event", "error", err)
-			}
-			b.broadcast("build", map[string]interface{}{
-				"planetId":     result.PlanetID,
-				"buildingId":   result.BuildingID,
-				"buildingName": result.BuildingName,
-				"fromLevel":    result.CurrentLevel,
-				"toLevel":      result.TargetLevel,
-			})
-			return true
+		}
+		if len(candidates) > 0 {
+			break
 		}
 	}
 
-	return false
+	if len(candidates) == 0 {
+		return false
+	}
+
+	return b.executeBuild(ctx, candidates, spent)
 }
 
 func (b *Builder) tryResearch(ctx context.Context, planets []model.Planet, research model.Research, spent map[int]model.Resources) bool {
@@ -716,12 +635,12 @@ func (b *Builder) tryResearch(ctx context.Context, planets []model.Planet, resea
 		}
 
 		maxLevel := b.resolveMaxLevel(techName, "")
-		currentLevel := researchLevel(researchID, research)
+		currentLevel := researchLevel(researchID, research, bestLabPlanet.facilities)
 		if maxLevel > 0 && currentLevel >= maxLevel {
 			continue
 		}
 
-		if !MeetsResearchPrerequisites(researchID, research) {
+		if !MeetsResearchPrerequisites(researchID, research, bestLabPlanet.facilities) {
 			continue
 		}
 
@@ -789,38 +708,31 @@ func (b *Builder) tryStorage(ctx context.Context, planets []model.Planet, resear
 		return false
 	}
 
-	storageChecks := []struct {
-		buildingID      int
-		resourceField   int
-		storageCapacity int
-		name            string
-	}{
-		{constants.BuildingMetalStorage, 0, 0, "MetalStorage"},
-		{constants.BuildingCrystalStorage, 0, 0, "CrystalStorage"},
-		{constants.BuildingDeuteriumStorage, 0, 0, "DeuteriumStorage"},
+	storageBuildings := []int{
+		constants.BuildingMetalStorage,
+		constants.BuildingCrystalStorage,
+		constants.BuildingDeuteriumStorage,
 	}
 
+	var candidates []ROIResult
 	for _, ps := range states {
-		for i, sc := range storageChecks {
-			buildingID := sc.buildingID
-			name := sc.name
+		for _, buildingID := range storageBuildings {
 			currentLevel := buildingLevel(ps.buildings, ps.facilities, buildingID)
-
-			var resourceAmount int
-			var capacity float64
 			def, ok := BuildingDefs[buildingID]
 			if !ok {
 				continue
 			}
 
-			switch i {
-			case 0:
+			var resourceAmount int
+			var capacity float64
+			switch buildingID {
+			case constants.BuildingMetalStorage:
 				resourceAmount = ps.resources.Metal
 				capacity = storageCapacity(def.BaseMetal, currentLevel)
-			case 1:
+			case constants.BuildingCrystalStorage:
 				resourceAmount = ps.resources.Crystal
 				capacity = storageCapacity(def.BaseCrystal, currentLevel)
-			case 2:
+			case constants.BuildingDeuteriumStorage:
 				resourceAmount = ps.resources.Deuterium
 				capacity = storageCapacity(0, currentLevel)
 			}
@@ -829,81 +741,24 @@ func (b *Builder) tryStorage(ctx context.Context, planets []model.Planet, resear
 				continue
 			}
 
-			maxLevel := b.resolveMaxLevel(name, ps.planet.Name)
-			if maxLevel == 0 || currentLevel >= maxLevel {
-				continue
+			buildingName := buildingNameToMaxLevelKey[buildingID]
+			maxLevel := b.resolveMaxLevel(buildingName, ps.planet.Name)
+			result, viable := CalculateROI(buildingID, currentLevel, ps.planet, ps.buildings, ps.facilities, research, ps.resources, 1, maxLevel)
+			if viable {
+				candidates = append(candidates, result)
 			}
-
-			cost := BuildingCost(model.Resources{
-				Metal: def.BaseMetal, Crystal: def.BaseCrystal, Deuterium: def.BaseDeut,
-			}, def.Factor, currentLevel+1)
-			effectiveResources := deductSpent(ps.resources, spent, ps.planet.ID)
-			if effectiveResources.Metal < cost.Metal || effectiveResources.Crystal < cost.Crystal || effectiveResources.Deuterium < cost.Deuterium {
-				continue
-			}
-
-			key := buildKey{ps.planet.ID, buildingID}
-			if until, ok := b.cooldown[key]; ok && time.Now().Before(until) {
-				continue
-			}
-
-			targetLevel := currentLevel + 1
-
-			liveRes, err := b.client.GetResources(ctx, ps.planet.ID)
-			if err != nil {
-				b.log.Warn("Failed to fetch live resources for storage, using cached", "planet", ps.planet.ID, "error", err)
-				liveRes = ps.resources
-			}
-			effectiveLive := deductSpent(liveRes, spent, ps.planet.ID)
-			if effectiveLive.Metal < cost.Metal || effectiveLive.Crystal < cost.Crystal || effectiveLive.Deuterium < cost.Deuterium {
-				continue
-			}
-
-			if err := b.client.BuildBuilding(ctx, ps.planet.ID, buildingID); err != nil {
-				b.log.Error("BuildBuilding failed",
-					"planet", ps.planet.ID,
-					"building", def.Name,
-					"error", err)
-				b.cooldown[key] = time.Now().Add(10 * time.Minute)
-				return true
-			}
-
-			b.log.Info("Built storage",
-				"planet", ps.planet.ID,
-				"building", def.Name,
-				"fromLevel", currentLevel,
-				"toLevel", targetLevel,
-			)
-
-			b.cooldown[key] = time.Now().Add(2 * time.Minute)
-
-			b.addSpent(spent, ps.planet.ID, model.Resources{Metal: cost.Metal, Crystal: cost.Crystal, Deuterium: cost.Deuterium})
-
-			result := ROIResult{
-				PlanetID:      ps.planet.ID,
-				BuildingID:    buildingID,
-				BuildingName:  def.Name,
-				CurrentLevel:  currentLevel,
-				TargetLevel:   targetLevel,
-				CostMetal:     cost.Metal,
-				CostCrystal:   cost.Crystal,
-				CostDeuterium: cost.Deuterium,
-			}
-			if err := b.recordBuildEvent(ctx, result); err != nil {
-				b.log.Error("Failed to record build event", "error", err)
-			}
-			b.broadcast("build", map[string]interface{}{
-				"planetId":     result.PlanetID,
-				"buildingId":   result.BuildingID,
-				"buildingName": result.BuildingName,
-				"fromLevel":    result.CurrentLevel,
-				"toLevel":      result.TargetLevel,
-			})
-			return true
 		}
 	}
 
-	return false
+	if len(candidates) == 0 {
+		return false
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].ROIScore > candidates[j].ROIScore
+	})
+
+	return b.executeBuild(ctx, candidates, spent)
 }
 
 func storageCapacity(baseCost int, level int) float64 {

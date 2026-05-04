@@ -970,21 +970,23 @@ func TestResearchCostCalculation(t *testing.T) {
 func TestMeetsResearchPrerequisites(t *testing.T) {
 	research := model.Research{
 		EnergyTechnology:     5,
-		LaserTechnology:      5,
-		IonTechnology:        3,
+		ShieldingTechnology:  5,
 		EspionageTechnology:  4,
 	}
-
-	if !MeetsResearchPrerequisites(114, research) {
-		t.Error("Should meet Hyperspace Tech prereqs (Energy 5, Laser 5, Ion 3)")
+	facilities := model.Facilities{
+		ResearchLab: 7,
 	}
 
-	if MeetsResearchPrerequisites(122, research) {
-		t.Error("Should NOT meet Plasma prereqs (needs Energy 5, Ion 4)")
+	if !MeetsResearchPrerequisites(114, research, facilities) {
+		t.Error("Should meet Hyperspace Tech prereqs (Research Lab 7, Energy 5, Shielding 5)")
 	}
 
-	if !MeetsResearchPrerequisites(113, research) {
-		t.Error("Energy Technology has no prereqs, should always pass")
+	if MeetsResearchPrerequisites(122, research, facilities) {
+		t.Error("Should NOT meet Plasma prereqs (needs Energy 8, Laser 10, Ion 5)")
+	}
+
+	if !MeetsResearchPrerequisites(113, model.Research{}, model.Facilities{ResearchLab: 1}) {
+		t.Error("Energy Technology has prereq Research Lab 1, should pass")
 	}
 }
 

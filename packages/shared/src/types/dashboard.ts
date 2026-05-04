@@ -133,6 +133,7 @@ export interface PlanetBuildPlan {
   costDeuterium: number;
   roiScore: number;
   tier: string;
+  affordable: boolean;
 }
 
 export interface ResearchPlan {

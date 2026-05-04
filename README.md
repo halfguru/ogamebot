@@ -1,5 +1,10 @@
 # OGameX Bot
 
+[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Dashboard](https://img.shields.io/badge/Dashboard-SolidJS-4F88C7?logo=solid)](https://solidjs.com/)
+[![Database](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite)](https://sqlite.org/)
+
 Open-source OGame automation bot targeting [OGameX](https://github.com/lanedirt/OGameX) — an open-source OGame clone. Handles fleet safety, auto-building, auto-farming, and provides a web dashboard for monitoring. Runs as a single Go binary on Windows.
 
 ## Features
@@ -71,25 +76,23 @@ go build -o bot.exe ./cmd/bot
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    Bot (Go)                          │
-│                                                     │
-│  ┌──────────────┐    ┌──────────────────────────┐   │
-│  │  OGameX      │    │    Workers                │   │
-│  │  Client      │◄───│  ┌────────┐ ┌──────────┐ │   │
-│  │  (HTTP+CSRF) │    │  │Defender│ │ Builder  │ │   │
-│  └──────┬───────┘    │  └────────┘ └──────────┘ │   │    ┌──────────────┐
-│         │            │  ┌────────┐               │   │    │  Dashboard   │
-│         │            │  │ Farmer │               │◄──┼───►│  (SolidJS)   │
-│         │            │  └────────┘               │   │ WS │              │
-│         │            └──────────────────────────┘   │    └──────────────┘
-│         │                                           │
-│  ┌──────▼───────┐                                   │
-│  │    SQLite    │                                   │
-│  │   (state)    │                                   │
-│  └──────────────┘                                   │
-└─────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph Bot[Bot - Go]
+        Client[OGameX Client<br/>HTTP + CSRF]
+        subgraph Workers
+            Defender
+            Builder
+            Farmer
+        end
+        SQLite[(SQLite<br/>state)]
+    end
+
+    Dashboard[Dashboard<br/>SolidJS]
+
+    Workers --> Client
+    Client --> SQLite
+    Workers -- REST + WS --> Dashboard
 ```
 
 - **OGameX Client** — Go HTTP client with Laravel session auth, CSRF token management, HTML/JSON parsing via goquery

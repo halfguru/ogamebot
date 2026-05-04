@@ -1,6 +1,6 @@
 package constants
 
-// Building IDs matching ogamed building identifiers.
+// Building IDs matching OGameX object identifiers.
 const (
 	BuildingMetalMine            = 1
 	BuildingCrystalMine          = 2

@@ -1,6 +1,5 @@
 package constants
 
-// Ship IDs matching ogamed ship identifiers.
 const (
 	ShipSmallCargo     = 202
 	ShipLargeCargo     = 203
@@ -16,4 +15,7 @@ const (
 	ShipDestroyer      = 213
 	ShipDeathstar      = 214
 	ShipBattlecruiser  = 215
+	ShipCrawler        = 217
+	ShipReaper         = 218
+	ShipPathfinder     = 219
 )

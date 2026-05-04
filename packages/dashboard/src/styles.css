@@ -569,6 +569,16 @@ section h2::before {
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
+.pill.plan.pending {
+  opacity: 0.6;
+}
+
+.plan-status.pending {
+  font-size: 0.65rem;
+  color: var(--accent-yellow);
+  font-style: italic;
+}
+
 .research-plan {
   margin-top: 0.75rem;
   padding: 0.5rem 0.75rem;

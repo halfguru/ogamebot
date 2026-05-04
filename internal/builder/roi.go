@@ -21,7 +21,7 @@ type BuildingDef struct {
 }
 
 // BuildingDefs maps building IDs to their definitions.
-// Source: verified from ogamed source (alaingilbert/ogame)
+// Source: verified from OGameX source (BuildingObjects.php, StationObjects.php)
 var BuildingDefs = map[int]BuildingDef{
 	constants.BuildingMetalMine:            {"Metal Mine", 60, 15, 0, 1.5, true},
 	constants.BuildingCrystalMine:          {"Crystal Mine", 48, 24, 0, 1.6, true},
@@ -182,11 +182,6 @@ func CalculateROI(
 		Metal: def.BaseMetal, Crystal: def.BaseCrystal, Deuterium: def.BaseDeut,
 	}, def.Factor, targetLevel)
 
-	// Check affordability
-	if resources.Metal < cost.Metal || resources.Crystal < cost.Crystal || resources.Deuterium < cost.Deuterium {
-		return ROIResult{}, false
-	}
-
 	// Calculate production increase in metal-equivalent
 	prodIncrease := productionIncrease(buildingID, currentLevel, targetLevel, research, avgTemp(planet), universeSpeed)
 
@@ -321,7 +316,7 @@ var ResearchDefs = map[int]ResearchDef{
 	122: {"Plasma Technology", 2000, 4000, 1000, 2.0},
 	123: {"Intergalactic Research Network", 240000, 400000, 160000, 2.0},
 	124: {"Astrophysics", 4000, 8000, 4000, 1.75},
-	199: {"Graviton Technology", 0, 0, 0, 3.0},
+	199: {"Graviton Technology", 0, 0, 0, 2.0},
 }
 
 var ResearchNameToID = map[string]int{
@@ -344,16 +339,22 @@ var ResearchNameToID = map[string]int{
 }
 
 var researchPrerequisites = map[int][]prerequisite{
-	110: {{120, 3}, {106, 2}},
-	111: {{109, 2}},
-	114: {{113, 5}, {120, 5}, {121, 3}},
-	117: {{113, 1}},
-	118: {{114, 3}, {117, 3}},
-	121: {{113, 4}, {120, 5}},
-	122: {{113, 5}, {121, 4}},
-	123: {{114, 8}, {113, 8}},
-	124: {{113, 3}, {106, 4}},
-	199: {{113, 12}},
+	106: {{31, 3}},
+	108: {{31, 1}},
+	109: {{31, 4}},
+	110: {{31, 6}, {113, 3}},
+	111: {{31, 2}},
+	113: {{31, 1}},
+	114: {{31, 7}, {113, 5}, {110, 5}},
+	115: {{113, 1}, {31, 1}},
+	117: {{113, 1}, {31, 2}},
+	118: {{31, 7}, {114, 3}},
+	120: {{113, 2}, {31, 1}},
+	121: {{31, 4}, {113, 4}, {120, 5}},
+	122: {{31, 4}, {113, 8}, {120, 10}, {121, 5}},
+	123: {{108, 8}, {31, 10}, {114, 8}},
+	124: {{117, 3}, {31, 3}, {106, 4}},
+	199: {{31, 12}},
 }
 
 func ResearchCost(researchID, currentLevel int) model.Resources {
@@ -367,13 +368,13 @@ func ResearchCost(researchID, currentLevel int) model.Resources {
 	}, def.Factor, targetLevel)
 }
 
-func MeetsResearchPrerequisites(researchID int, research model.Research) bool {
+func MeetsResearchPrerequisites(researchID int, research model.Research, facilities model.Facilities) bool {
 	prereqs, ok := researchPrerequisites[researchID]
 	if !ok {
 		return true
 	}
 	for _, p := range prereqs {
-		level := researchLevel(p.researchID, research)
+		level := researchLevel(p.researchID, research, facilities)
 		if level < p.minLevel {
 			return false
 		}

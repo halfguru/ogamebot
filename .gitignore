@@ -13,3 +13,6 @@ cookies.json
 /bot
 *.exe
 *.exe~
+
+# Playwright MCP
+.playwright-mcp/
