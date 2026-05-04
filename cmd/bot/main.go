@@ -14,7 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mattn/go-isatty"
+
 	"github.com/user/ogame-bot/internal/builder"
+	"github.com/user/ogame-bot/internal/colonizer"
 	"github.com/user/ogame-bot/internal/config"
 	"github.com/user/ogame-bot/internal/dashboard"
 	"github.com/user/ogame-bot/internal/defender"
@@ -114,6 +117,13 @@ func main() {
 		log.Info("Farmer started", "pollInterval", time.Duration(cfg.Features.AutoFarm.PollIntervalMs)*time.Millisecond)
 	}
 
+	if cfg.Features.Colonizer.Enabled {
+		col := colonizer.NewColonizer(client, stateMgr, db, cfg.Features.Colonizer, log)
+		col.SetBroadcaster(broadcaster)
+		go col.Run(ctx)
+		log.Info("Colonizer started", "pollInterval", time.Duration(cfg.Features.Colonizer.PollIntervalMs)*time.Millisecond, "targetPlanets", cfg.Features.Colonizer.TargetPlanetCount)
+	}
+
 	log.Info("Bot started successfully")
 
 	// 9. Wait for shutdown signal per RESEARCH.md Pitfall 4
@@ -142,24 +152,44 @@ type prettyHandler struct {
 	w     io.Writer
 	level slog.Level
 	attrs []slog.Attr
+	color bool
 }
 
 func newPrettyHandler(w io.Writer, level slog.Level) *prettyHandler {
-	return &prettyHandler{w: w, level: level}
+	return &prettyHandler{
+		w:     w,
+		level: level,
+		color: isatty.IsTerminal(os.Stdout.Fd()),
+	}
 }
 
-func (h *prettyHandler) Enabled(_ context.Context, level slog.Level) bool  { return level >= h.level }
+func (h *prettyHandler) Enabled(_ context.Context, level slog.Level) bool { return level >= h.level }
 func (h *prettyHandler) Handle(_ context.Context, r slog.Record) error {
-	var levelStr string
+	var levelStr, levelColor, reset string
+	if h.color {
+		reset = "\033[0m"
+	}
 	switch {
 	case r.Level >= slog.LevelError:
 		levelStr = "ERR "
+		if h.color {
+			levelColor = "\033[31m"
+		}
 	case r.Level >= slog.LevelWarn:
 		levelStr = "WARN"
+		if h.color {
+			levelColor = "\033[33m"
+		}
 	case r.Level >= slog.LevelInfo:
 		levelStr = "INFO"
+		if h.color {
+			levelColor = "\033[36m"
+		}
 	default:
 		levelStr = "DBG "
+		if h.color {
+			levelColor = "\033[90m"
+		}
 	}
 
 	var fields []string
@@ -173,18 +203,23 @@ func (h *prettyHandler) Handle(_ context.Context, r slog.Record) error {
 
 	fieldStr := ""
 	if len(fields) > 0 {
-		fieldStr = " " + strings.Join(fields, " ")
+		if h.color {
+			fieldStr = " \033[2m" + strings.Join(fields, " ") + reset
+		} else {
+			fieldStr = " " + strings.Join(fields, " ")
+		}
 	}
 
-	fmt.Fprintf(h.w, "%s %s %s%s\n",
-		r.Time.Format("15:04:05"),
-		levelStr,
-		r.Message,
-		fieldStr,
-	)
+	timeStr := r.Time.Format("15:04:05")
+	if h.color {
+		fmt.Fprintf(h.w, "\033[90m%s\033[0m %s%s\033[0m %s%s\n",
+			timeStr, levelColor, levelStr, r.Message, fieldStr)
+	} else {
+		fmt.Fprintf(h.w, "%s %s %s%s\n", timeStr, levelStr, r.Message, fieldStr)
+	}
 	return nil
 }
 func (h *prettyHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &prettyHandler{w: h.w, level: h.level, attrs: append(h.attrs, attrs...)}
+	return &prettyHandler{w: h.w, level: h.level, attrs: append(h.attrs, attrs...), color: h.color}
 }
 func (h *prettyHandler) WithGroup(name string) slog.Handler { return h }

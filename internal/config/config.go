@@ -73,11 +73,35 @@ func (d *DefenderConfig) IsRecallEnabled() bool {
 	return *d.RecallEnabled
 }
 
+type ColonizerConfig struct {
+	FeatureConfig     `yaml:",inline"`
+	TargetPlanetCount int   `yaml:"targetPlanetCount"`
+	PreferPositions   []int `yaml:"preferPositions"`
+	ScanRadius        int   `yaml:"scanRadius"`
+	MaxAttempts       int   `yaml:"maxAttempts"`
+}
+
+func (c *ColonizerConfig) ColonizerDefaults() {
+	if c.TargetPlanetCount == 0 {
+		c.TargetPlanetCount = 8
+	}
+	if c.PreferPositions == nil {
+		c.PreferPositions = []int{4, 5, 6, 7, 8}
+	}
+	if c.ScanRadius == 0 {
+		c.ScanRadius = 50
+	}
+	if c.MaxAttempts == 0 {
+		c.MaxAttempts = 3
+	}
+}
+
 // FeaturesConfig holds per-feature toggle settings.
 type FeaturesConfig struct {
 	Defender  DefenderConfig  `yaml:"defender"`
 	AutoBuild AutoBuildConfig `yaml:"autoBuild"`
 	AutoFarm  AutoFarmConfig  `yaml:"autoFarm"`
+	Colonizer ColonizerConfig `yaml:"colonizer"`
 }
 
 // AutoBuildConfig holds the auto-build feature settings including per-building caps.
@@ -260,6 +284,8 @@ func (c *Config) Validate() error {
 	// Apply auto-farm defaults before validation
 	c.Features.AutoFarm.AutoFarmDefaults()
 
+	c.Features.Colonizer.ColonizerDefaults()
+
 	if c.Features.Defender.Enabled {
 		if c.Features.Defender.SafetyMarginMs < 10000 {
 			return fmt.Errorf("features.defender.safetyMarginMs must be >= 10000ms, got %d", c.Features.Defender.SafetyMarginMs)
@@ -296,6 +322,18 @@ func (c *Config) Validate() error {
 		}
 		if len(c.Features.AutoFarm.GalaxyRanges) == 0 {
 			return fmt.Errorf("features.autoFarm.galaxyRanges must have at least one range when enabled")
+		}
+	}
+
+	if c.Features.Colonizer.Enabled {
+		if c.Features.Colonizer.TargetPlanetCount < 2 || c.Features.Colonizer.TargetPlanetCount > 18 {
+			return fmt.Errorf("features.colonizer.targetPlanetCount must be in range [2, 18], got %d", c.Features.Colonizer.TargetPlanetCount)
+		}
+		if c.Features.Colonizer.ScanRadius < 10 {
+			return fmt.Errorf("features.colonizer.scanRadius must be >= 10, got %d", c.Features.Colonizer.ScanRadius)
+		}
+		if c.Features.Colonizer.PollIntervalMs > 0 && c.Features.Colonizer.PollIntervalMs < 30000 {
+			return fmt.Errorf("features.colonizer.pollIntervalMs must be >= 30000ms, got %d", c.Features.Colonizer.PollIntervalMs)
 		}
 	}
 
