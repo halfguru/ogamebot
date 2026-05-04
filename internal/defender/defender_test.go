@@ -44,8 +44,8 @@ func (m *mockClient) Logout(_ context.Context) error                         { r
 func (m *mockClient) GetServerTime(_ context.Context) (string, error)        { return m.serverTime, m.serverErr }
 func (m *mockClient) IsUnderAttack(_ context.Context) (bool, error)          { return false, nil }
 func (m *mockClient) GetPlanets(_ context.Context) ([]model.Planet, error)   { return nil, nil }
-func (m *mockClient) GetResources(_ context.Context, _ int) (model.Resources, error) {
-	return model.Resources{}, nil
+func (m *mockClient) GetResources(_ context.Context, _ int) (model.Resources, model.PlanetDetails, error) {
+	return model.Resources{}, model.PlanetDetails{}, nil
 }
 func (m *mockClient) GetResourceBuildings(_ context.Context, _ int) (model.ResourceBuildings, error) {
 	return model.ResourceBuildings{}, nil
@@ -119,8 +119,8 @@ type mockStateReader struct {
 func (m *mockStateReader) GetPlanets(_ context.Context) ([]model.Planet, error) {
 	return m.planets, m.planetsErr
 }
-func (m *mockStateReader) GetResources(_ context.Context, _ int) (model.Resources, error) {
-	return m.resources, m.resErr
+func (m *mockStateReader) GetResources(_ context.Context, _ int) (model.Resources, model.PlanetDetails, error) {
+	return m.resources, model.PlanetDetails{}, m.resErr
 }
 func (m *mockStateReader) GetFleets(_ context.Context) ([]model.Fleet, error) {
 	return m.fleets, m.fleetsErr

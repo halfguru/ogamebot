@@ -14,9 +14,9 @@ import (
 
 var nonNumeric = regexp.MustCompile(`[^0-9\-]`)
 var versionRe = regexp.MustCompile(`(\d+\.\d+\.\d+)`)
-var fieldsRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*<span>(\d+)<\/span>\\\/<span>(\d+)<\/span>`)
+var fieldsRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*<span>(\d+)</span>\s*/\s*<span>(\d+)</span>`)
 var tempRe = regexp.MustCompile(`textContent\[3\]\s*=\s*"[^"]*?(-?\d+)[^\d]*?(-?\d+)`)
-var planetNameRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*\\\/<span>(\d+)<\/span>`)
+var planetNameRe = regexp.MustCompile(`textContent\[1\]\s*=\s*"[^"]*/<span>(\d+)</span>`)
 
 func parseAmount(s string) int {
 	s = strings.TrimSpace(s)
@@ -158,6 +158,19 @@ func parsePlanetDetails(body []byte, planetID int, planets []model.Planet) {
 			planets[i].TemperatureMax = tempMax
 			break
 		}
+	}
+}
+
+func parsePlanetDetailsForBody(body []byte, details *model.PlanetDetails) {
+	fieldsMatch := fieldsRe.FindSubmatch(body)
+	if fieldsMatch != nil {
+		details.FieldsUsed = parseAmount(string(fieldsMatch[1]))
+		details.FieldsTotal = parseAmount(string(fieldsMatch[2]))
+	}
+	tempMatch := tempRe.FindSubmatch(body)
+	if tempMatch != nil {
+		details.TempMin = parseAmount(string(tempMatch[1]))
+		details.TempMax = parseAmount(string(tempMatch[2]))
 	}
 }
 

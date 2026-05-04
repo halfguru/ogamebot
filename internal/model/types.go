@@ -21,6 +21,13 @@ type Resources struct {
 	DarkMatter int `json:"Darkmatter"`
 }
 
+type PlanetDetails struct {
+	FieldsUsed  int
+	FieldsTotal int
+	TempMin     int
+	TempMax     int
+}
+
 // Planet represents a player's planet or moon.
 type Planet struct {
 	ID             int        `json:"ID"`

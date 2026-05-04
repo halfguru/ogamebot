@@ -35,13 +35,13 @@ func (m *mockBuilderClient) Logout(_ context.Context) error                     
 func (m *mockBuilderClient) GetServerTime(_ context.Context) (string, error)     { return "", nil }
 func (m *mockBuilderClient) IsUnderAttack(_ context.Context) (bool, error)       { return false, nil }
 func (m *mockBuilderClient) GetPlanets(_ context.Context) ([]model.Planet, error) { return nil, nil }
-func (m *mockBuilderClient) GetResources(_ context.Context, planetID int) (model.Resources, error) {
+func (m *mockBuilderClient) GetResources(_ context.Context, planetID int) (model.Resources, model.PlanetDetails, error) {
 	if m.liveResources != nil {
 		if r, ok := m.liveResources[planetID]; ok {
-			return r, nil
+			return r, model.PlanetDetails{}, nil
 		}
 	}
-	return model.Resources{}, nil
+	return model.Resources{}, model.PlanetDetails{}, nil
 }
 func (m *mockBuilderClient) GetResourceBuildings(_ context.Context, _ int) (model.ResourceBuildings, error) {
 	return model.ResourceBuildings{}, nil
@@ -129,16 +129,16 @@ type mockBuilderStateReader struct {
 func (m *mockBuilderStateReader) GetPlanets(_ context.Context) ([]model.Planet, error) {
 	return m.planets, m.planetsErr
 }
-func (m *mockBuilderStateReader) GetResources(_ context.Context, planetID int) (model.Resources, error) {
+func (m *mockBuilderStateReader) GetResources(_ context.Context, planetID int) (model.Resources, model.PlanetDetails, error) {
 	if m.resErr != nil {
-		return model.Resources{}, m.resErr
+		return model.Resources{}, model.PlanetDetails{}, m.resErr
 	}
 	if m.resources != nil {
 		if r, ok := m.resources[planetID]; ok {
-			return r, nil
+			return r, model.PlanetDetails{}, nil
 		}
 	}
-	return model.Resources{}, nil
+	return model.Resources{}, model.PlanetDetails{}, nil
 }
 func (m *mockBuilderStateReader) GetResearch(_ context.Context) (model.Research, error) {
 	return m.research, m.researchErr

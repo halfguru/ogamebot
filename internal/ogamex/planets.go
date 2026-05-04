@@ -38,13 +38,19 @@ func extractActivePlanetID(body []byte) int {
 	return id
 }
 
-func (c *Client) GetResources(ctx context.Context, planetID int) (model.Resources, error) {
+func (c *Client) GetResources(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error) {
 	path := fmt.Sprintf("/overview?cp=%d", planetID)
 	body, err := c.doGet(ctx, path)
 	if err != nil {
-		return model.Resources{}, fmt.Errorf("fetching resources: %w", err)
+		return model.Resources{}, model.PlanetDetails{}, fmt.Errorf("fetching resources: %w", err)
 	}
-	return parseResources(toReader(body))
+	resources, err := parseResources(toReader(body))
+	if err != nil {
+		return model.Resources{}, model.PlanetDetails{}, err
+	}
+	var details model.PlanetDetails
+	parsePlanetDetailsForBody(body, &details)
+	return resources, details, nil
 }
 
 func (c *Client) GetResourceBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error) {

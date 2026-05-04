@@ -18,7 +18,7 @@ import (
 // Dashboard handlers read game state through this interface.
 type StateReader interface {
 	GetPlanets(ctx context.Context) ([]model.Planet, error)
-	GetResources(ctx context.Context, planetID int) (model.Resources, error)
+	GetResources(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error)
 	GetFleets(ctx context.Context) ([]model.Fleet, error)
 	GetResearch(ctx context.Context) (model.Research, error)
 	GetBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error)
@@ -82,7 +82,7 @@ func (h *Handlers) handlePlanets(w http.ResponseWriter, r *http.Request) {
 			TemperatureMax: p.TemperatureMax,
 		}
 
-		res, err := h.stateMgr.GetResources(ctx, p.ID)
+		res, _, err := h.stateMgr.GetResources(ctx, p.ID)
 		if err != nil {
 			h.log.Warn("handlePlanets: GetResources failed", "planetID", p.ID, "error", err)
 		} else {

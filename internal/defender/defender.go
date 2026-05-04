@@ -18,7 +18,7 @@ import (
 // state.Manager implicitly satisfies this interface.
 type StateReader interface {
 	GetPlanets(ctx context.Context) ([]model.Planet, error)
-	GetResources(ctx context.Context, planetID int) (model.Resources, error)
+	GetResources(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error)
 	GetFleets(ctx context.Context) ([]model.Fleet, error)
 	GetResearch(ctx context.Context) (model.Research, error)
 	RefreshNow(ctx context.Context) error
@@ -373,7 +373,7 @@ func (d *Defender) savePlanet(ctx context.Context, planet model.Planet, attacks 
 	}
 
 	// 3. Get current state
-	resources, err := d.stateMgr.GetResources(ctx, planet.ID)
+	resources, _, err := d.stateMgr.GetResources(ctx, planet.ID)
 	if err != nil {
 		d.log.Error("Failed to get resources", "error", err)
 		return

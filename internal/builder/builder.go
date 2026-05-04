@@ -18,7 +18,7 @@ import (
 
 type BuilderStateReader interface {
 	GetPlanets(ctx context.Context) ([]model.Planet, error)
-	GetResources(ctx context.Context, planetID int) (model.Resources, error)
+	GetResources(ctx context.Context, planetID int) (model.Resources, model.PlanetDetails, error)
 	GetResearch(ctx context.Context) (model.Research, error)
 	GetBuildings(ctx context.Context, planetID int) (model.ResourceBuildings, error)
 	GetFacilities(ctx context.Context, planetID int) (model.Facilities, error)
@@ -463,7 +463,7 @@ func (b *Builder) gatherPlanetStates(ctx context.Context, planets []model.Planet
 			continue
 		}
 
-		resources, err := b.stateMgr.GetResources(ctx, planet.ID)
+		resources, _, err := b.stateMgr.GetResources(ctx, planet.ID)
 		if err != nil {
 			b.log.Error("Failed to get resources", "planet", planet.Name, "error", err)
 			continue
@@ -661,7 +661,7 @@ func (b *Builder) tryResearch(ctx context.Context, planets []model.Planet, resea
 			continue
 		}
 
-		liveResources, err := b.client.GetResources(ctx, bestLabPlanet.planet.ID)
+		liveResources, _, err := b.client.GetResources(ctx, bestLabPlanet.planet.ID)
 		if err != nil {
 			b.log.Warn("Failed to fetch live resources for research, using cached", "planet", bestLabPlanet.planet.ID, "error", err)
 			liveResources = bestLabPlanet.resources
@@ -799,7 +799,7 @@ func (b *Builder) executeBuild(ctx context.Context, candidates []ROIResult, spen
 	}
 	best := candidates[pickIdx]
 
-	liveResources, err := b.client.GetResources(ctx, best.PlanetID)
+	liveResources, _, err := b.client.GetResources(ctx, best.PlanetID)
 	if err != nil {
 		b.log.Warn("Failed to fetch live resources, using cached", "planet", best.PlanetID, "error", err)
 	} else {
