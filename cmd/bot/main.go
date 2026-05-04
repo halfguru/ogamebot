@@ -5,16 +5,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/mattn/go-isatty"
+	charmlog "github.com/charmbracelet/log"
 
 	"github.com/user/ogame-bot/internal/builder"
 	"github.com/user/ogame-bot/internal/colonizer"
@@ -39,7 +37,11 @@ func main() {
 
 	// 3. Setup structured logging
 	level := parseLogLevel(cfg.LogLevel)
-	log = slog.New(newPrettyHandler(os.Stdout, level))
+	handler := charmlog.New(os.Stdout)
+	handler.SetLevel(charmLogLevel(level))
+	handler.SetTimeFormat("15:04:05")
+	handler.SetReportTimestamp(true)
+	log = slog.New(handler)
 
 	log.Info("Starting OGame Bot")
 
@@ -134,7 +136,6 @@ func main() {
 	cancel()
 }
 
-// parseLogLevel converts a config log level string to slog.Level.
 func parseLogLevel(level string) slog.Level {
 	switch level {
 	case "debug", "trace":
@@ -148,78 +149,15 @@ func parseLogLevel(level string) slog.Level {
 	}
 }
 
-type prettyHandler struct {
-	w     io.Writer
-	level slog.Level
-	attrs []slog.Attr
-	color bool
-}
-
-func newPrettyHandler(w io.Writer, level slog.Level) *prettyHandler {
-	return &prettyHandler{
-		w:     w,
-		level: level,
-		color: isatty.IsTerminal(os.Stdout.Fd()),
-	}
-}
-
-func (h *prettyHandler) Enabled(_ context.Context, level slog.Level) bool { return level >= h.level }
-func (h *prettyHandler) Handle(_ context.Context, r slog.Record) error {
-	var levelStr, levelColor, reset string
-	if h.color {
-		reset = "\033[0m"
-	}
+func charmLogLevel(level slog.Level) charmlog.Level {
 	switch {
-	case r.Level >= slog.LevelError:
-		levelStr = "ERR "
-		if h.color {
-			levelColor = "\033[31m"
-		}
-	case r.Level >= slog.LevelWarn:
-		levelStr = "WARN"
-		if h.color {
-			levelColor = "\033[33m"
-		}
-	case r.Level >= slog.LevelInfo:
-		levelStr = "INFO"
-		if h.color {
-			levelColor = "\033[36m"
-		}
+	case level <= slog.LevelDebug:
+		return charmlog.DebugLevel
+	case level <= slog.LevelInfo:
+		return charmlog.InfoLevel
+	case level <= slog.LevelWarn:
+		return charmlog.WarnLevel
 	default:
-		levelStr = "DBG "
-		if h.color {
-			levelColor = "\033[90m"
-		}
+		return charmlog.ErrorLevel
 	}
-
-	var fields []string
-	r.Attrs(func(a slog.Attr) bool {
-		fields = append(fields, fmt.Sprintf("%s=%s", a.Key, a.Value.String()))
-		return true
-	})
-	for _, a := range h.attrs {
-		fields = append(fields, fmt.Sprintf("%s=%s", a.Key, a.Value.String()))
-	}
-
-	fieldStr := ""
-	if len(fields) > 0 {
-		if h.color {
-			fieldStr = " \033[2m" + strings.Join(fields, " ") + reset
-		} else {
-			fieldStr = " " + strings.Join(fields, " ")
-		}
-	}
-
-	timeStr := r.Time.Format("15:04:05")
-	if h.color {
-		fmt.Fprintf(h.w, "\033[90m%s\033[0m %s%s\033[0m %s%s\n",
-			timeStr, levelColor, levelStr, r.Message, fieldStr)
-	} else {
-		fmt.Fprintf(h.w, "%s %s %s%s\n", timeStr, levelStr, r.Message, fieldStr)
-	}
-	return nil
 }
-func (h *prettyHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &prettyHandler{w: h.w, level: h.level, attrs: append(h.attrs, attrs...), color: h.color}
-}
-func (h *prettyHandler) WithGroup(name string) slog.Handler { return h }
